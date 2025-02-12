@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/open-format/community-agent/compare/v0.4.0...v0.5.0) (2025-02-12)
+
+
+### Features
+
+* Enhance GitHub webhook handling with improved user profile checks and Discord notifications ([4ffc756](https://github.com/open-format/community-agent/commit/4ffc756a37689afa152d3759e184dc598ec49b5a))
+
 # [0.4.0](https://github.com/open-format/community-agent/compare/v0.3.0...v0.4.0) (2025-02-12)
 
 
