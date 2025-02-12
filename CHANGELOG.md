@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/open-format/community-agent/compare/v0.3.0...v0.4.0) (2025-02-12)
+
+
+### Features
+
+* Add Discord notification for GitHub contribution rewards ([3d10c66](https://github.com/open-format/community-agent/commit/3d10c66fcfd771cd4523218997f0125159e00877))
+
 # [0.3.0](https://github.com/open-format/community-agent/compare/v0.2.0...v0.3.0) (2025-02-12)
 
 
