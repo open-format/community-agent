@@ -38,13 +38,15 @@ app.post("/webhooks/github", async (c) => {
   try {
     const payload = JSON.parse(body);
 
+    const commits = payload.commits || payload.repository?.commits || payload.push?.commits || [];
+
     if (payload.sender.type !== "User") {
       return c.json({
         message: "Not a user, ignoring",
       });
     }
 
-    if (payload?.commits?.length) {
+    if (commits.length) {
       const user = await findUserByHandle(payload.sender.login);
 
       if (!user?.wallet || !user?.github?.username) {
@@ -142,4 +144,7 @@ app.post("/webhooks/github", async (c) => {
   }
 });
 
-export default app;
+export default {
+  port: process.env.PORT ? Number.parseInt(process.env.PORT) : 8080,
+  fetch: app.fetch,
+};
