@@ -32,9 +32,42 @@ app.post("/webhooks/github", async (c) => {
   if (payload?.commits?.length) {
     const user = await findUserByHandle(payload.sender.login);
 
-    if (user?.type !== "github" || !user?.wallet) {
+    // Check the different states
+    if (!user?.wallet || !user?.github?.username) {
+      // State 2: User is missing wallet or GitHub username
+      try {
+        const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
+
+        if (channel) {
+          await channel.send({
+            embeds: [
+              {
+                title: "Missed Reward Opportunity 🚫",
+                description: `GitHub user ${payload.sender.login} has missed out on earning $DEV tokens for contributing. If this is you, [sign up](https://rewards.openformat.tech/open-format) to claim future rewards!`,
+                color: 16711680, // Red color
+                fields: [
+                  {
+                    name: "Repository",
+                    value: `[${payload.repository.full_name}](${payload.repository.html_url})`,
+                    inline: true,
+                  },
+                  {
+                    name: "Commits",
+                    value: `${payload.commits.length}`,
+                    inline: true,
+                  },
+                ],
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          });
+        }
+      } catch (error) {
+        console.error("Failed to send Discord notification:", error);
+      }
+
       return c.json({
-        message: "No wallet found for github user",
+        message: `${payload.sender.login} missed reward due to incomplete profile`,
       });
     }
 
@@ -46,16 +79,15 @@ app.post("/webhooks/github", async (c) => {
       ipfsHash: "ipfs://",
     });
 
-    // Send Discord notification
     try {
       const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
-
+      const discordUser = user?.discord?.id ? `<@${user.discord.id}>` : payload.sender.login;
       if (channel) {
         await channel.send({
           embeds: [
             {
               title: "Contribution Reward 🤘",
-              description: `${payload.sender.login} pushed to ${payload.repository.name} and was rewarded 100 $DEV for their code contribution. Join ${payload.sender.login} and others contributing to Open Format. Get started - https://rewards.openformat.tech/open-format.`,
+              description: `${discordUser} pushed to ${payload.repository.name} and was rewarded 100 $DEV for their code contribution. Join ${payload.sender.login} and others contributing to Open Format. Get started - https://rewards.openformat.tech/open-format.`,
               url: payload.repository.html_url,
               color: 16766464,
               fields: [

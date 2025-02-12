@@ -7,8 +7,13 @@ if (!process.env.PRIVY_APP_ID || !process.env.PRIVY_APP_SECRET) {
 const privyClient = new PrivyClient(process.env.PRIVY_APP_ID, process.env.PRIVY_APP_SECRET);
 
 export async function findUserByHandle(handle: string): Promise<{
-  type: "discord" | "github";
-  username: string | null;
+  discord?: {
+    username: string | null;
+    id: string | null;
+  };
+  github?: {
+    username: string | null;
+  };
   wallet: string | null;
 } | null> {
   if (!handle || typeof handle !== "string") {
@@ -24,16 +29,26 @@ export async function findUserByHandle(handle: string): Promise<{
     // Return the first non-null user found
     if (discordUser) {
       return {
-        type: "discord",
-        username: discordUser.discord?.username ?? null,
+        discord: {
+          username: discordUser.discord?.username ?? null,
+          id: discordUser.discord?.subject ?? null,
+        },
+        github: {
+          username: discordUser.github?.username ?? null,
+        },
         wallet: discordUser.wallet?.address ?? null,
       };
     }
 
     if (githubUser) {
       return {
-        type: "github",
-        username: githubUser.github?.username ?? null,
+        discord: {
+          username: githubUser.discord?.username ?? null,
+          id: githubUser.discord?.subject ?? null,
+        },
+        github: {
+          username: githubUser.github?.username ?? null,
+        },
         wallet: githubUser.wallet?.address ?? null,
       };
     }
