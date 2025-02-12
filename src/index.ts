@@ -8,9 +8,14 @@ app.get("/", (c) => {
 app.post("/webhooks/github", async (c) => {
   const payload = await c.req.json();
   console.log(payload);
+  if (payload.sender.type !== "User") {
+    return c.json({
+      message: "Not a user, ignoring",
+    });
+  }
   if (payload?.commits?.length) {
     return c.json({
-      message: `${payload.pusher.name} pushed to ${payload.repository.name}`,
+      message: `${payload.sender.login} pushed to ${payload.repository.name}`,
     });
   }
   return c.json({
