@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/open-format/community-agent/compare/v0.5.0...v0.6.0) (2025-02-12)
+
+
+### Features
+
+* Add GitHub webhook verification middleware and enhance webhook processing ([c7a4331](https://github.com/open-format/community-agent/commit/c7a4331f0e24b6fd2b651de0d98d827e8dac8943))
+
 # [0.5.0](https://github.com/open-format/community-agent/compare/v0.4.0...v0.5.0) (2025-02-12)
 
 
