@@ -1,18 +1,18 @@
-import { Webhooks } from "@octokit/webhooks";
 import { Client, GatewayIntentBits, type TextChannel } from "discord.js";
 import { Hono } from "hono";
+import { bearerAuth } from "hono/bearer-auth";
+import { showRoutes } from "hono/dev";
 import { type Address, parseEther } from "viem";
+import { contributionRewardEmbed, missingRewardOpportunityEmbed } from "./constants/discord/notifications";
 import { rewardPoints } from "./lib/openformat";
 import { findUserByHandle } from "./lib/privy";
 import { githubWebhookMiddleware } from "./middleware/github-webhook";
+import agentRoute from "./routes/agent";
+import docs from "./routes/docs";
 
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
 }
-
-const webhooks = new Webhooks({
-  secret: process.env.GITHUB_WEBHOOK_SECRET,
-});
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CHANNEL_ID) {
   throw new Error("DISCORD_TOKEN and DISCORD_CHANNEL_ID must be set");
@@ -31,6 +31,11 @@ app.get("/", (c) => {
 });
 
 app.use("/webhooks/github", githubWebhookMiddleware());
+app.use("/message/*", bearerAuth({ token: process.env.API_KEY as string }));
+app.use("/docs/*", bearerAuth({ token: process.env.API_KEY as string }));
+
+app.route("/docs", docs);
+app.route("/agent", agentRoute);
 
 app.post("/webhooks/github", async (c) => {
   const body = await c.req.text();
@@ -55,26 +60,7 @@ app.post("/webhooks/github", async (c) => {
 
           if (channel) {
             await channel.send({
-              embeds: [
-                {
-                  title: "Missed Reward Opportunity 🚫",
-                  description: `GitHub user ${payload.sender.login} has missed out on earning $DEV tokens for contributing. If this is you, [sign up](https://rewards.openformat.tech/open-format) to claim future rewards!`,
-                  color: 16711680, // Red color
-                  fields: [
-                    {
-                      name: "Repository",
-                      value: `[${payload.repository.full_name}](${payload.repository.html_url})`,
-                      inline: true,
-                    },
-                    {
-                      name: "Commit",
-                      value: `[${payload.head_commit.message.slice(0, 30)}...](${payload.head_commit.url})`,
-                      inline: true,
-                    },
-                  ],
-                  timestamp: new Date().toISOString(),
-                },
-              ],
+              embeds: [missingRewardOpportunityEmbed(payload)],
             });
           }
         } catch (error) {
@@ -98,33 +84,7 @@ app.post("/webhooks/github", async (c) => {
         const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
         if (channel) {
           await channel.send({
-            embeds: [
-              {
-                title: "Contribution Reward 🤘",
-                description: user?.discord?.id
-                  ? `<@${user.discord.id}> pushed to ${payload.repository.name} and was rewarded 100 $DEV for their code contribution. Join <@${user.discord.id}> and others contributing to Open Format. Get started - https://rewards.openformat.tech/open-format`
-                  : `${payload.sender.login} pushed to ${payload.repository.name} and was rewarded 100 $DEV for their code contribution. Join ${payload.sender.login} and others contributing to Open Format. Get started - https://rewards.openformat.tech/open-format`,
-                url: payload.repository.html_url,
-                color: 16766464,
-                fields: [
-                  {
-                    name: "Repository",
-                    value: `[${payload.repository.full_name}](${payload.repository.html_url})`,
-                    inline: true,
-                  },
-                  {
-                    name: "Commit",
-                    value: `[${payload.head_commit.message.slice(0, 30)}...](${payload.head_commit.url})`,
-                    inline: true,
-                  },
-                  {
-                    name: "Reward Information",
-                    value: `[View Transaction](https://sepolia.arbiscan.io/tx/${hash})`,
-                  },
-                ],
-                timestamp: new Date().toISOString(),
-              },
-            ],
+            embeds: [contributionRewardEmbed(payload, user, hash)],
           });
         }
       } catch (error) {
@@ -143,6 +103,8 @@ app.post("/webhooks/github", async (c) => {
     return c.json({ message: "Webhook processing failed" }, 500);
   }
 });
+
+showRoutes(app);
 
 export default {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 8080,
