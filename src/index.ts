@@ -55,16 +55,19 @@ app.post("/webhooks/github", async (c) => {
       const user = await findUserByHandle(payload.sender.login);
 
       if (!user?.wallet || !user?.github?.username) {
-        try {
-          const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
+        // Only send Discord notification for public repos
+        if (!payload.repository?.private) {
+          try {
+            const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
 
-          if (channel) {
-            await channel.send({
-              embeds: [missingRewardOpportunityEmbed(payload)],
-            });
+            if (channel) {
+              await channel.send({
+                embeds: [missingRewardOpportunityEmbed(payload)],
+              });
+            }
+          } catch (error) {
+            console.error("Failed to send Discord notification:", error);
           }
-        } catch (error) {
-          console.error("Failed to send Discord notification:", error);
         }
 
         return c.json({
@@ -80,23 +83,27 @@ app.post("/webhooks/github", async (c) => {
         ipfsHash: "ipfs://",
       });
 
-      try {
-        const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
-        if (channel) {
-          await channel.send({
-            embeds: [contributionRewardEmbed(payload, user, hash)],
-          });
+      // Only send Discord notification for public repos
+      if (!payload.repository?.private) {
+        try {
+          const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
+          if (channel) {
+            await channel.send({
+              embeds: [contributionRewardEmbed(payload, user, hash)],
+            });
+          }
+        } catch (error) {
+          console.error("Failed to send Discord notification:", error);
         }
-      } catch (error) {
-        console.error("Failed to send Discord notification:", error);
       }
 
       return c.json({
         message: `${payload.sender.login} pushed to ${payload.repository.name}`,
       });
     }
+
     return c.json({
-      message: "No commits found",
+      message: "No commits to process",
     });
   } catch (error) {
     console.error("Webhook processing error:", error);
