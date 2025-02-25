@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/open-format/community-agent/compare/v0.7.0...v0.8.0) (2025-02-25)
+
+
+### Features
+
+* Update README and GitHub webhook processing ([5bd464b](https://github.com/open-format/community-agent/commit/5bd464b5858b1f00dfe08edbd58f31b166a4773d))
+
 # [0.7.0](https://github.com/open-format/community-agent/compare/v0.6.0...v0.7.0) (2025-02-24)
 
 
