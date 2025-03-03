@@ -1,6 +1,6 @@
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 
-export const model = new ChatOpenAI({
+export default new ChatOpenAI({
   model: "gpt-4o-mini",
   apiKey: process.env.OPENAI_API_KEY,
   maxTokens: 500,
