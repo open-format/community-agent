@@ -1,3 +1,12 @@
+# [0.9.0](https://github.com/open-format/community-agent/compare/v0.8.0...v0.9.0) (2025-03-04)
+
+
+### Features
+
+* Add Google Gemini model support ([57635c5](https://github.com/open-format/community-agent/commit/57635c5d52a522b8a1035c988f4c40707259ec74))
+* Add memory management with configurable checkpointing ([cb8263e](https://github.com/open-format/community-agent/commit/cb8263e8e278e0c737fa86b0d9adfd07a22a53b3))
+* Enhance community agent with contextual learning and personalised onboarding ([bd3e705](https://github.com/open-format/community-agent/commit/bd3e705a710aaebfe34bb33d5cdf7a5f06131347))
+
 # [0.8.0](https://github.com/open-format/community-agent/compare/v0.7.0...v0.8.0) (2025-02-25)
 
 
