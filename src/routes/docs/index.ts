@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { processAndStoreDocument } from "../../lib/document_processing";
 
-const docs = new Hono();
+const docsRoute = new Hono();
 
-docs.post("/upload", async (c) => {
+docsRoute.post("/upload", async (c) => {
   const formData = await c.req.formData();
   const files = formData.getAll("documents") as File[];
   const communityId = formData.get("communityId") as string | null;
@@ -36,4 +36,4 @@ docs.post("/upload", async (c) => {
   }
 });
 
-export default docs;
+export default docsRoute;
