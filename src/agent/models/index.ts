@@ -1,6 +1,6 @@
 import type { DynamicStructuredTool } from "@langchain/core/tools";
-import googleModel from "./google";
-import openaiModel from "./openai";
+import { model as googleModel } from "./google";
+import { model as openaiModel } from "./openai";
 
 type ModelProvider = "openai" | "google";
 
