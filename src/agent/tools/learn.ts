@@ -5,7 +5,6 @@ import { performCommunityScopedSimilaritySearch } from "../../lib/document_proce
 export const learnTool = tool(
   async (input, config) => {
     try {
-      console.log("learnTool: input");
       const communityId = config.configurable.metadata.community.id;
 
       // Perform similarity search in community documents

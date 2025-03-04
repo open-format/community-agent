@@ -29,8 +29,6 @@ async function callModel(
   const lastMessage = state.messages[state.messages.length - 1];
   let contextualInformation = null;
 
-  console.log("lastMessage", lastMessage.content.toString());
-
   contextualInformation = await performCommunityScopedSimilaritySearch(community.id, lastMessage.content.toString(), 3);
 
   // Modify the system message if contextual information is found
