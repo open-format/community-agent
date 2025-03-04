@@ -1,22 +1,18 @@
 import type { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
-import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { ToolNode, toolsCondition } from "@langchain/langgraph/prebuilt";
-import { ChatOpenAI } from "@langchain/openai";
-import { pool } from "../db";
+import { performCommunityScopedSimilaritySearch } from "../lib/document_processing";
 import type { Community } from "../types";
+import { checkpointer } from "./memory";
+import { getModelWithTools } from "./models";
 import { systemMessage } from "./prompts/systemMessage";
-import { joinCommunityTool } from "./tools";
+import { joinCommunityTool, learnTool } from "./tools";
 
-const tools = [joinCommunityTool];
+const tools = [joinCommunityTool, learnTool];
 const toolsNode = new ToolNode(tools);
-export const checkpointer = new PostgresSaver(pool);
 
 // Model setup
-const model = new ChatOpenAI({
-  model: "gpt-4o-mini",
-  temperature: 0.3,
-}).bindTools(tools);
+const model = getModelWithTools("google", tools);
 
 // Define the function that calls the model
 async function callModel(
@@ -29,8 +25,25 @@ async function callModel(
     throw new Error("Community is required");
   }
 
-  const response = await model.invoke([systemMessage(community), ...state.messages]);
-  return { messages: [response] };
+  // Check if the last message contains skills and interests for context search
+  const lastMessage = state.messages[state.messages.length - 1];
+  let contextualInformation = null;
+
+  contextualInformation = await performCommunityScopedSimilaritySearch(community.id, lastMessage.content.toString(), 3);
+
+  // Modify the system message if contextual information is found
+  const finalSystemMessage = systemMessage(community);
+  if (contextualInformation) {
+    finalSystemMessage.content += `\n\n**Contextual Insights:**\n${contextualInformation
+      .map((doc) => doc.pageContent)
+      .join("\n")}`;
+  }
+
+  const response = await model.invoke([finalSystemMessage, ...state.messages]);
+  return {
+    messages: [response],
+    contextualInformation: contextualInformation,
+  };
 }
 
 export const agent = new StateGraph(MessagesAnnotation)

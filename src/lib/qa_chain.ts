@@ -1,4 +1,4 @@
-import { model } from "../agent/models/openai";
+import { getModel } from "../agent/models";
 
 // Function to generate an answer from a question and context
 export async function generateAnswerFromDocs(question: string, contextChunks: string[]): Promise<string> {
@@ -25,6 +25,7 @@ export async function generateAnswerFromDocs(question: string, contextChunks: st
   Answer:`;
 
   try {
+    const model = getModel("google");
     const response = await model.invoke(prompt);
     return response.content.toString().trim(); // Trim whitespace from the response
   } catch (error) {

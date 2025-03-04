@@ -1,6 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { Hono } from "hono";
-import { Address } from "viem";
+import type { Address } from "viem";
 import { agent } from "../../agent";
 import { chainIdToSubgraphUrl, getCommunity } from "../../lib/subgraph";
 
