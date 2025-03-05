@@ -26,6 +26,11 @@ discordClient.login(process.env.DISCORD_TOKEN);
 
 const app = new Hono();
 
+app.onError((err, c) => {
+  console.error(err);
+  return c.json({ message: "Internal Server Error" }, 500);
+});
+
 app.get("/", (c) => {
   return c.text("Hello Hono!");
 });
