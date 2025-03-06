@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/open-format/community-agent/compare/v0.9.0...v0.10.0) (2025-03-06)
+
+
+### Features
+
+* Improve error handling and database connection management ([e0a46b1](https://github.com/open-format/community-agent/commit/e0a46b13804dbb7765814a7a823b779c054d7e98))
+
 # [0.9.0](https://github.com/open-format/community-agent/compare/v0.8.0...v0.9.0) (2025-03-04)
 
 
