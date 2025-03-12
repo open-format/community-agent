@@ -1,14 +1,18 @@
 import { Client, GatewayIntentBits, type TextChannel } from "discord.js";
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { bearerAuth } from "hono/bearer-auth";
 import { showRoutes } from "hono/dev";
 import { type Address, parseEther } from "viem";
-import { contributionRewardEmbed, missingRewardOpportunityEmbed } from "./constants/discord/notifications";
+import {
+  contributionRewardEmbed,
+  missingRewardOpportunityEmbed,
+} from "./constants/discord/notifications";
 import { rewardPoints } from "./lib/openformat";
 import { findUserByHandle } from "./lib/privy";
 import { githubWebhookMiddleware } from "./middleware/github-webhook";
 import agentRoute from "./routes/agent";
 import docs from "./routes/docs";
+import { automationsRoute } from "./routes/automations";
 
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
@@ -24,7 +28,7 @@ const discordClient = new Client({
 
 discordClient.login(process.env.DISCORD_TOKEN);
 
-const app = new Hono();
+const app = new OpenAPIHono();
 
 app.onError((err, c) => {
   console.error(err);
@@ -38,9 +42,11 @@ app.get("/", (c) => {
 app.use("/webhooks/github", githubWebhookMiddleware());
 app.use("/message/*", bearerAuth({ token: process.env.API_KEY as string }));
 app.use("/docs/*", bearerAuth({ token: process.env.API_KEY as string }));
+app.use("/automations/*", bearerAuth({ token: process.env.API_KEY as string }));
 
 app.route("/docs", docs);
 app.route("/agent", agentRoute);
+app.route("/automations", automationsRoute);
 
 app.post("/webhooks/github", async (c) => {
   const body = await c.req.text();
@@ -63,7 +69,9 @@ app.post("/webhooks/github", async (c) => {
         // Only send Discord notification for public repos
         if (!payload.repository?.private) {
           try {
-            const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
+            const channel = discordClient.channels.cache.get(
+              process.env.DISCORD_CHANNEL_ID as string,
+            ) as TextChannel;
 
             if (channel) {
               await channel.send({
@@ -91,7 +99,9 @@ app.post("/webhooks/github", async (c) => {
       // Only send Discord notification for public repos
       if (!payload.repository?.private) {
         try {
-          const channel = discordClient.channels.cache.get(process.env.DISCORD_CHANNEL_ID as string) as TextChannel;
+          const channel = discordClient.channels.cache.get(
+            process.env.DISCORD_CHANNEL_ID as string,
+          ) as TextChannel;
           if (channel) {
             await channel.send({
               embeds: [contributionRewardEmbed(payload, user, hash)],
