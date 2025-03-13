@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -61,9 +62,11 @@ export const communityMembers = pgTable("community_members", {
 });
 
 // Define ENUMs for event and reward types
-export const EVENT_TYPES = ["connect_account", "join_telegram", "github_contribution"] as const;
+export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
 
 export const REWARD_TYPES = ["token", "badge"] as const;
+
+export const PLATFORM_TYPES = ["discord", "github"] as const;
 
 export const automations = pgTable("automations", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
@@ -79,3 +82,32 @@ export const automations = pgTable("automations", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const platformConnections = pgTable(
+  "platform_connections",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    communityId: text("community_id")
+      .notNull()
+      .references(() => communities.id),
+    platformId: text("platform_id").notNull(),
+    platformType: text("platform_type", { enum: PLATFORM_TYPES }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [index("platform_idx").on(table.platformId, table.platformType)],
+);
+
+// Then define the relations
+export const communitiesRelations = relations(communities, ({ many }) => ({
+  platformConnections: many(platformConnections),
+}));
+
+export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
+  community: one(communities, {
+    fields: [platformConnections.communityId],
+    references: [communities.id],
+  }),
+}));
+
+export type Automation = typeof automations.$inferSelect;

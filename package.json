@@ -1,7 +1,7 @@
 {
   "name": "community-agent",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -21,6 +21,7 @@
     "@octokit/webhooks": "^13.6.0",
     "@privy-io/server-auth": "^1.18.12",
     "@types/pg": "^8.11.11",
+    "dayjs": "^1.11.13",
     "discord.js": "^14.18.0",
     "drizzle-kit": "^0.30.4",
     "drizzle-orm": "^0.39.3",

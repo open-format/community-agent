@@ -1,8 +1,9 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { Client, GatewayIntentBits, type TextChannel } from "discord.js";
+import type { TextChannel } from "discord.js";
 import { bearerAuth } from "hono/bearer-auth";
 import { showRoutes } from "hono/dev";
 import { type Address, parseEther } from "viem";
+import discordClient from "./clients/discord";
 import {
   contributionRewardEmbed,
   missingRewardOpportunityEmbed,
@@ -22,12 +23,6 @@ if (!process.env.GITHUB_WEBHOOK_SECRET) {
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CHANNEL_ID) {
   throw new Error("DISCORD_TOKEN and DISCORD_CHANNEL_ID must be set");
 }
-
-const discordClient = new Client({
-  intents: [GatewayIntentBits.Guilds],
-});
-
-discordClient.login(process.env.DISCORD_TOKEN);
 
 const app = new OpenAPIHono();
 
