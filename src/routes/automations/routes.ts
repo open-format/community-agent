@@ -1,5 +1,10 @@
 import { createRoute, z } from "@hono/zod-openapi";
+import { isAddress } from "viem";
+import { EVENT_TYPES } from "../../db/schema";
 import { automation } from "./schema";
+
+// Custom Zod validator for Ethereum addresses
+const addressSchema = z.string().refine((value) => isAddress(value), "Invalid Ethereum address");
 
 export const getAutomations = createRoute({
   method: "get",
@@ -86,6 +91,59 @@ export const deleteAutomation = createRoute({
         "application/json": {
           schema: z.object({
             success: z.boolean(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const triggerAutomation = createRoute({
+  method: "post",
+  path: "/trigger",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            communityId: z.string(),
+            eventType: z.enum(EVENT_TYPES),
+            userId: addressSchema,
+            metadata: z.record(z.unknown()).optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Automation triggered successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            triggeredAutomations: z.array(automation),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "No matching automation rules found",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "Error processing automation",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+            error: z.string(),
           }),
         },
       },
