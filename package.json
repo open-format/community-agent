@@ -19,7 +19,7 @@
     "@langchain/langgraph": "^0.2.46",
     "@langchain/langgraph-checkpoint-postgres": "^0.0.3",
     "@octokit/webhooks": "^13.6.0",
-    "@privy-io/server-auth": "^1.18.7",
+    "@privy-io/server-auth": "^1.18.12",
     "@types/pg": "^8.11.11",
     "discord.js": "^14.18.0",
     "drizzle-kit": "^0.30.4",
