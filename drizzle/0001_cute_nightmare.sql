@@ -1,0 +1,1 @@
+ALTER TABLE "communities" ADD COLUMN "community_wallet_address" text;

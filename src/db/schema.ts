@@ -19,6 +19,8 @@ export const communities = pgTable("communities", {
   platforms: jsonb("platforms").default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  communityWalletId: text("community_wallet_id"),
+  communityWalletAddress: text("community_wallet_address"),
 });
 
 export const communityDocuments = pgTable("community_documents", {
