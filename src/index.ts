@@ -1,5 +1,5 @@
-import { Client, GatewayIntentBits, type TextChannel } from "discord.js";
 import { OpenAPIHono } from "@hono/zod-openapi";
+import { Client, GatewayIntentBits, type TextChannel } from "discord.js";
 import { bearerAuth } from "hono/bearer-auth";
 import { showRoutes } from "hono/dev";
 import { type Address, parseEther } from "viem";
@@ -11,8 +11,9 @@ import { rewardPoints } from "./lib/openformat";
 import { findUserByHandle } from "./lib/privy";
 import { githubWebhookMiddleware } from "./middleware/github-webhook";
 import agentRoute from "./routes/agent";
-import docs from "./routes/docs";
 import { automationsRoute } from "./routes/automations";
+import { communitiesRoute } from "./routes/communities";
+import docs from "./routes/docs";
 
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
@@ -43,10 +44,12 @@ app.use("/webhooks/github", githubWebhookMiddleware());
 app.use("/message/*", bearerAuth({ token: process.env.API_KEY as string }));
 app.use("/docs/*", bearerAuth({ token: process.env.API_KEY as string }));
 app.use("/automations/*", bearerAuth({ token: process.env.API_KEY as string }));
+app.use("/communities/*", bearerAuth({ token: process.env.API_KEY as string }));
 
 app.route("/docs", docs);
 app.route("/agent", agentRoute);
 app.route("/automations", automationsRoute);
+app.route("/communities", communitiesRoute);
 
 app.post("/webhooks/github", async (c) => {
   const body = await c.req.text();
