@@ -1,79 +1,40 @@
-import { type DistanceStrategy, PGVectorStore } from "@langchain/community/vectorstores/pgvector";
-import type { Document } from "langchain/document";
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-import { embeddings } from "../agent/models/openai";
-import { db, pool } from "../db";
-import { communityDocuments } from "../db/schema";
+import { openai } from "@ai-sdk/openai";
 
-const splitter = new RecursiveCharacterTextSplitter({
-  chunkSize: 500,
-  chunkOverlap: 100,
-});
-
-const config = {
-  pool: pool,
-  tableName: "community_documents",
-  columns: {
-    idColumnName: "id",
-    vectorColumnName: "embedding",
-    contentColumnName: "chunk_content",
-    metadataColumnName: "metadata",
-    community_id: "community_id",
-  },
-  distanceStrategy: "cosine" as DistanceStrategy,
-};
+import { MDocument } from "@mastra/rag";
+import { embedMany } from "ai";
+import { vectorStore } from "../agent/stores/vectorStore";
 
 export async function processAndStoreDocument(
   communityId: string,
   filename: string,
-  documentContent: string
+  documentContent: string,
 ): Promise<void> {
   // Validate communityId before processing
   if (!communityId) {
     throw new Error("Community ID is required for document processing");
   }
 
+  const doc = MDocument.fromMarkdown(documentContent);
+
   try {
-    const textSplits = await splitter.splitText(documentContent);
+    // Create chunks
+    const chunks = await doc.chunk();
 
-    // Process each text chunk
-    for (const chunk of textSplits) {
-      // Generate embeddings for the chunk
-      const [embedding] = await embeddings.embedDocuments([chunk]);
+    // Generate embeddings with OpenAI
+    const { embeddings: openAIEmbeddings } = await embedMany({
+      model: openai.embedding("text-embedding-3-small"),
+      values: chunks.map((chunk) => chunk.text),
+    });
 
-      // Insert document chunk into the database using Drizzle
-      await db.insert(communityDocuments).values({
-        communityId: communityId,
-        chunkContent: chunk,
-        embedding: embedding,
-        metadata: { filename, community_id: communityId }, // Store filename in metadata
-      });
-    }
+    await vectorStore.upsert({
+      indexName: "community_documents",
+      vectors: openAIEmbeddings,
+      metadata: chunks.map((chunk) => ({ text: chunk.text, community_id: communityId })),
+    });
 
     console.log(`Document "${filename}" processed and stored for community "${communityId}".`);
   } catch (error) {
     console.error(`Error processing and storing document "${filename}":`, error);
     throw error; // Re-throw to allow caller to handle the error
-  }
-}
-
-// Function to perform similarity search scoped by communityId
-export async function performCommunityScopedSimilaritySearch(
-  communityId: string,
-  query: string,
-  k = 5
-): Promise<Document[]> {
-  try {
-    const pgvectorStore = await PGVectorStore.initialize(embeddings, config);
-
-    // Perform similarity search with filter for community_id
-    const results = await pgvectorStore.similaritySearch(query, k, {
-      community_id: communityId,
-    });
-
-    return results;
-  } catch (error) {
-    console.error("Error performing similarity search:", error);
-    return [];
   }
 }
