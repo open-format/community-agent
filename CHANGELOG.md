@@ -1,3 +1,13 @@
+# [0.13.0](https://github.com/open-format/community-agent/compare/v0.12.0...v0.13.0) (2025-03-17)
+
+
+### Features
+
+* Add platform_connections table and update schema ([8098581](https://github.com/open-format/community-agent/commit/8098581db72a667677ff3dfd20bfc565cf34c8d7))
+* Add time validation utility function ([c755d75](https://github.com/open-format/community-agent/commit/c755d7500de8f662255c08d24b5f6c73ac3c670d))
+* Refactor Discord client and implement voice channel automation ([dc5cc62](https://github.com/open-format/community-agent/commit/dc5cc627d2e9583502d4a391f0933510b13c3e86))
+* Update development script and add dayjs dependency ([a6f2974](https://github.com/open-format/community-agent/commit/a6f2974de54db400978ce8f7adfd48932357ffc8))
+
 # [0.12.0](https://github.com/open-format/community-agent/compare/v0.11.0...v0.12.0) (2025-03-17)
 
 
