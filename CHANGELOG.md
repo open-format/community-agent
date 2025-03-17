@@ -1,3 +1,12 @@
+# [0.11.0](https://github.com/open-format/community-agent/compare/v0.10.0...v0.11.0) (2025-03-17)
+
+
+### Features
+
+* Add Biome configuration file and update package dependencies ([64529f8](https://github.com/open-format/community-agent/commit/64529f883277f89487c7c642a53cd26393d06fe5))
+* Implement automations route and schema for community management ([d6da318](https://github.com/open-format/community-agent/commit/d6da3184ac4bca7308ebc0389f07dc60818b238b))
+* Introduce new database schema for community management ([074dc9f](https://github.com/open-format/community-agent/commit/074dc9f1e4c7fd20e89162ecc36da4b29d28bf7c))
+
 # [0.10.0](https://github.com/open-format/community-agent/compare/v0.9.0...v0.10.0) (2025-03-06)
 
 
