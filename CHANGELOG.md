@@ -1,3 +1,11 @@
+# [0.14.0](https://github.com/open-format/community-agent/compare/v0.13.0...v0.14.0) (2025-03-17)
+
+
+### Features
+
+* Implement RAG agent with new memory and vector query capabilities ([d35e8fe](https://github.com/open-format/community-agent/commit/d35e8fe656ebcc9b1127c124ef47866bbd63b556))
+* Refactor document processing to use new embedding and storage methods ([85ad72d](https://github.com/open-format/community-agent/commit/85ad72d545ac6ad48853b8a422b0c6f6a9a0410c))
+
 # [0.13.0](https://github.com/open-format/community-agent/compare/v0.12.0...v0.13.0) (2025-03-17)
 
 
