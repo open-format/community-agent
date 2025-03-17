@@ -1,7 +1,7 @@
-import { HumanMessage } from "@langchain/core/messages";
 import { Hono } from "hono";
 import type { Address } from "viem";
-import { agent } from "../../agent";
+import { mastra } from "../../agent";
+import { ragAgentPromptWithContext } from "../../agent/prompts/rag";
 import { chainIdToSubgraphUrl, getCommunity } from "../../lib/subgraph";
 
 const agentRoute = new Hono();
@@ -15,9 +15,6 @@ agentRoute.post("/message", async (c) => {
 
   if (!communityId) {
     return c.json({ message: "X-Community-ID header is required" }, 400);
-  }
-  if (!userId) {
-    return c.json({ message: "X-User-ID header is required" }, 400);
   }
   if (!chain || !(chain in chainIdToSubgraphUrl)) {
     return c.json({ message: "X-Chain-ID header is required" }, 400);
@@ -35,26 +32,16 @@ agentRoute.post("/message", async (c) => {
   }
 
   try {
-    // Use the agent to process the message
-    const result = await agent.invoke(
-      {
-        messages: [new HumanMessage(userMessage)],
-      },
-      {
-        configurable: {
-          thread_id: `${communityId}-${userId}`,
-          metadata: { community, userId },
-        },
-      }
-    );
-
+    const completion = await mastra
+      .getAgent("ragAgent")
+      .generate(ragAgentPromptWithContext(userMessage), {
+        threadId: `${communityId}-${userId}`,
+        resourceId: userId,
+      });
     return c.json({
-      action: "agent_response",
-      response: result.messages[result.messages.length - 1].content,
-      metadata: {
-        communityId: communityId,
-        userId: userId,
-      },
+      result: completion.text,
+      tool_results: completion.toolResults,
+      tool_calls: completion.toolCalls,
     });
   } catch (error) {
     console.error("Error processing message with agent:", error);
@@ -63,7 +50,7 @@ agentRoute.post("/message", async (c) => {
         message: "Error processing your message",
         error: String(error),
       },
-      500
+      500,
     );
   }
 });

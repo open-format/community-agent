@@ -17,17 +17,16 @@ docs.post("/upload", async (c) => {
 
   try {
     const uploadPromises = files.map(async (file) => {
-      // Create an array of promises
       if (file instanceof File) {
         const fileContents = await file.text();
-        await processAndStoreDocument(communityId, file.name, fileContents); // Call processAndStoreDocument
+        await processAndStoreDocument(communityId, file.name, fileContents);
         console.log(`Processed and stored: ${file.name}`);
       } else {
         console.warn("Unexpected file data:", file);
       }
     });
 
-    await Promise.all(uploadPromises); // Wait for all promises to resolve (parallel processing)
+    await Promise.all(uploadPromises);
 
     return c.json({ message: "Documents uploaded and processed successfully" });
   } catch (error) {
