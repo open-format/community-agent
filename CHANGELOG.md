@@ -1,3 +1,13 @@
+# [0.12.0](https://github.com/open-format/community-agent/compare/v0.11.0...v0.12.0) (2025-03-17)
+
+
+### Features
+
+* Add communities route for community management ([f980d1c](https://github.com/open-format/community-agent/commit/f980d1cab11db5503169dda219b30db9d86fe525))
+* Add trigger automation functionality and enhance routes ([404209a](https://github.com/open-format/community-agent/commit/404209a19ac7715d0c4931aa55ff642b047430b2))
+* Integrate PrivyClient for community wallet management ([2e68d1b](https://github.com/open-format/community-agent/commit/2e68d1b454b8b125d82114b9a62b2e8e9eec8c7f))
+* Update community schema and relationships ([b982369](https://github.com/open-format/community-agent/commit/b9823699c379deb38db9f42c7351491a85377a80))
+
 # [0.11.0](https://github.com/open-format/community-agent/compare/v0.10.0...v0.11.0) (2025-03-17)
 
 
