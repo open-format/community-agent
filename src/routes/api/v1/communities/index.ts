@@ -9,7 +9,7 @@ const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
   const id = c.req.param("id");
-  const result = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
+  const [result] = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
   return c.json(result);
 });
 
