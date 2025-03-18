@@ -1,5 +1,5 @@
+import { addressSchema } from "@/utils/schema";
 import { z } from "@hono/zod-openapi";
-import { addressSchema } from "../../utils/schema";
 
 export const community = z.object({
   name: z.string(),

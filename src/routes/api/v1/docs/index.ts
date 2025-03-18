@@ -1,5 +1,5 @@
+import { processAndStoreDocument } from "@/lib/document_processing";
 import { Hono } from "hono";
-import { processAndStoreDocument } from "../../lib/document_processing";
 
 const docs = new Hono();
 

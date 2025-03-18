@@ -1,8 +1,8 @@
+import { mastra } from "@/agent";
+import { ragAgentPromptWithContext } from "@/agent/prompts/rag";
+import { chainIdToSubgraphUrl, getCommunity } from "@/lib/subgraph";
 import { Hono } from "hono";
 import type { Address } from "viem";
-import { mastra } from "../../agent";
-import { ragAgentPromptWithContext } from "../../agent/prompts/rag";
-import { chainIdToSubgraphUrl, getCommunity } from "../../lib/subgraph";
 
 const agentRoute = new Hono();
 

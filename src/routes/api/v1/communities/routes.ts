@@ -1,5 +1,5 @@
+import { addressSchema } from "@/utils/schema";
 import { createRoute, z } from "@hono/zod-openapi";
-import { addressSchema } from "../../utils/schema";
 import { community, communityUpdate } from "./schema";
 
 export const getCommunity = createRoute({

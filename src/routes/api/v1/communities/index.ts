@@ -1,11 +1,11 @@
-import { db } from "../../db";
+import { db } from "../../../../db";
 
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
-import { communities } from "../../db/schema";
+import { communities } from "../../../../db/schema";
 import { createCommunity, getCommunity, updateCommunity } from "./routes";
 
-export const communitiesRoute = new OpenAPIHono();
+const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
   const id = c.req.param("id");
@@ -50,3 +50,5 @@ communitiesRoute.openapi(updateCommunity, async (c) => {
 
   return c.json(result);
 });
+
+export default communitiesRoute;
