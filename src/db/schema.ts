@@ -13,7 +13,7 @@ import {
 
 export const communities = pgTable("communities", {
   id: text("id").primaryKey().notNull(),
-  name: text("name").notNull(),
+  name: text("name"),
   description: text("description"),
   roles: jsonb("roles").default([]),
   goals: jsonb("goals").default([]),
