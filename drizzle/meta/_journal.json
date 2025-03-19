@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1741795329035,
-      "tag": "0000_dazzling_omega_red",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1741798456743,
-      "tag": "0001_cute_nightmare",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1741800825766,
-      "tag": "0002_mute_morg",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1741801199735,
-      "tag": "0003_tidy_omega_flight",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1741801387915,
-      "tag": "0004_unique_mac_gargan",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1741870220262,
-      "tag": "0005_watery_living_lightning",
+      "when": 1742396281552,
+      "tag": "0000_first_ender_wiggin",
       "breakpoints": true
     }
   ]

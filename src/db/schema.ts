@@ -11,9 +11,16 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 
+// Define ENUMs for event and reward types
+export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
+
+export const REWARD_TYPES = ["token", "badge"] as const;
+
+export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
+
 export const communities = pgTable("communities", {
   id: text("id").primaryKey().notNull(),
-  name: text("name").notNull(),
+  name: text("name"),
   description: text("description"),
   roles: jsonb("roles").default([]),
   goals: jsonb("goals").default([]),
@@ -61,13 +68,6 @@ export const communityMembers = pgTable("community_members", {
   joinedAt: timestamp("joined_at").defaultNow(),
 });
 
-// Define ENUMs for event and reward types
-export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
-
-export const REWARD_TYPES = ["token", "badge"] as const;
-
-export const PLATFORM_TYPES = ["discord", "github"] as const;
-
 export const automations = pgTable("automations", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   communityId: text("community_id")
@@ -101,6 +101,7 @@ export const platformConnections = pgTable(
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
+  summaries: many(summaries),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({

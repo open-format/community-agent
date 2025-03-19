@@ -1,11 +1,11 @@
+import { rewardFacetAbi } from "@/abis/RewardFacet";
+import { db } from "@/db";
+import { automations, communities } from "@/db/schema";
+import { getCommunityWallet } from "@/lib/viem";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { and, eq } from "drizzle-orm";
 import { createWalletClient, http, parseEther, stringToHex, type Address } from "viem";
 import { arbitrumSepolia } from "viem/chains";
-import { rewardFacetAbi } from "../../abis/RewardFacet";
-import { db } from "../../db";
-import { automations, communities } from "../../db/schema";
-import { getCommunityWallet } from "../../lib/viem";
 import {
   createAutomation,
   deleteAutomation,
@@ -14,7 +14,7 @@ import {
   updateAutomation,
 } from "./routes";
 
-export const automationsRoute = new OpenAPIHono();
+const automationsRoute = new OpenAPIHono();
 
 automationsRoute.openapi(getAutomations, async (c) => {
   const result = await db.select().from(automations);
@@ -120,3 +120,5 @@ automationsRoute.openapi(deleteAutomation, async (c) => {
   await db.delete(automations).where(eq(automations.id, id));
   return c.json({ success: true });
 });
+
+export default automationsRoute;

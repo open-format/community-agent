@@ -1,6 +1,6 @@
+import { EVENT_TYPES } from "@/db/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 import { isAddress } from "viem";
-import { EVENT_TYPES } from "../../db/schema";
 import { automation } from "./schema";
 
 // Custom Zod validator for Ethereum addresses
