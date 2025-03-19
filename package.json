@@ -1,7 +1,7 @@
 {
   "name": "community-agent",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -9,12 +9,14 @@
     "db:setup": "npm run db:generate && npm run db:migrate",
     "db:seed": "bun run src/db/seed.ts",
     "db:reset": "drizzle-kit drop && npm run db:migrate && npm run db:seed",
-    "db:rollback": "drizzle-kit drop"
+    "db:rollback": "drizzle-kit drop",
+    "mastra:dev": "mastra dev --dir src/agent"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.2.5",
     "@hono/zod-openapi": "^0.19.2",
     "@mastra/core": "^0.6.0",
+    "@mastra/evals": "^0.1.10",
     "@mastra/memory": "^0.2.1",
     "@mastra/pg": "^0.2.1",
     "@mastra/rag": "^0.1.9",
@@ -29,7 +31,7 @@
     "graphql-request": "^7.1.2",
     "hono": "^4.6.20",
     "mastra": "^0.3.1",
-    "pg": "^8.13.3",
+    "pg": "^8.14.1",
     "viem": "^2.23.2",
     "zod": "^3.24.2"
   },

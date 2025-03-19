@@ -15,6 +15,7 @@ import agentRoute from "./routes/agent";
 import { automationsRoute } from "./routes/automations";
 import { communitiesRoute } from "./routes/communities";
 import docs from "./routes/docs";
+import { mastra } from "./agent";
 
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
@@ -35,6 +36,25 @@ app.get("/", (c) => {
   return c.text("Hello Hono!");
 });
 
+app.post("/agent/summary", async (c) => {
+  const workflow = mastra.getWorkflow('summaryWorkflow')
+  const {runId, start} = workflow.createRun()
+  
+  // Set date range for the past week
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 7); // Go back 7 days
+ 
+  const result = await start({
+    triggerData: {
+      startDate,
+      endDate,
+      communityId: "123",
+      platformId: "932238833146277958",
+    },
+  });
+  return c.json(result);
+});
 app.use("/webhooks/github", githubWebhookMiddleware());
 app.use("/message/*", bearerAuth({ token: process.env.API_KEY as string }));
 app.use("/docs/*", bearerAuth({ token: process.env.API_KEY as string }));

@@ -43,6 +43,13 @@
       "when": 1741870220262,
       "tag": "0005_watery_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1742553642000,
+      "tag": "0006_summaries_table",
+      "breakpoints": true
     }
   ]
 }

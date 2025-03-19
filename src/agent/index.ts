@@ -5,7 +5,7 @@ import { memory } from "./memory";
 import { ragAgentPrompt } from "./prompts/rag";
 import { vectorStore } from "./stores/vectorStore";
 import { vectorQueryTool } from "./tools/vectorQueryTool";
-
+import { summaryWorkflow } from "./workflows/summary";
 export const ragAgent = new Agent({
   name: "RAG Agent One",
   instructions: ragAgentPrompt,
@@ -13,12 +13,14 @@ export const ragAgent = new Agent({
   tools: {
     vectorQueryTool,
   },
-  memory: memory,
 });
 
 export const mastra = new Mastra({
   agents: {
     ragAgent,
+  },
+  workflows: {
+    summaryWorkflow,
   },
   vectors: { pgVector: vectorStore },
 });
