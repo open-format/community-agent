@@ -1,7 +1,7 @@
 {
   "name": "community-agent",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
+    "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -13,6 +13,7 @@
     "mastra:dev": "mastra dev --dir src/agent"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.1.25",
     "@ai-sdk/openai": "^1.2.5",
     "@hono/zod-openapi": "^0.19.2",
     "@mastra/core": "^0.6.0",
