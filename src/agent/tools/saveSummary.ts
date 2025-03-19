@@ -1,14 +1,14 @@
-import { createTool } from '@mastra/core/tools';
-import { z } from 'zod';
-import { openai } from '@ai-sdk/openai';
+import { openai } from "@ai-sdk/openai";
+import { createTool } from "@mastra/core/tools";
+import { MDocument } from "@mastra/rag";
 import { embedMany } from "ai";
-import { MDocument } from '@mastra/rag';
-import { db } from '../../db';
-import { summaries } from '../../db/schema';
+import { z } from "zod";
+import { db } from "../../db";
+import { summaries } from "../../db/schema";
 
 export const saveSummaryTool = createTool({
-  id: 'save-summary',
-  description: 'Save a community summary to the database with vector embeddings',
+  id: "save-summary",
+  description: "Save a community summary to the database with vector embeddings",
   inputSchema: z.object({
     communityId: z.string(),
     summary: z.string(),
@@ -31,7 +31,7 @@ export const saveSummaryTool = createTool({
       const coverageScore = context.summarizationResult?.coverageScore || null;
       const alignmentScore = context.summarizationResult?.alignmentScore || null;
       const summarizationReason = context.summarizationResult?.reason || null;
-      
+
       // Generate embedding for the summary
       // Initialise the document
       const doc = MDocument.fromText(context.summary);
@@ -45,7 +45,7 @@ export const saveSummaryTool = createTool({
 
       // Generate embeddings with OpenAI
       const { embeddings: openAIEmbeddings } = await embedMany({
-        model: openai.embedding('text-embedding-3-small'),
+        model: openai.embedding("text-embedding-3-small"),
         values: chunks.map((chunk: { text: string }) => chunk.text),
       });
 
@@ -53,31 +53,34 @@ export const saveSummaryTool = createTool({
       const formattedEmbeddings = openAIEmbeddings[0]; // Take first embedding since we want to store one vector per summary
 
       // Insert the summary into the database using Drizzle
-      const [result] = await db.insert(summaries).values({
-        communityId: context.communityId,
-        summaryText: context.summary,
-        startDate: new Date(context.startDate),
-        endDate: new Date(context.endDate),
-        platformId: context.platformId,
-        embedding: formattedEmbeddings,
-        summarizationScore: summarizationScore,
-        coverageScore: coverageScore,
-        alignmentScore: alignmentScore,
-        summarizationReason: summarizationReason,
-        messageCount: context.messageCount,
-        uniqueUserCount: context.uniqueUserCount,
-      }).returning({ id: summaries.id });
+      const [result] = await db
+        .insert(summaries)
+        .values({
+          communityId: context.communityId,
+          summaryText: context.summary,
+          startDate: new Date(context.startDate),
+          endDate: new Date(context.endDate),
+          platformId: context.platformId,
+          embedding: formattedEmbeddings,
+          summarizationScore: summarizationScore,
+          coverageScore: coverageScore,
+          alignmentScore: alignmentScore,
+          summarizationReason: summarizationReason,
+          messageCount: context.messageCount,
+          uniqueUserCount: context.uniqueUserCount,
+        })
+        .returning({ id: summaries.id });
 
       return {
         success: true,
         summaryId: result.id,
       };
     } catch (error: any) {
-      console.error('Exception saving summary:', error);
+      console.error("Exception saving summary:", error);
       return {
         success: false,
-        error: error.message || 'Unknown error',
+        error: error.message || "Unknown error",
       };
     }
   },
-}); 
+});

@@ -1,16 +1,7 @@
-import {
-  Client,
-  GatewayIntentBits,
-  type Message,
-  type MessageReaction,
-  type PartialMessageReaction,
-  type PartialUser,
-  Partials,
-  type User,
-} from "discord.js";
-import { z } from "zod";
-import { memory } from "../../agent/memory/index";
-import { triggerAutomation } from "../../services/automation";
+import { vectorStore } from "@/agent/stores";
+import { openai } from "@ai-sdk/openai";
+import { embed } from "ai";
+import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
 
 const discordClient = new Client({
   intents: [
@@ -46,20 +37,21 @@ discordClient.on("voiceStateUpdate", async (oldState, newState) => {
     return;
   }
 
-  if (!oldState.channelId && newState.channelId) {
-    await triggerAutomation({
-      platformId: newState.guild.id,
-      platformType: "discord",
-      eventType: "voice_channel_join",
-      userId: newState.member.user.username,
-      metadata: {
-        channelId: newState.channelId,
-      },
-    });
-  }
+  // TODO: Implement voice channel join handling
+  // if (!oldState.channelId && newState.channelId) {
+  //   await triggerAutomation({
+  //     platformId: newState.guild.id,
+  //     platformType: "discord",
+  //     eventType: "voice_channel_join",
+  //     userId: newState.member.user.username,
+  //     metadata: {
+  //       channelId: newState.channelId,
+  //     },
+  //   });
+  // }
 });
 
-async function getThreadStartMessageId(msg: Message): Promise<string | null> {
+async function getThreadStartMessageId(msg: Message): Promise<string> {
   let currentMsg = msg;
 
   while (currentMsg.reference?.messageId) {
@@ -73,153 +65,47 @@ async function getThreadStartMessageId(msg: Message): Promise<string | null> {
   return currentMsg.id;
 }
 
-interface PlatformMessage {
-  threadId: string; // Unique identifier for the conversation thread
-  resourceId: string; // Platform-specific user identifier
-  title: string; // First message or subject of the thread
-  content: string; // Message content
-  metadata: {
-    platform: string; // e.g., "discord", "telegram", "slack"
-    platformId: string; // Platform-specific ID (e.g., guild ID, chat ID)
-    channelId: string; // Platform-specific channel/room ID
-    messageId: string; // Platform-specific message ID
-    authorId: string; // Platform-specific author ID
-    authorUsername: string; // Platform-agnostic username
-    parentMessageId?: string; // For replies/threaded conversations
-    timestamp: Date; // Message timestamp
-  };
-}
-
 discordClient.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
+  // Skip messages from bots and ensure we're in a guild
+  if (msg.author.bot || !msg.guild) return;
 
-  const schema = z.object({
-    score: z.number(),
-    reason: z.string(),
+  // Generate embeddings for message content
+  const embedding = await embed({
+    model: openai.embedding("text-embedding-3-small"),
+    value: msg.content,
   });
 
-  console.log(msg.content);
+  // Initialize metadata for the message
+  const metadata: MessageMetadata = {
+    platform: "discord",
+    platformId: msg.guild.id,
+    messageId: msg.id,
+    authorId: msg.author.id,
+    authorUsername: msg.author.username,
+    channelId: msg.channelId,
+    threadId: msg.id,
+    timestamp: new Date(msg.createdTimestamp),
+    text: msg.content,
+    isReaction: false,
+  };
 
+  // If this is a reply to another message, get the parent message's ID
   if (msg.reference?.messageId) {
-    try {
-      // Check if the referenced thread exists
-      const threadStartId = await getThreadStartMessageId(msg);
-      const thread = await memory.getThreadById({
-        threadId: threadStartId || msg.reference.messageId,
-      });
-
-      // If thread doesn't exist, create new thread with current message
-      if (!thread) {
-
-        await memory.createThread({
-          threadId: msg.id,
-          resourceId: `discord:${msg.author.id}`,
-          title: msg.content,
-          metadata: {
-            platform: "discord",
-            platformId: msg.guild?.id,
-            channelId: msg.channel.id,
-            messageId: msg.id,
-            authorId: msg.author.id,
-            authorUsername: msg.author.username,
-          },
-        });
-
-        // Save message to the new thread
-        await memory.saveMessages({
-          messages: [
-            {
-              id: msg.id,
-              threadId: msg.id, // Use current message ID as thread
-              content: msg.content,
-              role: "user",
-              createdAt: msg.createdAt,
-              type: "text",
-            },
-          ],
-        });
-        return;
-      }
-
-      // If thread exists, save to existing thread
-      await memory.saveMessages({
-        messages: [
-          {
-            id: msg.id,
-            threadId: threadStartId || msg.reference.messageId,
-            content: msg.content,
-            role: "user",
-            createdAt: msg.createdAt,
-            type: "text",
-          },
-        ],
-      });
-      return;
-    } catch (error) {
-      console.error("Error handling message:", error);
-    }
+    metadata.threadId = await getThreadStartMessageId(msg);
   }
 
-  // New thread for non-reply messages
-  await memory.createThread({
-    threadId: msg.id,
-    resourceId: `discord:${msg.author.id}`,
-    title: msg.content,
-    metadata: {
-      platform: "discord",
-      platformId: msg.guild?.id,
-      channelId: msg.channel.id,
-      messageId: msg.id,
-      authorId: msg.author.id,
-      authorUsername: msg.author.username,
-    },
+  // Store in vector store
+  await vectorStore.upsert({
+    indexName: "community_messages",
+    vectors: [embedding.embedding],
+    metadata: [metadata],
   });
 });
-discordClient.on(
-  "messageReactionAdd",
-  async (reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) => {
-    const message = reaction.message.partial ? await reaction.message.fetch() : reaction.message;
-    if (message.author?.bot) return;
-    console.log("<<<reaction>>>");
-    try {
-      // Check if thread exists first
-      const thread = await memory.getThreadById({ threadId: message.id });
 
-      // If thread doesn't exist, create it
-      if (!thread) {
-        await memory.createThread({
-          threadId: message.id,
-          resourceId: `discord:${user.id}`,
-          title: message.content,
-          metadata: {
-            platform: "discord",
-            platformId: message.guild?.id,
-            channelId: message.channel.id,
-            messageId: message.id,
-            authorId: message.author.id,
-            authorUsername: message.author.username,
-          },
-        });
-      }
-
-      // Save the reaction as a message
-      await memory.saveMessages({
-        messages: [
-          {
-            id: `${message.id}-${user.id}-${reaction.emoji.name}-${Date.now()}`,
-            threadId: message.id,
-            content: reaction.emoji.name,
-            role: "user",
-            createdAt: message.createdAt,
-            type: "text",
-          },
-        ],
-      });
-    } catch (error) {
-      console.error("Error handling reaction:", error);
-    }
-  },
-);
+discordClient.on("messageReactionAdd", async (reaction, user) => {
+  // TODO: Implement reaction handling
+  console.log("<<<reaction>>>", reaction, user);
+});
 
 discordClient.login(process.env.DISCORD_TOKEN);
 

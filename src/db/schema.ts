@@ -9,7 +9,6 @@ import {
   timestamp,
   uuid,
   vector,
-  real,
 } from "drizzle-orm/pg-core";
 
 // Define ENUMs for event and reward types
@@ -21,7 +20,7 @@ export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
 
 export const communities = pgTable("communities", {
   id: text("id").primaryKey().notNull(),
-  name: text("name").notNull(),
+  name: text("name"),
   description: text("description"),
   roles: jsonb("roles").default([]),
   goals: jsonb("goals").default([]),
@@ -30,26 +29,6 @@ export const communities = pgTable("communities", {
   updatedAt: timestamp("updated_at").defaultNow(),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
-});
-
-export const summaries = pgTable("summaries", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id),
-  summaryText: text("summary_text").notNull(),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
-  platformId: text("platform_id").notNull(),
-  embedding: vector("embedding", { dimensions: 1536 }),
-  summarizationScore: real("summarization_score"),
-  coverageScore: real("coverage_score"),
-  alignmentScore: real("alignment_score"),
-  summarizationReason: text("summarization_reason"),
-  uniqueUserCount: integer("unique_user_count"),
-  messageCount: integer("message_count"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const communityDocuments = pgTable("community_documents", {
@@ -128,13 +107,6 @@ export const communitiesRelations = relations(communities, ({ many }) => ({
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
   community: one(communities, {
     fields: [platformConnections.communityId],
-    references: [communities.id],
-  }),
-}));
-
-export const summariesRelations = relations(summaries, ({ one }) => ({
-  community: one(communities, {
-    fields: [summaries.communityId],
     references: [communities.id],
   }),
 }));

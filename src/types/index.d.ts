@@ -31,8 +31,8 @@ declare global {
     messageId: string;
     authorId: string;
     authorUsername: string;
+    threadId: string; // Common across platforms but implemented differently
     channelId?: string; // Discord/Telegram specific
-    threadId?: string; // Common across platforms but implemented differently
     timestamp: Date;
     text: string;
     isReaction?: boolean;

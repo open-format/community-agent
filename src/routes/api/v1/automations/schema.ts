@@ -1,5 +1,5 @@
+import { EVENT_TYPES, REWARD_TYPES } from "@/db/schema";
 import { z } from "@hono/zod-openapi";
-import { EVENT_TYPES, REWARD_TYPES } from "../../db/schema";
 
 export const automation = z.object({
   communityId: z.string(),

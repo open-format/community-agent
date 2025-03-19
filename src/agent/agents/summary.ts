@@ -1,5 +1,5 @@
-import { Agent } from '@mastra/core/agent';
 import { openai } from "@ai-sdk/openai";
+import { Agent } from "@mastra/core";
 // import { SummarizationMetric } from "@mastra/evals/llm";
 
 export const summaryAgent = new Agent({
@@ -13,9 +13,9 @@ export const summaryAgent = new Agent({
   
   Keep summaries clear, informative, interesting and to the point. Each line should convey a distinct and meaningful insight.`,
   model: openai("gpt-4o"),
- // evals: {
- //   summarization: new SummarizationMetric(openai("gpt-4o")),
- // },
+  // evals: {
+  //   summarization: new SummarizationMetric(openai("gpt-4o")),
+  // },
 });
 
 // Function to generate a summary using the agent
@@ -27,13 +27,12 @@ ${transcript}`;
 
   const result = await summaryAgent.generate(prompt);
   const summary = result.text.trim();
-  
+
   // Run the evaluation separately
   //const evalResult = await summaryAgent.evals.summarization.measure(transcript, summary);
   //const summarizationResult = evalResult;
 
-  
   return {
     summary,
   };
-} 
+}

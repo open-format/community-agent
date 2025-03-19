@@ -1,21 +1,8 @@
+import { githubWebhookMiddleware } from "@/middleware/github-webhook";
+import v1 from "@/routes/api/v1";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import type { TextChannel } from "discord.js";
 import { bearerAuth } from "hono/bearer-auth";
 import { showRoutes } from "hono/dev";
-import { type Address, parseEther } from "viem";
-import discordClient from "./clients/discord";
-import {
-  contributionRewardEmbed,
-  missingRewardOpportunityEmbed,
-} from "./constants/discord/notifications";
-import { rewardPoints } from "./lib/openformat";
-import { findUserByHandle } from "./lib/privy";
-import { githubWebhookMiddleware } from "./middleware/github-webhook";
-import agentRoute from "./routes/agent";
-import { automationsRoute } from "./routes/automations";
-import { communitiesRoute } from "./routes/communities";
-import docs from "./routes/docs";
-import { mastra } from "./agent";
 
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
@@ -36,113 +23,15 @@ app.get("/", (c) => {
   return c.text("Hello Hono!");
 });
 
-app.post("/agent/summary", async (c) => {
-  const workflow = mastra.getWorkflow('summaryWorkflow')
-  const {runId, start} = workflow.createRun()
-  
-  // Set date range for the past week
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7); // Go back 7 days
- 
-  const result = await start({
-    triggerData: {
-      startDate,
-      endDate,
-      platformId: "932238833146277958",
-      communityId: "123",
-    },
-  });
-  return c.json(result);
-});
 app.use("/webhooks/github", githubWebhookMiddleware());
-app.use("/message/*", bearerAuth({ token: process.env.API_KEY as string }));
-app.use("/docs/*", bearerAuth({ token: process.env.API_KEY as string }));
-app.use("/automations/*", bearerAuth({ token: process.env.API_KEY as string }));
-app.use("/communities/*", bearerAuth({ token: process.env.API_KEY as string }));
-
-app.route("/docs", docs);
-app.route("/agent", agentRoute);
-app.route("/automations", automationsRoute);
-app.route("/communities", communitiesRoute);
-
-app.post("/webhooks/github", async (c) => {
-  const body = await c.req.text();
-
-  try {
-    const payload = JSON.parse(body);
-
-    const commits = payload.commits || payload.repository?.commits || payload.push?.commits || [];
-
-    if (payload.sender.type !== "User") {
-      return c.json({
-        message: "Not a user, ignoring",
-      });
-    }
-
-    if (commits.length) {
-      const user = await findUserByHandle(payload.sender.login);
-
-      if (!user?.wallet || !user?.github?.username) {
-        // Only send Discord notification for public repos
-        if (!payload.repository?.private) {
-          try {
-            const channel = discordClient.channels.cache.get(
-              process.env.DISCORD_CHANNEL_ID as string,
-            ) as TextChannel;
-
-            if (channel) {
-              await channel.send({
-                embeds: [missingRewardOpportunityEmbed(payload)],
-              });
-            }
-          } catch (error) {
-            console.error("Failed to send Discord notification:", error);
-          }
-        }
-
-        return c.json({
-          message: `${payload.sender.login} missed reward due to incomplete profile`,
-        });
-      }
-
-      const hash = await rewardPoints({
-        user: user.wallet as Address,
-        amount: parseEther("100"),
-        rewardId: "Code contribution",
-        // TODO: Store partial webhook on IPFS
-        ipfsHash: "ipfs://",
-      });
-
-      // Only send Discord notification for public repos
-      if (!payload.repository?.private) {
-        try {
-          const channel = discordClient.channels.cache.get(
-            process.env.DISCORD_CHANNEL_ID as string,
-          ) as TextChannel;
-          if (channel) {
-            await channel.send({
-              embeds: [contributionRewardEmbed(payload, user, hash)],
-            });
-          }
-        } catch (error) {
-          console.error("Failed to send Discord notification:", error);
-        }
-      }
-
-      return c.json({
-        message: `${payload.sender.login} pushed to ${payload.repository.name}`,
-      });
-    }
-
-    return c.json({
-      message: "No commits to process",
-    });
-  } catch (error) {
-    console.error("Webhook processing error:", error);
-    return c.json({ message: "Webhook processing failed" }, 500);
+app.use("/*", (c, next) => {
+  if (c.req.path.startsWith("/webhooks")) {
+    return next();
   }
+  return bearerAuth({ token: process.env.API_KEY as string })(c, next);
 });
+
+app.route("/", v1);
 
 showRoutes(app);
 
