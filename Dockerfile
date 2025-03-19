@@ -28,7 +28,7 @@ FROM base AS prod
 RUN bun install --production
 
 # Use the slim bun image for runtime
-FROM oven/bun:1.2.3-slim AS runtime
+FROM oven/bun:${BUN_VERSION}-slim AS runtime
 WORKDIR /app
 
 # Copy built files and production dependencies
