@@ -1,3 +1,17 @@
+# [0.15.0](https://github.com/open-format/community-agent/compare/v0.14.0...v0.15.0) (2025-03-19)
+
+
+### Bug Fixes
+
+* Correct destructuring of database result in community retrieval route ([dba7d22](https://github.com/open-format/community-agent/commit/dba7d22fbbcf9f18c68b144eae81a2d2e438a7ee))
+
+
+### Features
+
+* Add community schema updates and new SQL migration ([d11cbef](https://github.com/open-format/community-agent/commit/d11cbefb8f6025cf49b4aa150a31457792d968c8))
+* Add unique user and message count columns to summaries table ([ae53454](https://github.com/open-format/community-agent/commit/ae5345495629fa2fb67c7766768f3158e9ba4aef))
+* Refactor API structure and implement new routes for community and automation management ([f353fa2](https://github.com/open-format/community-agent/commit/f353fa2b4dac79b6a66262aac9472dbb59210bc1))
+
 # [0.14.0](https://github.com/open-format/community-agent/compare/v0.13.0...v0.14.0) (2025-03-17)
 
 
