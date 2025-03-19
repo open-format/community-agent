@@ -38,7 +38,6 @@ export const fetchCommunityMessagesTool = createTool({
   id: 'fetch-community-messages',
   description: 'Fetch messages from PostgreSQL database for a specific platform ID and date range',
   inputSchema: z.object({
-    communityId: z.string(),
     startDate: z.string(),
     endDate: z.string(),
     platformId: z.string().nonempty()

@@ -49,8 +49,8 @@ app.post("/agent/summary", async (c) => {
     triggerData: {
       startDate,
       endDate,
-      communityId: "123",
       platformId: "932238833146277958",
+      communityId: "123",
     },
   });
   return c.json(result);

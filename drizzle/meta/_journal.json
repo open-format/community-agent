@@ -50,6 +50,13 @@
       "when": 1742553642000,
       "tag": "0006_summaries_table",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1742554200000,
+      "tag": "0007_add_count_columns",
+      "breakpoints": true
     }
   ]
 }

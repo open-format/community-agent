@@ -14,6 +14,8 @@ CREATE TABLE "summaries" (
   "coverage_score" real,
   "alignment_score" real,
   "summarization_reason" text,
+  "unique_user_count" integer,
+  "message_count" integer,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now()
 );

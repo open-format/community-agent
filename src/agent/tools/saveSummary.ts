@@ -64,6 +64,8 @@ export const saveSummaryTool = createTool({
         coverageScore: coverageScore,
         alignmentScore: alignmentScore,
         summarizationReason: summarizationReason,
+        messageCount: context.messageCount,
+        uniqueUserCount: context.uniqueUserCount,
       }).returning({ id: summaries.id });
 
       return {

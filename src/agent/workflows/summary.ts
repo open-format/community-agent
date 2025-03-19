@@ -9,8 +9,8 @@ export const summaryWorkflow = new Workflow({
   triggerSchema: z.object({
     startDate: z.date(),
     endDate: z.date(),
-    communityId: z.string(),
-    platformId: z.string().nonempty()
+    platformId: z.string().nonempty(),
+    communityId: z.string().nonempty()
   }),
 });
 
@@ -40,7 +40,6 @@ const fetchMessagesStep = new Step({
       // Call our fetchCommunityMessagesTool directly with trigger data
       const result = await fetchCommunityMessagesTool.execute({
         context: {
-          communityId: context.triggerData.communityId,
           startDate,
           endDate,
           platformId: context.triggerData.platformId
