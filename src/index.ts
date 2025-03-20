@@ -3,7 +3,7 @@ import v1 from "@/routes/api/v1";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { bearerAuth } from "hono/bearer-auth";
 import { showRoutes } from "hono/dev";
-
+import agentRoute from "@/routes/api/v1/agent";
 if (!process.env.GITHUB_WEBHOOK_SECRET) {
   throw new Error("GITHUB_WEBHOOK_SECRET must be set");
 }
@@ -28,10 +28,14 @@ app.use("/*", (c, next) => {
   if (c.req.path.startsWith("/webhooks")) {
     return next();
   }
+  if (c.req.path.startsWith("/agent")) {
+    return next();
+  }
   return bearerAuth({ token: process.env.API_KEY as string })(c, next);
 });
 
 app.route("/", v1);
+app.route("/agent", agentRoute);
 
 showRoutes(app);
 
