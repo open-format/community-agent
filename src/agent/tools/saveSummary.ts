@@ -1,10 +1,26 @@
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core/tools";
-import { MDocument } from "@mastra/rag";
-import { embedMany } from "ai";
+import { embedMany, embed } from "ai";
 import { z } from "zod";
-import { db } from "../../db";
-import { summaries } from "../../db/schema";
+import { vectorStore } from '@/agent/stores';
+
+// Define interface for the summary metadata
+interface SummaryMetadata {
+  platform: string;
+  platformId: string;
+  timestamp: Date | string;
+  text: string;
+  isReaction: boolean;
+  isSummary: boolean;
+  startDate: string;
+  endDate: string;
+  messageCount: number;
+  uniqueUserCount: number;
+  summarizationScore?: number | null;
+  coverageScore?: number | null;
+  alignmentScore?: number | null;
+  summarizationReason?: string | null;
+}
 
 export const saveSummaryTool = createTool({
   id: "save-summary",
@@ -32,48 +48,43 @@ export const saveSummaryTool = createTool({
       const alignmentScore = context.summarizationResult?.alignmentScore || null;
       const summarizationReason = context.summarizationResult?.reason || null;
 
+      // Generate an ID for the summary
+      const summaryId = crypto.randomUUID();
+
       // Generate embedding for the summary
-      // Initialise the document
-      const doc = MDocument.fromText(context.summary);
-
-      // Create chunks
-      const chunks = await doc.chunk({
-        strategy: "recursive",
-        size: 256,
-        overlap: 50,
-      });
-
-      // Generate embeddings with OpenAI
-      const { embeddings: openAIEmbeddings } = await embedMany({
+      const embedding = await embed({
         model: openai.embedding("text-embedding-3-small"),
-        values: chunks.map((chunk: { text: string }) => chunk.text),
+        value: context.summary,
       });
 
-      // Format embeddings for PostgreSQL vector type
-      const formattedEmbeddings = openAIEmbeddings[0]; // Take first embedding since we want to store one vector per summary
+      // Create metadata for the summary in the same format as Discord messages
+      const summaryMetadata: SummaryMetadata = {
+        platform: "summary", // Indicates this is a summary
+        platformId: context.platformId,
+        timestamp: new Date(),
+        text: context.summary,
+        isReaction: false,
+        isSummary: true, // Flag to identify as a summary
+        startDate: context.startDate,
+        endDate: context.endDate,
+        messageCount: context.messageCount,
+        uniqueUserCount: context.uniqueUserCount,
+        summarizationScore,
+        coverageScore,
+        alignmentScore,
+        summarizationReason
+      };
 
-      // Insert the summary into the database using Drizzle
-      const [result] = await db
-        .insert(summaries)
-        .values({
-          communityId: context.communityId,
-          summaryText: context.summary,
-          startDate: new Date(context.startDate),
-          endDate: new Date(context.endDate),
-          platformId: context.platformId,
-          embedding: formattedEmbeddings,
-          summarizationScore: summarizationScore,
-          coverageScore: coverageScore,
-          alignmentScore: alignmentScore,
-          summarizationReason: summarizationReason,
-          messageCount: context.messageCount,
-          uniqueUserCount: context.uniqueUserCount,
-        })
-        .returning({ id: summaries.id });
+      // Store in vector store
+      await vectorStore.upsert({
+        indexName: "community_messages",
+        vectors: [embedding.embedding],
+        metadata: [summaryMetadata],
+      });
 
       return {
         success: true,
-        summaryId: result.id,
+        summaryId,
       };
     } catch (error: any) {
       console.error("Exception saving summary:", error);
@@ -83,4 +94,4 @@ export const saveSummaryTool = createTool({
       };
     }
   },
-});
+}); 
