@@ -16,6 +16,7 @@ interface MessageMetadata {
   timestamp: Date | string;
   text: string;
   isReaction: boolean;
+  isSummary?: boolean;
 }
 
 // Define the context type
@@ -66,8 +67,7 @@ export const fetchCommunityMessagesTool = createTool({
         topK: 10000,
         includeMetadata: true,
         filter: {
-          platformId: context.platformId,
-          isSummary: { $ne: true }  // Exclude documents where isSummary is true
+          platformId: context.platformId
         }
       }) as VectorStoreResults | any[];
       
@@ -84,9 +84,15 @@ export const fetchCommunityMessagesTool = createTool({
           .map(match => match.metadata as MessageMetadata);
       }
       
-      // Filter by date range
+      // Filter by date range and exclude summaries
       const filteredMessages = messages.filter(msg => {
         try {
+          // Skip if it's a summary
+          if (msg.isSummary === true) {
+            return false;
+          }
+          
+          // Filter by date range
           const msgDate = new Date(msg.timestamp);
           return msgDate >= startDate && msgDate <= endDate;
         } catch (e) {
