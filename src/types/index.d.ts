@@ -33,9 +33,10 @@ declare global {
     authorUsername: string;
     threadId: string; // Common across platforms but implemented differently
     channelId?: string; // Discord/Telegram specific
-    timestamp: Date;
+    timestamp: number; // Unix timestamp
     text: string;
     isReaction?: boolean;
+    isBotQuery?: boolean;
   }
 }
 
