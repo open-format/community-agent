@@ -98,12 +98,6 @@ export const platformConnections = pgTable(
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
 );
 
-// Then define the relations
-export const communitiesRelations = relations(communities, ({ many }) => ({
-  platformConnections: many(platformConnections),
-  summaries: many(summaries),
-}));
-
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
   community: one(communities, {
     fields: [platformConnections.communityId],
