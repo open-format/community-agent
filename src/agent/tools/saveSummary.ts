@@ -3,8 +3,6 @@ import { createTool } from "@mastra/core/tools";
 import { MDocument } from "@mastra/rag";
 import { embedMany } from "ai";
 import { z } from "zod";
-import { db } from "../../db";
-import { summaries } from "../../db/schema";
 
 export const saveSummaryTool = createTool({
   id: "save-summary",
@@ -51,25 +49,6 @@ export const saveSummaryTool = createTool({
 
       // Format embeddings for PostgreSQL vector type
       const formattedEmbeddings = openAIEmbeddings[0]; // Take first embedding since we want to store one vector per summary
-
-      // Insert the summary into the database using Drizzle
-      const [result] = await db
-        .insert(summaries)
-        .values({
-          communityId: context.communityId,
-          summaryText: context.summary,
-          startDate: new Date(context.startDate),
-          endDate: new Date(context.endDate),
-          platformId: context.platformId,
-          embedding: formattedEmbeddings,
-          summarizationScore: summarizationScore,
-          coverageScore: coverageScore,
-          alignmentScore: alignmentScore,
-          summarizationReason: summarizationReason,
-          messageCount: context.messageCount,
-          uniqueUserCount: context.uniqueUserCount,
-        })
-        .returning({ id: summaries.id });
 
       return {
         success: true,
