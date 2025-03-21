@@ -1,26 +1,9 @@
+import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
-import { createTool } from "@mastra/core/tools";
-import { embedMany, embed } from "ai";
+import { createTool } from "@mastra/core";
+import { embed } from "ai";
+import dayjs from "dayjs";
 import { z } from "zod";
-import { vectorStore } from '@/agent/stores';
-
-// Define interface for the summary metadata
-interface SummaryMetadata {
-  platform: string;
-  platformId: string;
-  timestamp: Date | string;
-  text: string;
-  isReaction: boolean;
-  isSummary: boolean;
-  startDate: string;
-  endDate: string;
-  messageCount: number;
-  uniqueUserCount: number;
-  summarizationScore?: number | null;
-  coverageScore?: number | null;
-  alignmentScore?: number | null;
-  summarizationReason?: string | null;
-}
 
 export const saveSummaryTool = createTool({
   id: "save-summary",
@@ -61,10 +44,8 @@ export const saveSummaryTool = createTool({
       const summaryMetadata: SummaryMetadata = {
         platform: "summary", // Indicates this is a summary
         platformId: context.platformId,
-        timestamp: new Date(),
+        timestamp: dayjs().valueOf(),
         text: context.summary,
-        isReaction: false,
-        isSummary: true, // Flag to identify as a summary
         startDate: context.startDate,
         endDate: context.endDate,
         messageCount: context.messageCount,
@@ -72,12 +53,12 @@ export const saveSummaryTool = createTool({
         summarizationScore,
         coverageScore,
         alignmentScore,
-        summarizationReason
+        summarizationReason,
       };
 
       // Store in vector store
       await vectorStore.upsert({
-        indexName: "community_messages",
+        indexName: "summaries",
         vectors: [embedding.embedding],
         metadata: [summaryMetadata],
       });
@@ -86,12 +67,16 @@ export const saveSummaryTool = createTool({
         success: true,
         summaryId,
       };
-    } catch (error: any) {
-      console.error("Exception saving summary:", error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Exception saving summary:", error.message);
+      } else {
+        console.error("Exception saving summary:", error);
+      }
       return {
         success: false,
-        error: error.message || "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
-}); 
+});

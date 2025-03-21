@@ -1,9 +1,10 @@
-import { createTool } from '@mastra/core/tools';
-import { z } from 'zod';
-import { vectorStore } from '@/agent/stores';
+import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
+import { createTool } from "@mastra/core";
 import { embed } from "ai";
 import { Client, GatewayIntentBits } from 'discord.js';
+import dayjs from "dayjs";
+import { z } from "zod";
 
 // Define MessageMetadata interface
 interface MessageMetadata {
@@ -111,15 +112,15 @@ async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, st
 }
 
 export const fetchCommunityMessagesTool = createTool({
-  id: 'fetch-community-messages',
-  description: 'Fetch messages from vector store for a specific platform ID and date range',
+  id: "fetch-community-messages",
+  description: "Fetch messages from vector store for a specific platform ID and date range",
   inputSchema: z.object({
-    startDate: z.string(),
-    endDate: z.string(),
     platformId: z.string().nonempty(),
     includeStats: z.boolean().optional(),
     formatByChannel: z.boolean().optional(),
-    includeMessageId: z.boolean().optional()
+    includeMessageId: z.boolean().optional(),
+    startDate: z.number(),
+    endDate: z.number(),
   }),
   outputSchema: z.object({
     transcript: z.string(),
@@ -145,89 +146,56 @@ export const fetchCommunityMessagesTool = createTool({
       }))
     }).optional()
   }),
-  execute: async ({ context }: ToolContext) => {
-    const startDate = new Date(context.startDate);
-    const endDate = new Date(context.endDate);
-
+  execute: async ({ context }: FetchCommunityMessagesToolContext) => {
     try {
       // Create a dummy embedding for the query
       const dummyEmbedding = await embed({
         model: openai.embedding("text-embedding-3-small"),
         value: "community messages",
       });
-      
-      const queryResults = await vectorStore.query({
+
+      // Query the vector store for messages between a specific time with a specific platformId
+      const queryResults = (await vectorStore.query({
         indexName: "community_messages",
         queryVector: dummyEmbedding.embedding,
         topK: 10000,
         includeMetadata: true,
         filter: {
-          platformId: context.platformId
-        }
-      }) as VectorStoreResults | any[];
-      
-      // Extract messages from query results
-      let messages: MessageMetadata[] = [];
-      
-      if (Array.isArray(queryResults)) {
-        messages = queryResults
-          .filter(result => result && result.metadata)
-          .map(result => result.metadata as MessageMetadata);
-      } else if (queryResults && typeof queryResults === 'object' && 'matches' in queryResults && Array.isArray(queryResults.matches)) {
-        messages = (queryResults as VectorStoreResults).matches!
-          .filter(match => match && match.metadata)
-          .map(match => match.metadata as MessageMetadata);
-      }
-      
-      // Filter by date range and exclude summaries
-      const filteredMessages = messages.filter(msg => {
-        try {
-          // Skip if it's a summary
-          if (msg.isSummary === true) {
-            return false;
-          }
-          
-          // Filter by date range
-          const msgDate = new Date(msg.timestamp);
-          return msgDate >= startDate && msgDate <= endDate;
-        } catch (e) {
-          return false;
-        }
-      });
-      
+          platformId: context.platformId,
+          $and: [
+            { timestamp: { $gte: context.startDate } },
+            { timestamp: { $lte: context.endDate } },
+          ],
+          isBotQuery: {
+            $eq: false,
+          },
+        },
+      })) as VectorStoreResult[];
+
       // If we found no messages
-      if (filteredMessages.length === 0) {
-        return { 
-          transcript: `No messages found for platformId "${context.platformId}" in the date range ${startDate.toISOString()} to ${endDate.toISOString()}.`,
+      if (queryResults.length === 0) {
+        return {
+          transcript: `No messages found for platformId "${context.platformId}" in the date range ${context.startDate} to ${context.endDate}.`,
           messageCount: 0,
-          uniqueUserCount: 0
+          uniqueUserCount: 0,
         };
       }
 
       // Track unique users
       const userSet = new Set<string>();
-      
-      // Only filter out emoji-only messages (no longer checking isReaction) COME BACK TO THIS
-      const validMessages = filteredMessages.filter(message => {
-        // Skip messages that are just emojis (4 or fewer characters and containing emoji)
-        const content = message.text || '';
-        if (content.length <= 4 && /[\p{Emoji}]/u.test(content)) {
-          return false;
+
+      // Convert queryResults to a standard format for processing
+      const messages: VectorStoreResult[] = queryResults;
+
+      for (const message of messages) {
+        if (message?.metadata?.authorId) {
+          userSet.add(message.metadata.authorId);
         }
-        
-        // Add user to the set for unique user count
-        if (message.authorId) {
-          userSet.add(message.authorId);
-        }
-        
-        return true;
-      });
-      
+      }
+
       // Sort messages by timestamp
-      validMessages.sort((a, b) => {
-        const dateA = new Date(a.timestamp);
-        const dateB = new Date(b.timestamp);
-        return dateA.getTime() - dateB.getTime();
+      const sortedMessages = messages.sort((a: VectorStoreResult, b: VectorStoreResult) => {
+        return b.metadata.timestamp - a.metadata.timestamp; // For descending order (newest first)
       });
       
       // Replace the transcript generation with this new logic
@@ -380,3 +348,30 @@ async function formatMessagesByChannel(messages: MessageMetadata[], platformId: 
   // Use the same structured approach as formatMessagesChronologically
   return formatMessagesChronologically(messages, platformId, includeMessageId);
 } 
+
+      // Format messages into transcript
+      const transcript = sortedMessages
+        .map((message: VectorStoreResult) => {
+          // Format date and content
+          const datetime = message.metadata.timestamp;
+          const username = message.metadata.authorUsername || "Unknown User";
+          const content = message.metadata.text || "[No content]";
+
+          // Simple, consistent format for all messages
+          return `[${dayjs(datetime).format("MM/DD/YYYY HH:mm")}] ${username}: ${content}`;
+        })
+        .join("\n");
+
+      return {
+        transcript: transcript || "No valid messages found after filtering.",
+        messageCount: messages.length,
+        uniqueUserCount: userSet.size,
+      };
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        throw new Error(`No messages found in this community. Details: ${err.message}`);
+      }
+      throw new Error("No messages found in this community. Unknown error occurred.");
+    }
+  },
+});
