@@ -27,7 +27,7 @@ const TOPIC = "Why blockchains are good as a value layer for Ai agents";
 const MESSAGE_COUNT = 10;
 const START_DATE = dayjs().subtract(1, "week").valueOf();
 const END_DATE = dayjs().valueOf();
-const PLATFORM_ID = "dev-platform-id"; // Using dev-specific ID
+const PLATFORM_ID = "932238833146277958"; // Your Discord Server ID
 
 // Utility functions
 const generateRandomId = () => Math.floor(Math.random() * 1000000000000000000).toString();
@@ -58,6 +58,8 @@ const generateRawMessagesStep = new Step({
     const systemPrompt = `
       You are a helpful assistant that generates a ${MESSAGE_COUNT}-message Discord conversation about ${TOPIC}.
       Return ONLY the message content, one message per line.
+      Do NOT include any user prefixes like "User1:" or "**User2:**" in your response.
+      Just provide the raw message content for each message.
     `;
 
     const result = await generateText({
@@ -79,7 +81,13 @@ const generateRawMessagesStep = new Step({
     });
 
     // Split the text by newlines and filter empty lines
-    const messages = result.text.split("\n").filter((line: string) => line.trim());
+    let messages = result.text.split("\n").filter((line: string) => line.trim());
+
+    // Remove any user prefixes from messages (like "User1:" or "**User2:**")
+    messages = messages.map((msg: string) => {
+      return msg.replace(/^\*?\*?.*?\*?\*?:\s*/, "");
+    });
+
     const usernames = usernameResult.text
       .split("\n")
       .filter((line: string) => line.trim())
