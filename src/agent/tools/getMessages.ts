@@ -26,6 +26,7 @@ interface ToolContext {
     endDate: string;
     platformId: string;
     includeStats?: boolean;
+    formatByChannel?: boolean;
   };
 }
 
@@ -69,7 +70,8 @@ export const fetchCommunityMessagesTool = createTool({
     startDate: z.string(),
     endDate: z.string(),
     platformId: z.string().nonempty(),
-    includeStats: z.boolean().optional()
+    includeStats: z.boolean().optional(),
+    formatByChannel: z.boolean().optional()
   }),
   outputSchema: z.object({
     transcript: z.string(),
@@ -177,18 +179,10 @@ export const fetchCommunityMessagesTool = createTool({
         return dateA.getTime() - dateB.getTime();
       });
       
-      // Format messages into transcript
-      const transcript = validMessages.map(message => {
-        // Format date and content
-        const datetime = typeof message.timestamp === 'string' 
-          ? new Date(message.timestamp).toISOString()
-          : message.timestamp.toISOString();
-        const username = message.authorUsername || 'Unknown User';
-        const content = message.text || '[No content]';
-        
-        // Simple, consistent format for all messages
-        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
-      }).join('\n');
+      // Replace the transcript generation with this new logic
+      const transcript = context.formatByChannel 
+        ? formatMessagesByChannel(validMessages)
+        : formatMessagesChronologically(validMessages);
       
       // Generate stats if requested
       let stats: MessageStats | undefined = undefined;
@@ -284,4 +278,65 @@ export const fetchCommunityMessagesTool = createTool({
       throw new Error(`No messages found in this community. Details: ${error.message}`);
     }
   },
-}); 
+});
+
+// Add these helper functions
+function formatMessagesChronologically(messages: MessageMetadata[]): string {
+  return messages.map(message => {
+    const datetime = typeof message.timestamp === 'string' 
+      ? new Date(message.timestamp).toISOString()
+      : message.timestamp.toISOString();
+    const username = message.authorUsername || 'Unknown User';
+    const content = message.text || '[No content]';
+    
+    return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
+  }).join('\n');
+}
+
+function formatMessagesByChannel(messages: MessageMetadata[]): string {
+  // Group messages by channel
+  const channelMessages = new Map<string, MessageMetadata[]>();
+  
+  // Sort all messages into their respective channels
+  messages.forEach(message => {
+    const channelId = message.channelId || 'unknown-channel';
+    if (!channelMessages.has(channelId)) {
+      channelMessages.set(channelId, []);
+    }
+    channelMessages.get(channelId)!.push(message);
+  });
+  
+  // Format each channel's messages
+  const channelSections: string[] = [];
+  
+  // Process each channel
+  channelMessages.forEach((msgs, channelId) => {
+    // Skip channels with no messages
+    if (msgs.length === 0) return;
+    
+    // Sort messages within the channel by timestamp
+    msgs.sort((a, b) => {
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    // Format this channel's section
+    const channelSection = [
+      `\n=== Messages from Channel [${channelId}] ===\n`,
+      ...msgs.map(message => {
+        const datetime = typeof message.timestamp === 'string' 
+          ? new Date(message.timestamp).toISOString()
+          : message.timestamp.toISOString();
+        const username = message.authorUsername || 'Unknown User';
+        const content = message.text || '[No content]';
+        
+        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
+      })
+    ].join('\n');
+    
+    channelSections.push(channelSection);
+  });
+  
+  return channelSections.join('\n');
+} 
