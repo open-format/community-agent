@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { vectorStore } from '@/agent/stores';
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
+import { Client, GatewayIntentBits } from 'discord.js';
 
 // Define MessageMetadata interface
 interface MessageMetadata {
@@ -27,6 +28,7 @@ interface ToolContext {
     platformId: string;
     includeStats?: boolean;
     formatByChannel?: boolean;
+    includeMessageId?: boolean;
   };
 }
 
@@ -43,7 +45,10 @@ interface ContributorStat {
 }
 
 interface ChannelStat {
-  channelId: string;
+  channel: {
+    id: string;
+    name: string;
+  };
   count: number;
   uniqueUsers: number;
 }
@@ -63,6 +68,42 @@ interface VectorStoreResults {
   [key: string]: any;
 }
 
+// Add Discord client initialization
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+
+// Add this function near the top of the file
+async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
+  const channelMap = new Map<string, string>();
+  
+  try {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    await client.login(process.env.DISCORD_TOKEN);
+    await new Promise(resolve => client.once('ready', resolve));
+
+    try {
+      await Promise.all(channelIds.map(async (channelId) => {
+        try {
+          const channel = await client.channels.fetch(channelId);
+          if (channel && 'name' in channel && channel.name) {
+            channelMap.set(channelId, channel.name);
+          } else {
+            channelMap.set(channelId, 'unknown');
+          }
+        } catch (error) {
+          console.error(`Failed to fetch channel name for ${channelId}:`, error);
+          channelMap.set(channelId, 'unknown');
+        }
+      }));
+    } finally {
+      client.destroy();
+    }
+  } catch (error) {
+    console.error('Failed to initialize Discord client:', error);
+  }
+
+  return channelMap;
+}
+
 export const fetchCommunityMessagesTool = createTool({
   id: 'fetch-community-messages',
   description: 'Fetch messages from vector store for a specific platform ID and date range',
@@ -71,7 +112,8 @@ export const fetchCommunityMessagesTool = createTool({
     endDate: z.string(),
     platformId: z.string().nonempty(),
     includeStats: z.boolean().optional(),
-    formatByChannel: z.boolean().optional()
+    formatByChannel: z.boolean().optional(),
+    includeMessageId: z.boolean().optional()
   }),
   outputSchema: z.object({
     transcript: z.string(),
@@ -88,7 +130,10 @@ export const fetchCommunityMessagesTool = createTool({
         count: z.number()
       })),
       messagesByChannel: z.array(z.object({
-        channelId: z.string(),
+        channel: z.object({
+          id: z.string(),
+          name: z.string()
+        }),
         count: z.number(),
         uniqueUsers: z.number()
       }))
@@ -181,8 +226,8 @@ export const fetchCommunityMessagesTool = createTool({
       
       // Replace the transcript generation with this new logic
       const transcript = context.formatByChannel 
-        ? formatMessagesByChannel(validMessages)
-        : formatMessagesChronologically(validMessages);
+        ? formatMessagesByChannel(validMessages, context.platformId, context.includeMessageId)
+        : formatMessagesChronologically(validMessages, context.platformId, context.includeMessageId);
       
       // Generate stats if requested
       let stats: MessageStats | undefined = undefined;
@@ -199,6 +244,7 @@ export const fetchCommunityMessagesTool = createTool({
         // Add new map to track unique users per channel
         const channelUserMap = new Map<string, Set<string>>();
         
+        // Process messages first
         validMessages.forEach(message => {
           // Format date for grouping (YYYY-MM-DD)
           const messageDate = new Date(message.timestamp);
@@ -233,32 +279,36 @@ export const fetchCommunityMessagesTool = createTool({
             }
           }
         });
-        
-        // Convert maps to sorted arrays
-        const messagesByDate: DateStat[] = Array.from(dateCountMap.entries())
-          .map(([date, count]) => ({ 
-            date, 
-            count,
-            uniqueUsers: dateUserMap.has(date) ? dateUserMap.get(date)!.size : 0
-          }))
-          .sort((a, b) => a.date.localeCompare(b.date));
-        
-        const topContributors: ContributorStat[] = Array.from(contributorCountMap.entries())
-          .map(([username, count]) => ({ username, count }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5); // Top 5 contributors
-        
-        const messagesByChannel: ChannelStat[] = Array.from(channelCountMap.entries())
-          .map(([channelId, count]) => ({ 
-            channelId, 
+
+        // Get channel names once for all channels
+        const channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
+
+        // Create channel stats using the map
+        const messagesByChannel = Array.from(channelCountMap.entries())
+          .map(([channelId, count]) => ({
+            channel: {
+              id: channelId,
+              name: channelNameMap.get(channelId) || 'unknown'
+            },
             count,
             uniqueUsers: channelUserMap.has(channelId) ? channelUserMap.get(channelId)!.size : 0
           }))
-          .sort((a, b) => b.count - a.count); // Sort by most active channels
-        
+          .sort((a, b) => b.count - a.count);
+
         stats = {
-          messagesByDate,
-          topContributors,
+          messagesByDate: Array.from(dateCountMap.entries())
+            .map(([date, count]) => ({ 
+              date, 
+              count,
+              uniqueUsers: dateUserMap.has(date) ? dateUserMap.get(date)!.size : 0
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+          
+          topContributors: Array.from(contributorCountMap.entries())
+            .map(([username, count]) => ({ username, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5),
+          
           messagesByChannel
         };
       }
@@ -281,19 +331,26 @@ export const fetchCommunityMessagesTool = createTool({
 });
 
 // Add these helper functions
-function formatMessagesChronologically(messages: MessageMetadata[]): string {
-  return messages.map(message => {
+function formatMessagesChronologically(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): string {
+  const header = `The server ID is [${platformId}]\n\n`;
+  
+  const formattedMessages = messages.map(message => {
     const datetime = typeof message.timestamp === 'string' 
       ? new Date(message.timestamp).toISOString()
       : message.timestamp.toISOString();
     const username = message.authorUsername || 'Unknown User';
     const content = message.text || '[No content]';
+    const messageIdStr = includeMessageId ? `ID: [${message.messageId}] ` : '';
     
-    return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
+    return `[${datetime.slice(0, 16).replace('T', ' ')}] ${messageIdStr}${username}: ${content}`;
   }).join('\n');
+  
+  return header + formattedMessages;
 }
 
-function formatMessagesByChannel(messages: MessageMetadata[]): string {
+function formatMessagesByChannel(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): string {
+  const header = `The server ID is [${platformId}]\n`;
+  
   // Group messages by channel
   const channelMessages = new Map<string, MessageMetadata[]>();
   
@@ -330,13 +387,14 @@ function formatMessagesByChannel(messages: MessageMetadata[]): string {
           : message.timestamp.toISOString();
         const username = message.authorUsername || 'Unknown User';
         const content = message.text || '[No content]';
+        const messageIdStr = includeMessageId ? `ID: [${message.messageId}] ` : '';
         
-        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
+        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${messageIdStr}${username}: ${content}`;
       })
     ].join('\n');
     
     channelSections.push(channelSection);
   });
   
-  return channelSections.join('\n');
+  return header + channelSections.join('\n');
 } 
