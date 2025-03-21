@@ -25,7 +25,32 @@ interface ToolContext {
     startDate: string;
     endDate: string;
     platformId: string;
+    includeStats?: boolean;
   };
+}
+
+// Define stats interfaces
+interface DateStat {
+  date: string;
+  count: number;
+  uniqueUsers: number;
+}
+
+interface ContributorStat {
+  username: string;
+  count: number;
+}
+
+interface ChannelStat {
+  channelId: string;
+  count: number;
+  uniqueUsers: number;
+}
+
+interface MessageStats {
+  messagesByDate: DateStat[];
+  topContributors: ContributorStat[];
+  messagesByChannel: ChannelStat[];
 }
 
 // Define the result type for vector store
@@ -43,12 +68,29 @@ export const fetchCommunityMessagesTool = createTool({
   inputSchema: z.object({
     startDate: z.string(),
     endDate: z.string(),
-    platformId: z.string().nonempty()
+    platformId: z.string().nonempty(),
+    includeStats: z.boolean().optional()
   }),
   outputSchema: z.object({
     transcript: z.string(),
     messageCount: z.number(),
     uniqueUserCount: z.number(),
+    stats: z.object({
+      messagesByDate: z.array(z.object({
+        date: z.string(),
+        count: z.number(),
+        uniqueUsers: z.number()
+      })),
+      topContributors: z.array(z.object({
+        username: z.string(),
+        count: z.number()
+      })),
+      messagesByChannel: z.array(z.object({
+        channelId: z.string(),
+        count: z.number(),
+        uniqueUsers: z.number()
+      }))
+    }).optional()
   }),
   execute: async ({ context }: ToolContext) => {
     const startDate = new Date(context.startDate);
@@ -148,11 +190,96 @@ export const fetchCommunityMessagesTool = createTool({
         return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
       }).join('\n');
       
-      return { 
+      // Generate stats if requested
+      let stats: MessageStats | undefined = undefined;
+      
+      if (context.includeStats) {
+        // Calculate messages by date
+        const dateCountMap = new Map<string, number>();
+        // Track unique users by date
+        const dateUserMap = new Map<string, Set<string>>();
+        // Calculate top contributors
+        const contributorCountMap = new Map<string, number>();
+        // Calculate messages by channel
+        const channelCountMap = new Map<string, number>();
+        // Add new map to track unique users per channel
+        const channelUserMap = new Map<string, Set<string>>();
+        
+        validMessages.forEach(message => {
+          // Format date for grouping (YYYY-MM-DD)
+          const messageDate = new Date(message.timestamp);
+          const dateString = messageDate.toISOString().split('T')[0];
+          
+          // Count messages by date
+          dateCountMap.set(dateString, (dateCountMap.get(dateString) || 0) + 1);
+          
+          // Track unique users by date
+          if (message.authorId) {
+            if (!dateUserMap.has(dateString)) {
+              dateUserMap.set(dateString, new Set<string>());
+            }
+            dateUserMap.get(dateString)!.add(message.authorId);
+          }
+          
+          // Count messages by contributor
+          const username = message.authorUsername || 'Unknown User';
+          contributorCountMap.set(username, (contributorCountMap.get(username) || 0) + 1);
+          
+          // Count messages and unique users by channel
+          if (message.channelId) {
+            // Count total messages
+            channelCountMap.set(message.channelId, (channelCountMap.get(message.channelId) || 0) + 1);
+            
+            // Track unique users per channel
+            if (message.authorId) {
+              if (!channelUserMap.has(message.channelId)) {
+                channelUserMap.set(message.channelId, new Set<string>());
+              }
+              channelUserMap.get(message.channelId)!.add(message.authorId);
+            }
+          }
+        });
+        
+        // Convert maps to sorted arrays
+        const messagesByDate: DateStat[] = Array.from(dateCountMap.entries())
+          .map(([date, count]) => ({ 
+            date, 
+            count,
+            uniqueUsers: dateUserMap.has(date) ? dateUserMap.get(date)!.size : 0
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+        
+        const topContributors: ContributorStat[] = Array.from(contributorCountMap.entries())
+          .map(([username, count]) => ({ username, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5); // Top 5 contributors
+        
+        const messagesByChannel: ChannelStat[] = Array.from(channelCountMap.entries())
+          .map(([channelId, count]) => ({ 
+            channelId, 
+            count,
+            uniqueUsers: channelUserMap.has(channelId) ? channelUserMap.get(channelId)!.size : 0
+          }))
+          .sort((a, b) => b.count - a.count); // Sort by most active channels
+        
+        stats = {
+          messagesByDate,
+          topContributors,
+          messagesByChannel
+        };
+      }
+      
+      const result: any = { 
         transcript: transcript || "No valid messages found after filtering.",
         messageCount: validMessages.length,
-        uniqueUserCount: userSet.size,
+        uniqueUserCount: userSet.size
       };
+      
+      if (stats) {
+        result.stats = stats;
+      }
+      
+      return result;
     } catch (error: any) {
       throw new Error(`No messages found in this community. Details: ${error.message}`);
     }
