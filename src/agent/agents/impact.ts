@@ -18,11 +18,31 @@ const impactReportSchema = z.object({
     username: z.string(),
     messageCount: z.number()
   })),
+  channelBreakdown: z.array(z.object({
+    channelName: z.string(),
+    messageCount: z.number(),
+    uniqueUsers: z.number()
+  })),
   keyTopics: z.array(z.object({
     topic: z.string(),
     messageCount: z.number(),
-    description: z.string()
-  }))
+    description: z.string(),
+    examples: z.array(z.string()).min(1).max(5)
+  })),
+  userSentiment: z.object({
+    excitement: z.array(z.object({
+      title: z.string(),
+      description: z.string(),
+      users: z.array(z.string()),
+      examples: z.array(z.string()).min(1).max(5)
+    })),
+    frustrations: z.array(z.object({
+      title: z.string(),
+      description: z.string(),
+      users: z.array(z.string()),
+      examples: z.array(z.string()).min(1).max(5)
+    }))
+  })
 });
 
 export const impactAgent = new Agent({
@@ -33,13 +53,59 @@ export const impactAgent = new Agent({
   - Overview statistics (total messages, unique users, active channels)
   - Daily activity breakdown
   - Top contributors
+  - Channel activity breakdown (messages and unique users per channel)
   - Key discussion topics (3-5 main themes)
+  - User sentiment analysis (what excites vs. frustrates users)
 
-  For key topics:
-  - Identify main discussion themes from the transcript
-  - Count approximate mentions/messages for each topic
-  - Provide a brief description of each topic
-  - Ensure all numbers match the provided statistics`,
+  CRITICAL - Message URL Format:
+  Messages in the transcript are organized by channel and follow this format:
+  === Messages from Channel ID: [channelId] (Channel name: channelName) ===
+  [timestamp] [DISCORD_MESSAGE_ID=messageId] username: content
+
+  The server ID is provided at the start of the transcript as: The server ID is [serverId]
+
+  When referencing messages:
+  1. Extract the server ID from the transcript header
+  2. Extract the channel ID from the channel section header: [channelId]
+  3. Extract the message ID from the message: [DISCORD_MESSAGE_ID=messageId]
+  4. Construct the full Discord URL using this format:
+     https://discord.com/channels/[serverId]/[channelId]/[messageId]
+
+  Example:
+  From transcript:
+  The server ID is [123456789]
+  === Messages from Channel ID: [987654321] ===
+  [2024-03-20] [DISCORD_MESSAGE_ID=111222333] username: content
+
+  Should become:
+  https://discord.com/channels/123456789/987654321/111222333
+
+  Rules for Message References:
+  - Only use message IDs that appear in [DISCORD_MESSAGE_ID=xxx] format
+  - Only use channel IDs that appear in channel headers [channelId]
+  - Never reuse a message ID
+  - Never modify or make up IDs
+  - Use fewer examples if you can't find enough relevant messages
+  - Always construct complete, valid Discord URLs
+
+  For Key Topics:
+  - Identify 3-5 main discussion themes
+  - For each topic, find 1-3 relevant message examples
+  - Include full Discord URLs to the example messages
+  - Include accurate message counts for each topic
+
+  For User Sentiment:
+  - Identify key points of excitement and frustration
+  - Include the actual usernames of people involved
+  - Include full Discord URLs to example messages
+  - Use different messages for each sentiment point
+  - Make sure each example is relevant to the sentiment being described
+
+  For Channel Breakdown:
+  - Use the channel names provided in the channel headers
+  - Include accurate message counts and unique user counts per channel
+
+  Remember: Quality over quantity - it's better to have fewer examples with correct URLs than many examples with incorrect or reused message IDs.`,
   model: openai("gpt-4o"),
 });
 
@@ -58,7 +124,10 @@ interface ImpactReportData {
       count: number;
     }>;
     messagesByChannel: Array<{
-      channelId: string;
+      channel: {
+        id: string;
+        name: string;
+      };
       count: number;
       uniqueUsers: number;
     }>;

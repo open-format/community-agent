@@ -20,9 +20,14 @@ interface WorkflowContext {
         stats?: {
           messagesByDate: Array<{ date: string; count: number; uniqueUsers: number }>;
           topContributors: Array<{ username: string; count: number }>;
-          messagesByChannel: Array<{ channelId: string; count: number; uniqueUsers: number }>;
-          activityByHour: Array<{ hour: number; count: number; uniqueUsers: number }>;
-          activityByDayOfWeek: Array<{ day: string; count: number; uniqueUsers: number }>;
+          messagesByChannel: Array<{ 
+            channel: {
+              id: string;
+              name: string;
+            };
+            count: number;
+            uniqueUsers: number;
+          }>;
         };
       };
     };
@@ -63,7 +68,10 @@ const fetchMessagesStep = new Step({
         count: z.number()
       })),
       messagesByChannel: z.array(z.object({
-        channelId: z.string(),
+        channel: z.object({
+          id: z.string(),
+          name: z.string()
+        }),
         count: z.number(),
         uniqueUsers: z.number()
       })),

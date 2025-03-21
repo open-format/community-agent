@@ -81,7 +81,10 @@ async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, st
     await new Promise(resolve => client.once('ready', resolve));
 
     try {
-      await Promise.all(channelIds.map(async (channelId) => {
+      // Filter out "unknown-channel" before making API calls
+      const validChannelIds = channelIds.filter(id => id !== 'unknown-channel');
+      
+      await Promise.all(validChannelIds.map(async (channelId) => {
         try {
           const channel = await client.channels.fetch(channelId);
           if (channel && 'name' in channel && channel.name) {
@@ -94,6 +97,9 @@ async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, st
           channelMap.set(channelId, 'unknown');
         }
       }));
+
+      // Set unknown-channel explicitly
+      channelMap.set('unknown-channel', 'Unknown Channel');
     } finally {
       client.destroy();
     }
@@ -226,7 +232,7 @@ export const fetchCommunityMessagesTool = createTool({
       
       // Replace the transcript generation with this new logic
       const transcript = context.formatByChannel 
-        ? formatMessagesByChannel(validMessages, context.platformId, context.includeMessageId)
+        ? await formatMessagesByChannel(validMessages, context.platformId, context.includeMessageId)
         : formatMessagesChronologically(validMessages, context.platformId, context.includeMessageId);
       
       // Generate stats if requested
@@ -330,71 +336,47 @@ export const fetchCommunityMessagesTool = createTool({
   },
 });
 
-// Add these helper functions
+// Update the formatting functions
 function formatMessagesChronologically(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): string {
   const header = `The server ID is [${platformId}]\n\n`;
   
+  // Create a structured format that's easier to parse
   const formattedMessages = messages.map(message => {
     const datetime = typeof message.timestamp === 'string' 
       ? new Date(message.timestamp).toISOString()
       : message.timestamp.toISOString();
-    const username = message.authorUsername || 'Unknown User';
-    const content = message.text || '[No content]';
-    const messageIdStr = includeMessageId ? `ID: [${message.messageId}] ` : '';
     
-    return `[${datetime.slice(0, 16).replace('T', ' ')}] ${messageIdStr}${username}: ${content}`;
-  }).join('\n');
-  
-  return header + formattedMessages;
+    return {
+      timestamp: datetime.slice(0, 16).replace('T', ' '),
+      channelId: message.channelId || 'unknown-channel',
+      messageId: message.messageId,
+      username: message.authorUsername || 'Unknown User',
+      content: message.text || '[No content]'
+    };
+  });
+
+  // Group messages by channel
+  const messagesByChannel = formattedMessages.reduce((acc, msg) => {
+    if (!acc[msg.channelId]) {
+      acc[msg.channelId] = [];
+    }
+    acc[msg.channelId].push(msg);
+    return acc;
+  }, {} as Record<string, typeof formattedMessages>);
+
+  // Format each channel's messages
+  const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
+    const channelHeader = `=== Messages from Channel ID: [${channelId}] ===\n`;
+    const channelMessages = msgs.map(msg => 
+      `[${msg.timestamp}] [DISCORD_MESSAGE_ID=${msg.messageId}] ${msg.username}: ${msg.content}`
+    ).join('\n');
+    return channelHeader + channelMessages;
+  });
+
+  return header + sections.join('\n\n');
 }
 
-function formatMessagesByChannel(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): string {
-  const header = `The server ID is [${platformId}]\n`;
-  
-  // Group messages by channel
-  const channelMessages = new Map<string, MessageMetadata[]>();
-  
-  // Sort all messages into their respective channels
-  messages.forEach(message => {
-    const channelId = message.channelId || 'unknown-channel';
-    if (!channelMessages.has(channelId)) {
-      channelMessages.set(channelId, []);
-    }
-    channelMessages.get(channelId)!.push(message);
-  });
-  
-  // Format each channel's messages
-  const channelSections: string[] = [];
-  
-  // Process each channel
-  channelMessages.forEach((msgs, channelId) => {
-    // Skip channels with no messages
-    if (msgs.length === 0) return;
-    
-    // Sort messages within the channel by timestamp
-    msgs.sort((a, b) => {
-      const dateA = new Date(a.timestamp);
-      const dateB = new Date(b.timestamp);
-      return dateA.getTime() - dateB.getTime();
-    });
-    
-    // Format this channel's section
-    const channelSection = [
-      `\n=== Messages from Channel [${channelId}] ===\n`,
-      ...msgs.map(message => {
-        const datetime = typeof message.timestamp === 'string' 
-          ? new Date(message.timestamp).toISOString()
-          : message.timestamp.toISOString();
-        const username = message.authorUsername || 'Unknown User';
-        const content = message.text || '[No content]';
-        const messageIdStr = includeMessageId ? `ID: [${message.messageId}] ` : '';
-        
-        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${messageIdStr}${username}: ${content}`;
-      })
-    ].join('\n');
-    
-    channelSections.push(channelSection);
-  });
-  
-  return header + channelSections.join('\n');
+async function formatMessagesByChannel(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): Promise<string> {
+  // Use the same structured approach as formatMessagesChronologically
+  return formatMessagesChronologically(messages, platformId, includeMessageId);
 } 
