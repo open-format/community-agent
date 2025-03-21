@@ -1,7 +1,8 @@
+import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
-import { createTool } from "@mastra/core/tools";
-import { MDocument } from "@mastra/rag";
-import { embedMany } from "ai";
+import { createTool } from "@mastra/core";
+import { embed } from "ai";
+import dayjs from "dayjs";
 import { z } from "zod";
 
 export const saveSummaryTool = createTool({
@@ -30,35 +31,51 @@ export const saveSummaryTool = createTool({
       const alignmentScore = context.summarizationResult?.alignmentScore || null;
       const summarizationReason = context.summarizationResult?.reason || null;
 
+      // Generate an ID for the summary
+      const summaryId = crypto.randomUUID();
+
       // Generate embedding for the summary
-      // Initialise the document
-      const doc = MDocument.fromText(context.summary);
-
-      // Create chunks
-      const chunks = await doc.chunk({
-        strategy: "recursive",
-        size: 256,
-        overlap: 50,
-      });
-
-      // Generate embeddings with OpenAI
-      const { embeddings: openAIEmbeddings } = await embedMany({
+      const embedding = await embed({
         model: openai.embedding("text-embedding-3-small"),
-        values: chunks.map((chunk: { text: string }) => chunk.text),
+        value: context.summary,
       });
 
-      // Format embeddings for PostgreSQL vector type
-      const formattedEmbeddings = openAIEmbeddings[0]; // Take first embedding since we want to store one vector per summary
+      // Create metadata for the summary in the same format as Discord messages
+      const summaryMetadata: SummaryMetadata = {
+        platform: "summary", // Indicates this is a summary
+        platformId: context.platformId,
+        timestamp: dayjs().valueOf(),
+        text: context.summary,
+        startDate: context.startDate,
+        endDate: context.endDate,
+        messageCount: context.messageCount,
+        uniqueUserCount: context.uniqueUserCount,
+        summarizationScore,
+        coverageScore,
+        alignmentScore,
+        summarizationReason,
+      };
+
+      // Store in vector store
+      await vectorStore.upsert({
+        indexName: "summaries",
+        vectors: [embedding.embedding],
+        metadata: [summaryMetadata],
+      });
 
       return {
         success: true,
-        summaryId: result.id,
+        summaryId,
       };
-    } catch (error: any) {
-      console.error("Exception saving summary:", error);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Exception saving summary:", error.message);
+      } else {
+        console.error("Exception saving summary:", error);
+      }
       return {
         success: false,
-        error: error.message || "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   },
