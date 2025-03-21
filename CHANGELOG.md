@@ -1,3 +1,21 @@
+# [0.16.0](https://github.com/open-format/community-agent/compare/v0.15.0...v0.16.0) (2025-03-21)
+
+
+### Bug Fixes
+
+* exclude previously recorded summaries from summary content ([27167fe](https://github.com/open-format/community-agent/commit/27167fefb140812ecef6a7d83ecfd277c3be76c6))
+
+
+### Features
+
+* add new database schema for community management and authentication middleware ([d9eea30](https://github.com/open-format/community-agent/commit/d9eea30278ee0d3470db0d69f95ff7e0dfe870c4))
+* add script to generate and store synthetic Discord conversations ([24ecfb9](https://github.com/open-format/community-agent/commit/24ecfb9007280e0bb7671a41e900368abeb26736))
+* add summaries index and update saveSummary tool ([ddb8436](https://github.com/open-format/community-agent/commit/ddb84369755e926f3825303baefd40ef54f99237))
+* enhance agent routes and summary handling ([701096a](https://github.com/open-format/community-agent/commit/701096a2d63f36e37fb256f01f219beacbeb0fe2))
+* refactor message fetching and summary workflow ([7394722](https://github.com/open-format/community-agent/commit/73947224dab1c354a2e27eb96e9529900ede39ec))
+* update API routes and add documentation endpoint ([90b02f1](https://github.com/open-format/community-agent/commit/90b02f13467135b4409317a85fb3df759a56b94f))
+* update conversation generation script for Discord ([f78c234](https://github.com/open-format/community-agent/commit/f78c23408f9ea2b03d724db1d8b8c71e1bc85701))
+
 # [0.15.0](https://github.com/open-format/community-agent/compare/v0.14.0...v0.15.0) (2025-03-19)
 
 
