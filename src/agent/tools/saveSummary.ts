@@ -1,26 +1,8 @@
+import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
-import { createTool } from "@mastra/core/tools";
-import { embedMany, embed } from "ai";
+import { createTool } from "@mastra/core";
+import { embed } from "ai";
 import { z } from "zod";
-import { vectorStore } from '@/agent/stores';
-
-// Define interface for the summary metadata
-interface SummaryMetadata {
-  platform: string;
-  platformId: string;
-  timestamp: Date | string;
-  text: string;
-  isReaction: boolean;
-  isSummary: boolean;
-  startDate: string;
-  endDate: string;
-  messageCount: number;
-  uniqueUserCount: number;
-  summarizationScore?: number | null;
-  coverageScore?: number | null;
-  alignmentScore?: number | null;
-  summarizationReason?: string | null;
-}
 
 export const saveSummaryTool = createTool({
   id: "save-summary",
@@ -72,7 +54,7 @@ export const saveSummaryTool = createTool({
         summarizationScore,
         coverageScore,
         alignmentScore,
-        summarizationReason
+        summarizationReason,
       };
 
       // Store in vector store
@@ -94,4 +76,4 @@ export const saveSummaryTool = createTool({
       };
     }
   },
-}); 
+});
