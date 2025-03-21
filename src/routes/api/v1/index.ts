@@ -7,7 +7,7 @@ import communitiesRoute from "./communities";
 import docs from "./docs";
 import webhooksRoute from "./webhooks";
 
-const app = new OpenAPIHono().basePath("/api/v1");
+const app = new OpenAPIHono();
 
 app.use("/webhooks/github", githubWebhookMiddleware());
 app.use("*", authMiddleware());

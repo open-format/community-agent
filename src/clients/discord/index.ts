@@ -84,7 +84,7 @@ discordClient.on("messageCreate", async (msg) => {
     authorUsername: msg.author.username,
     channelId: msg.channelId,
     threadId: msg.id,
-    timestamp: new Date(msg.createdTimestamp),
+    timestamp: msg.createdTimestamp,
     text: msg.content,
     isReaction: false,
   };
@@ -103,8 +103,7 @@ discordClient.on("messageCreate", async (msg) => {
 });
 
 discordClient.on("messageReactionAdd", async (reaction, user) => {
-  // TODO: Implement reaction handling
-  console.log("<<<reaction>>>", reaction, user);
+  console.log("<<<reaction>>>");
 });
 
 discordClient.login(process.env.DISCORD_TOKEN);
