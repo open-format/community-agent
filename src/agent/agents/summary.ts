@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { Agent } from "@mastra/core";
+import { Agent } from "@mastra/core/agent";
 // import { SummarizationMetric } from "@mastra/evals/llm";
 
 export const summaryAgent = new Agent({
