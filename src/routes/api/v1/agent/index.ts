@@ -32,16 +32,20 @@ agentRoute.openapi(getAgentSummary, async (c) => {
 
     // Get date range from query params or use defaults
     const query = c.req.query();
-    const startDate = dayjs(query.start_date).valueOf() ?? dayjs().subtract(7, "day").valueOf();
-    const endDate = dayjs(query.end_date).valueOf() ?? dayjs().valueOf();
+    const startDate = query.startDate || dayjs().subtract(7, "day").toISOString();
+    const endDate = query.endDate || dayjs().toISOString();
+
+    // Convert to Unix timestamps for the workflow
+    const startMs = dayjs(startDate).valueOf();
+    const endMs = dayjs(endDate).valueOf();
 
     const workflow = mastra.getWorkflow("summaryWorkflow");
     const { start } = workflow.createRun();
 
     const result = await start({
       triggerData: {
-        startDate: startDate,
-        endDate: endDate,
+        startDate: startMs,
+        endDate: endMs,
         platformId: platform.platformId,
         communityId: communityId,
       },
@@ -51,8 +55,8 @@ agentRoute.openapi(getAgentSummary, async (c) => {
       return c.json({
         summary: result.results.generateSummary.output.summary,
         timeframe: {
-          startDate: dayjs(startDate).toISOString(),
-          endDate: dayjs(endDate).toISOString(),
+          startDate,
+          endDate,
         },
       });
     }
@@ -183,15 +187,12 @@ agentRoute.openapi(getMessages, async (c) => {
     const includeMessageIdBool = includeMessageId === "true";
 
     // Parse dates using dayjs, defaulting to last 7 days if not provided
-    const startMs = startDate ? dayjs(startDate).valueOf() : dayjs().subtract(7, "day").valueOf();
-    const endMs = endDate ? dayjs(endDate).valueOf() : dayjs().valueOf();
+    const startDateMs = startDate || dayjs().subtract(7, "day").toISOString();
+    const endDateMs = endDate || dayjs().toISOString();
 
-    // Validate that the dates were parsed correctly
-    if (isNaN(startMs) || isNaN(endMs)) {
-      return c.json({ 
-        message: "Invalid date format. Please provide dates in ISO 8601 format (e.g. 2024-03-01T00:00:00Z)" 
-      }, 400);
-    }
+    // Convert to Unix timestamps for internal use
+    const startMs = dayjs(startDate).valueOf();
+    const endMs = dayjs(endDate).valueOf();
 
     console.log(`Fetching messages for platform ${platformId} from ${startMs} to ${endMs}`);
 
@@ -212,6 +213,10 @@ agentRoute.openapi(getMessages, async (c) => {
     const response = {
       message: "Messages retrieved successfully",
       transcript: result.transcript,
+      timeframe: {
+        startDate,
+        endDate,
+      },
       ...(result.stats ? { stats: result.stats } : {})
     };
 

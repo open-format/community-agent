@@ -7,11 +7,11 @@ export const getAgentSummary = createRoute({
       "X-Community-ID": z.string(),
     }),
     query: z.object({
-      start_date: z
+      startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
-      end_date: z
+      endDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
@@ -20,6 +20,17 @@ export const getAgentSummary = createRoute({
   responses: {
     200: {
       description: "The summary was created successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            summary: z.string(),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
+          }),
+        },
+      },
     },
     404: {
       description: "The community was not found",
@@ -42,11 +53,11 @@ export const postAgentSummary = createRoute({
         "application/json": {
           schema: z.object({
             query: z.string(),
-            start_date: z
+            startDate: z
               .string({ message: "must be a valid ISO 8601 date format" })
               .datetime({ message: "must be a valid ISO 8601 date format" })
               .optional(),
-            end_date: z
+            endDate: z
               .string({ message: "must be a valid ISO 8601 date format" })
               .datetime({ message: "must be a valid ISO 8601 date format" })
               .optional(),
@@ -83,11 +94,11 @@ export const getMessages = createRoute({
   description: "Fetch messages from a community with optional statistics",
   request: {
     query: z.object({
-      start_date: z
+      startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
-      end_date: z
+      endDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
@@ -111,6 +122,10 @@ export const getMessages = createRoute({
           schema: z.object({
             message: z.string(),
             transcript: z.string(),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
             stats: z.object({
               messageCount: z.number(),
               uniqueUserCount: z.number(),

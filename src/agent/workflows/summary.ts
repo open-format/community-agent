@@ -2,13 +2,18 @@ import { Step, Workflow } from "@mastra/core";
 import { z } from "zod";
 import { generateSummary } from "../agents/summary";
 import { getMessagesTool, saveSummaryTool } from "../tools/index";
+import dayjs from "dayjs";
 
 // Define the workflow
 export const summaryWorkflow = new Workflow({
   name: "community-summary",
   triggerSchema: z.object({
-    startDate: z.number(),
-    endDate: z.number(),
+    startDate: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
+    endDate: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
     platformId: z.string().nonempty(),
     communityId: z.string().nonempty(),
   }),
@@ -32,7 +37,6 @@ const fetchMessagesStep = new Step({
           endDate: context.triggerData.endDate,
           platformId: context.triggerData.platformId,
           includeStats: false,
-          formatByChannel: true,
           includeMessageId: false,
         },
       });
