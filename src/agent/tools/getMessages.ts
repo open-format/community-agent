@@ -15,22 +15,10 @@ interface MessageMetadata {
   authorUsername: string;
   channelId: string;
   threadId: string;
-  timestamp: Date | string;
+  timestamp: number;
   text: string;
   isReaction: boolean;
   isSummary?: boolean;
-}
-
-// Define the context type
-interface ToolContext {
-  context: {
-    startDate: string;
-    endDate: string;
-    platformId: string;
-    includeStats?: boolean;
-    formatByChannel?: boolean;
-    includeMessageId?: boolean;
-  };
 }
 
 // Define stats interfaces
@@ -60,19 +48,12 @@ interface MessageStats {
   messagesByChannel: ChannelStat[];
 }
 
-// Define the result type for vector store
-interface VectorStoreResults {
-  matches?: Array<{
-    metadata?: any;
-    [key: string]: any;
-  }>;
+// Add VectorStoreResult interface
+interface VectorStoreResult {
+  metadata: MessageMetadata;
   [key: string]: any;
 }
 
-// Add Discord client initialization
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-
-// Add this function near the top of the file
 async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
   const channelMap = new Map<string, string>();
   
@@ -146,7 +127,7 @@ export const fetchCommunityMessagesTool = createTool({
       }))
     }).optional()
   }),
-  execute: async ({ context }: FetchCommunityMessagesToolContext) => {
+  execute: async ({ context }: { context: { startDate: number; endDate: number; platformId: string; includeStats?: boolean } }) => {
     try {
       // Create a dummy embedding for the query
       const dummyEmbedding = await embed({
@@ -154,7 +135,6 @@ export const fetchCommunityMessagesTool = createTool({
         value: "community messages",
       });
 
-      // Query the vector store for messages between a specific time with a specific platformId
       const queryResults = (await vectorStore.query({
         indexName: "community_messages",
         queryVector: dummyEmbedding.embedding,
@@ -172,7 +152,6 @@ export const fetchCommunityMessagesTool = createTool({
         },
       })) as VectorStoreResult[];
 
-      // If we found no messages
       if (queryResults.length === 0) {
         return {
           transcript: `No messages found for platformId "${context.platformId}" in the date range ${context.startDate} to ${context.endDate}.`,
@@ -183,29 +162,22 @@ export const fetchCommunityMessagesTool = createTool({
 
       // Track unique users
       const userSet = new Set<string>();
-
-      // Convert queryResults to a standard format for processing
-      const messages: VectorStoreResult[] = queryResults;
-
-      for (const message of messages) {
-        if (message?.metadata?.authorId) {
+      queryResults.forEach(message => {
+        if (message.metadata.authorId) {
           userSet.add(message.metadata.authorId);
         }
-      }
-
-      // Sort messages by timestamp
-      const sortedMessages = messages.sort((a: VectorStoreResult, b: VectorStoreResult) => {
-        return b.metadata.timestamp - a.metadata.timestamp; // For descending order (newest first)
       });
-      
-      // Replace the transcript generation with this new logic
-      const transcript = context.formatByChannel 
-        ? await formatMessagesByChannel(validMessages, context.platformId, context.includeMessageId)
-        : formatMessagesChronologically(validMessages, context.platformId, context.includeMessageId);
-      
+
+      // Sort messages by timestamp (newest first)
+      const sortedMessages = queryResults.sort((a, b) => 
+        b.metadata.timestamp - a.metadata.timestamp
+      );
+
+      // Generate transcript
+      const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
+
       // Generate stats if requested
-      let stats: MessageStats | undefined = undefined;
-      
+      let stats: MessageStats | undefined;
       if (context.includeStats) {
         // Calculate messages by date
         const dateCountMap = new Map<string, number>();
@@ -217,87 +189,72 @@ export const fetchCommunityMessagesTool = createTool({
         const channelCountMap = new Map<string, number>();
         // Add new map to track unique users per channel
         const channelUserMap = new Map<string, Set<string>>();
-        
-        // Process messages first
-        validMessages.forEach(message => {
-          // Format date for grouping (YYYY-MM-DD)
-          const messageDate = new Date(message.timestamp);
-          const dateString = messageDate.toISOString().split('T')[0];
-          
-          // Count messages by date
+
+        sortedMessages.forEach(message => {
+          const dateString = dayjs(message.metadata.timestamp).format('YYYY-MM-DD');
+          const username = message.metadata.authorUsername || 'Unknown User';
+          const channelId = message.metadata.channelId;
+
+          // Update date stats
           dateCountMap.set(dateString, (dateCountMap.get(dateString) || 0) + 1);
-          
-          // Track unique users by date
-          if (message.authorId) {
-            if (!dateUserMap.has(dateString)) {
-              dateUserMap.set(dateString, new Set<string>());
-            }
-            dateUserMap.get(dateString)!.add(message.authorId);
+          if (!dateUserMap.has(dateString)) {
+            dateUserMap.set(dateString, new Set<string>());
           }
-          
-          // Count messages by contributor
-          const username = message.authorUsername || 'Unknown User';
+          if (message.metadata.authorId) {
+            dateUserMap.get(dateString)!.add(message.metadata.authorId);
+          }
+
+          // Update contributor stats
           contributorCountMap.set(username, (contributorCountMap.get(username) || 0) + 1);
-          
-          // Count messages and unique users by channel
-          if (message.channelId) {
-            // Count total messages
-            channelCountMap.set(message.channelId, (channelCountMap.get(message.channelId) || 0) + 1);
-            
-            // Track unique users per channel
-            if (message.authorId) {
-              if (!channelUserMap.has(message.channelId)) {
-                channelUserMap.set(message.channelId, new Set<string>());
-              }
-              channelUserMap.get(message.channelId)!.add(message.authorId);
+
+          // Update channel stats
+          if (channelId) {
+            channelCountMap.set(channelId, (channelCountMap.get(channelId) || 0) + 1);
+            if (!channelUserMap.has(channelId)) {
+              channelUserMap.set(channelId, new Set<string>());
+            }
+            if (message.metadata.authorId) {
+              channelUserMap.get(channelId)!.add(message.metadata.authorId);
             }
           }
         });
 
-        // Get channel names once for all channels
+        // Get channel names
         const channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
-
-        // Create channel stats using the map
-        const messagesByChannel = Array.from(channelCountMap.entries())
-          .map(([channelId, count]) => ({
-            channel: {
-              id: channelId,
-              name: channelNameMap.get(channelId) || 'unknown'
-            },
-            count,
-            uniqueUsers: channelUserMap.has(channelId) ? channelUserMap.get(channelId)!.size : 0
-          }))
-          .sort((a, b) => b.count - a.count);
 
         stats = {
           messagesByDate: Array.from(dateCountMap.entries())
-            .map(([date, count]) => ({ 
-              date, 
+            .map(([date, count]) => ({
+              date,
               count,
-              uniqueUsers: dateUserMap.has(date) ? dateUserMap.get(date)!.size : 0
+              uniqueUsers: dateUserMap.get(date)?.size || 0
             }))
             .sort((a, b) => a.date.localeCompare(b.date)),
-          
+
           topContributors: Array.from(contributorCountMap.entries())
             .map(([username, count]) => ({ username, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 5),
-          
-          messagesByChannel
+
+          messagesByChannel: Array.from(channelCountMap.entries())
+            .map(([channelId, count]) => ({
+              channel: {
+                id: channelId,
+                name: channelNameMap.get(channelId) || 'unknown'
+              },
+              count,
+              uniqueUsers: channelUserMap.get(channelId)?.size || 0
+            }))
+            .sort((a, b) => b.count - a.count)
         };
       }
-      
-      const result: any = { 
-        transcript: transcript || "No valid messages found after filtering.",
-        messageCount: validMessages.length,
-        uniqueUserCount: userSet.size
+
+      return {
+        transcript,
+        messageCount: sortedMessages.length,
+        uniqueUserCount: userSet.size,
+        ...(stats && { stats })
       };
-      
-      if (stats) {
-        result.stats = stats;
-      }
-      
-      return result;
     } catch (error: any) {
       throw new Error(`No messages found in this community. Details: ${error.message}`);
     }
@@ -305,21 +262,17 @@ export const fetchCommunityMessagesTool = createTool({
 });
 
 // Update the formatting functions
-function formatMessagesChronologically(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): string {
+function formatMessagesChronologically(messages: VectorStoreResult[], platformId: string, includeMessageId?: boolean): string {
   const header = `The server ID is [${platformId}]\n\n`;
   
   // Create a structured format that's easier to parse
   const formattedMessages = messages.map(message => {
-    const datetime = typeof message.timestamp === 'string' 
-      ? new Date(message.timestamp).toISOString()
-      : message.timestamp.toISOString();
-    
     return {
-      timestamp: datetime.slice(0, 16).replace('T', ' '),
-      channelId: message.channelId || 'unknown-channel',
-      messageId: message.messageId,
-      username: message.authorUsername || 'Unknown User',
-      content: message.text || '[No content]'
+      timestamp: dayjs(message.metadata.timestamp).format("YYYY-MM-DD HH:mm"),
+      channelId: message.metadata.channelId || 'unknown-channel',
+      messageId: message.metadata.messageId,
+      username: message.metadata.authorUsername || 'Unknown User',
+      content: message.metadata.text || '[No content]'
     };
   });
 
@@ -344,34 +297,6 @@ function formatMessagesChronologically(messages: MessageMetadata[], platformId: 
   return header + sections.join('\n\n');
 }
 
-async function formatMessagesByChannel(messages: MessageMetadata[], platformId: string, includeMessageId?: boolean): Promise<string> {
-  // Use the same structured approach as formatMessagesChronologically
+async function formatMessagesByChannel(messages: VectorStoreResult[], platformId: string, includeMessageId?: boolean): Promise<string> {
   return formatMessagesChronologically(messages, platformId, includeMessageId);
-} 
-
-      // Format messages into transcript
-      const transcript = sortedMessages
-        .map((message: VectorStoreResult) => {
-          // Format date and content
-          const datetime = message.metadata.timestamp;
-          const username = message.metadata.authorUsername || "Unknown User";
-          const content = message.metadata.text || "[No content]";
-
-          // Simple, consistent format for all messages
-          return `[${dayjs(datetime).format("MM/DD/YYYY HH:mm")}] ${username}: ${content}`;
-        })
-        .join("\n");
-
-      return {
-        transcript: transcript || "No valid messages found after filtering.",
-        messageCount: messages.length,
-        uniqueUserCount: userSet.size,
-      };
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        throw new Error(`No messages found in this community. Details: ${err.message}`);
-      }
-      throw new Error("No messages found in this community. Unknown error occurred.");
-    }
-  },
-});
+}

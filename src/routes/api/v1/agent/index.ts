@@ -139,10 +139,11 @@ agentRoute.get("/report", async (c) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 7);
 
+    // Convert dates to timestamps
     const result = await start({
       triggerData: {
-        startDate,
-        endDate,
+        startDate: startDate.getTime(),
+        endDate: endDate.getTime(),
         platformId: "932238833146277958",
         communityId: "123",
       },
