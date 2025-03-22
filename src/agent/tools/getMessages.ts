@@ -6,53 +6,6 @@ import { Client, GatewayIntentBits } from 'discord.js';
 import dayjs from "dayjs";
 import { z } from "zod";
 
-// Define MessageMetadata interface
-interface MessageMetadata {
-  platform: string;
-  platformId: string;
-  messageId: string;
-  authorId: string;
-  authorUsername: string;
-  channelId: string;
-  threadId: string;
-  timestamp: number;
-  text: string;
-  isReaction: boolean;
-  isSummary?: boolean;
-}
-
-// Define stats interfaces
-interface DateStat {
-  date: string;
-  count: number;
-  uniqueUsers: number;
-}
-
-interface ContributorStat {
-  username: string;
-  count: number;
-}
-
-interface ChannelStat {
-  channel: {
-    id: string;
-    name: string;
-  };
-  count: number;
-  uniqueUsers: number;
-}
-
-interface MessageStats {
-  messagesByDate: DateStat[];
-  topContributors: ContributorStat[];
-  messagesByChannel: ChannelStat[];
-}
-
-// Add VectorStoreResult interface
-interface VectorStoreResult {
-  metadata: MessageMetadata;
-  [key: string]: any;
-}
 
 async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
   const channelMap = new Map<string, string>();
@@ -92,22 +45,21 @@ async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, st
   return channelMap;
 }
 
-export const fetchCommunityMessagesTool = createTool({
-  id: "fetch-community-messages",
+export const getMessagesTool = createTool({
+  id: "get-messages",
   description: "Fetch messages from vector store for a specific platform ID and date range",
   inputSchema: z.object({
     platformId: z.string().nonempty(),
     includeStats: z.boolean().optional(),
-    formatByChannel: z.boolean().optional(),
     includeMessageId: z.boolean().optional(),
     startDate: z.number(),
     endDate: z.number(),
   }),
   outputSchema: z.object({
     transcript: z.string(),
-    messageCount: z.number().optional(),
-    uniqueUserCount: z.number().optional(),
     stats: z.object({
+      messageCount: z.number(),
+      uniqueUserCount: z.number(),
       messagesByDate: z.array(z.object({
         date: z.string(),
         count: z.number(),
@@ -133,7 +85,6 @@ export const fetchCommunityMessagesTool = createTool({
       endDate: number; 
       platformId: string; 
       includeStats?: boolean;
-      formatByChannel?: boolean;
       includeMessageId?: boolean;
     } 
   }) => {
@@ -164,12 +115,27 @@ export const fetchCommunityMessagesTool = createTool({
       if (queryResults.length === 0) {
         return {
           transcript: `No messages found for platformId "${context.platformId}" in the date range ${context.startDate} to ${context.endDate}.`,
-          messageCount: 0,
-          uniqueUserCount: 0,
+          ...(context.includeStats ? {
+            stats: {
+              messageCount: 0,
+              uniqueUserCount: 0,
+              messagesByDate: [],
+              topContributors: [],
+              messagesByChannel: []
+            }
+          } : {})
         };
       }
 
-      // Track stats only if requested
+      // Sort messages by timestamp (newest first)
+      const sortedMessages = queryResults.sort((a, b) => 
+        b.metadata.timestamp - a.metadata.timestamp
+      );
+
+      // Generate transcript
+      const transcript = await formatMessagesByChannel(sortedMessages, context.platformId, context.includeMessageId);
+
+      // Only calculate stats if requested
       if (context.includeStats) {
         // Track unique users
         const userSet = new Set<string>();
@@ -179,16 +145,6 @@ export const fetchCommunityMessagesTool = createTool({
           }
         });
 
-        // Sort messages by timestamp (newest first)
-        const sortedMessages = queryResults.sort((a, b) => 
-          b.metadata.timestamp - a.metadata.timestamp
-        );
-
-        // Generate transcript
-        const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
-
-        // Generate stats
-        let stats: MessageStats | undefined;
         // Calculate messages by date
         const dateCountMap = new Map<string, number>();
         // Track unique users by date
@@ -232,49 +188,39 @@ export const fetchCommunityMessagesTool = createTool({
         // Get channel names
         const channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
 
-        stats = {
-          messagesByDate: Array.from(dateCountMap.entries())
-            .map(([date, count]) => ({
-              date,
-              count,
-              uniqueUsers: dateUserMap.get(date)?.size || 0
-            }))
-            .sort((a, b) => a.date.localeCompare(b.date)),
-
-          topContributors: Array.from(contributorCountMap.entries())
-            .map(([username, count]) => ({ username, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 5),
-
-          messagesByChannel: Array.from(channelCountMap.entries())
-            .map(([channelId, count]) => ({
-              channel: {
-                id: channelId,
-                name: channelNameMap.get(channelId) || 'unknown'
-              },
-              count,
-              uniqueUsers: channelUserMap.get(channelId)?.size || 0
-            }))
-            .sort((a, b) => b.count - a.count)
-        };
-
         return {
           transcript,
-          messageCount: sortedMessages.length,
-          uniqueUserCount: userSet.size,
-          stats
+          stats: {
+            messageCount: sortedMessages.length,
+            uniqueUserCount: userSet.size,
+            messagesByDate: Array.from(dateCountMap.entries())
+              .map(([date, count]) => ({
+                date,
+                count,
+                uniqueUsers: dateUserMap.get(date)?.size || 0
+              }))
+              .sort((a, b) => a.date.localeCompare(b.date)),
+
+            topContributors: Array.from(contributorCountMap.entries())
+              .map(([username, count]) => ({ username, count }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 5),
+
+            messagesByChannel: Array.from(channelCountMap.entries())
+              .map(([channelId, count]) => ({
+                channel: {
+                  id: channelId,
+                  name: channelNameMap.get(channelId) || 'unknown'
+                },
+                count,
+                uniqueUsers: channelUserMap.get(channelId)?.size || 0
+              }))
+              .sort((a, b) => b.count - a.count)
+          }
         };
       } else {
         // Just return transcript without stats
-        const sortedMessages = queryResults.sort((a, b) => 
-          b.metadata.timestamp - a.metadata.timestamp
-        );
-        
-        const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
-        
-        return {
-          transcript
-        };
+        return { transcript };
       }
     } catch (error: any) {
       throw new Error(`No messages found in this community. Details: ${error.message}`);
@@ -309,9 +255,10 @@ function formatMessagesChronologically(messages: VectorStoreResult[], platformId
   // Format each channel's messages
   const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
     const channelHeader = `=== Messages from Channel ID: [${channelId}] ===\n`;
-    const channelMessages = msgs.map(msg => 
-      `[${msg.timestamp}] [DISCORD_MESSAGE_ID=${msg.messageId}] ${msg.username}: ${msg.content}`
-    ).join('\n');
+    const channelMessages = msgs.map(msg => {
+      const messageIdPart = includeMessageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : '';
+      return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
+    }).join('\n');
     return channelHeader + channelMessages;
   });
 

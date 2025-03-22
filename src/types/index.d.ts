@@ -40,21 +40,19 @@ declare global {
 
   // Define interface for the summary metadata
   interface SummaryMetadata {
-    platform: string;
+    platform?: string;
     platformId: string;
     timestamp: number;
     text: string;
-    startDate: string;
-    endDate: string;
-    messageCount: number;
-    uniqueUserCount: number;
+    startDate: number;
+    endDate: number;
     summarizationScore?: number | null;
     coverageScore?: number | null;
     alignmentScore?: number | null;
     summarizationReason?: string | null;
   }
 
-  interface FetchCommunityMessagesToolContext {
+  interface getMessagesToolContext {
     context: {
       startDate: number;
       endDate: number;
@@ -67,6 +65,35 @@ declare global {
     score: number;
     metadata: MessageMetadata;
   }
+
+  interface MessageStats {
+    messageCount: number;
+    uniqueUserCount: number;
+    messagesByDate: DateStat[];
+    topContributors: ContributorStat[];
+    messagesByChannel: ChannelStat[];
+  }
+
+  interface ChannelStat {
+    channel: {
+      id: string;
+      name: string;
+    };
+    count: number;
+    uniqueUsers: number;
+  }
+
+  interface ContributorStat {
+    username: string;
+    count: number;
+  }
+
+  interface DateStat {
+    date: string;
+    count: number;
+    uniqueUsers: number;
+  }
+
 }
 
 declare module "hono" {

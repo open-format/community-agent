@@ -5,7 +5,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary } from "./routes";
+import { getAgentSummary, postAgentSummary, getMessages } from "./routes";
+import { getMessagesTool } from "@/agent/tools/getMessages";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not for given community",
@@ -163,6 +164,61 @@ agentRoute.get("/report", async (c) => {
       error: error.message || 'Unknown error occurred',
       success: false
     });
+  }
+});
+
+// Add the messages endpoint
+agentRoute.openapi(getMessages, async (c) => {
+  try {
+    const { 
+      startDate, 
+      endDate, 
+      platformId,
+      includeStats = "false",
+      includeMessageId = "false"
+    } = c.req.query();
+
+    // Convert string "true"/"false" to boolean
+    const includeStatsBool = includeStats === "true";
+    const includeMessageIdBool = includeMessageId === "true";
+
+    // Parse dates using dayjs, defaulting to last 7 days if not provided
+    const startMs = startDate ? dayjs(startDate).valueOf() : dayjs().subtract(7, "day").valueOf();
+    const endMs = endDate ? dayjs(endDate).valueOf() : dayjs().valueOf();
+
+    // Validate that the dates were parsed correctly
+    if (isNaN(startMs) || isNaN(endMs)) {
+      return c.json({ 
+        message: "Invalid date format. Please provide dates in ISO 8601 format (e.g. 2024-03-01T00:00:00Z)" 
+      }, 400);
+    }
+
+    console.log(`Fetching messages for platform ${platformId} from ${startMs} to ${endMs}`);
+
+    if (!getMessagesTool.execute) {
+      return c.json({ message: "Messages tool not initialized" }, 500);
+    }
+
+    const result = await getMessagesTool.execute({
+      context: {
+        startDate: startMs,
+        endDate: endMs,
+        platformId,
+        includeStats: includeStatsBool,
+        includeMessageId: includeMessageIdBool
+      }
+    });
+
+    const response = {
+      message: "Messages retrieved successfully",
+      transcript: result.transcript,
+      ...(result.stats ? { stats: result.stats } : {})
+    };
+
+    return c.json(response, 200);
+  } catch (error: any) {
+    console.error("Error fetching messages:", error);
+    return c.json({ message: error.message || "Failed to fetch messages" }, 500);
   }
 });
 

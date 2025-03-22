@@ -1,7 +1,7 @@
 import { Step, Workflow } from "@mastra/core";
 import { z } from "zod";
 import { generateSummary } from "../agents/summary";
-import { fetchCommunityMessagesTool, saveSummaryTool } from "../tools/index";
+import { getMessagesTool, saveSummaryTool } from "../tools/index";
 
 // Define the workflow
 export const summaryWorkflow = new Workflow({
@@ -19,21 +19,21 @@ const fetchMessagesStep = new Step({
   id: "fetchMessages",
   outputSchema: z.object({
     transcript: z.string(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
   }),
   execute: async ({ context }) => {
-    if (!fetchCommunityMessagesTool.execute) {
+    if (!getMessagesTool.execute) {
       throw new Error("Fetch messages tool not initialized");
     }
 
     try {
-      // Call our fetchCommunityMessagesTool directly with trigger data
-      const result = await fetchCommunityMessagesTool.execute({
+      const result = await getMessagesTool.execute({
         context: {
           startDate: context.triggerData.startDate,
           endDate: context.triggerData.endDate,
           platformId: context.triggerData.platformId,
+          includeStats: false,
+          formatByChannel: true,
+          includeMessageId: false,
         },
       });
 
@@ -47,8 +47,6 @@ const fetchMessagesStep = new Step({
       // Instead of throwing, return a transcript indicating no messages
       return {
         transcript: `No messages found. Note: ${error instanceof Error ? error.message : "Unknown error"}`,
-        messageCount: 0,
-        uniqueUserCount: 0,
       };
     }
   },
@@ -103,8 +101,6 @@ const saveSummaryStep = new Step({
       startDate: context.triggerData.startDate,
       endDate: context.triggerData.endDate,
       platformId: context.triggerData.platformId,
-      messageCount: context.steps.fetchMessages.output.messageCount,
-      uniqueUserCount: context.steps.fetchMessages.output.uniqueUserCount,
       summarizationResult: context.steps.generateSummary.output.summarizationResult,
     };
 
