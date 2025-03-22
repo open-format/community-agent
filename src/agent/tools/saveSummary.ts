@@ -42,7 +42,6 @@ export const saveSummaryTool = createTool({
 
       // Create metadata for the summary in the same format as Discord messages
       const summaryMetadata: SummaryMetadata = {
-        platform: "summary", // Indicates this is a summary
         platformId: context.platformId,
         timestamp: dayjs().valueOf(),
         text: context.summary,

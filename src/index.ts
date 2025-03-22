@@ -30,4 +30,5 @@ showRoutes(app);
 export default {
   port: process.env.PORT ? Number.parseInt(process.env.PORT) : 8080,
   fetch: app.fetch,
+  idleTimeout: 240,
 };

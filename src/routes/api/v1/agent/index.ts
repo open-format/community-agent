@@ -128,4 +128,42 @@ Please search through the conversation history to find relevant information.
   }
 });
 
+// Add the report endpoint
+agentRoute.get("/report", async (c) => {
+  try {
+    const workflow = mastra.getWorkflow("impactReportWorkflow"); // Make sure this matches the name in your workflow definition
+    const { runId, start } = workflow.createRun();
+
+    // Set date range for the past week
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+
+    // Convert dates to timestamps
+    const result = await start({
+      triggerData: {
+        startDate: startDate.getTime(),
+        endDate: endDate.getTime(),
+        platformId: "932238833146277958",
+        communityId: "123",
+      },
+    });
+
+    if (!result.results?.generateReport?.output) {
+      console.error('Workflow results:', result.results);
+      throw new Error('Report generation failed - no output available');
+    }
+
+    return c.json({
+      report: result.results.generateReport.output.report
+    });
+  } catch (error: any) {
+    console.error('Error in report generation:', error);
+    return c.json({
+      error: error.message || 'Unknown error occurred',
+      success: false
+    });
+  }
+});
+
 export default agentRoute;
