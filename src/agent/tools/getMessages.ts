@@ -105,8 +105,8 @@ export const fetchCommunityMessagesTool = createTool({
   }),
   outputSchema: z.object({
     transcript: z.string(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
+    messageCount: z.number().optional(),
+    uniqueUserCount: z.number().optional(),
     stats: z.object({
       messagesByDate: z.array(z.object({
         date: z.string(),
@@ -127,7 +127,16 @@ export const fetchCommunityMessagesTool = createTool({
       }))
     }).optional()
   }),
-  execute: async ({ context }: { context: { startDate: number; endDate: number; platformId: string; includeStats?: boolean } }) => {
+  execute: async ({ context }: { 
+    context: { 
+      startDate: number; 
+      endDate: number; 
+      platformId: string; 
+      includeStats?: boolean;
+      formatByChannel?: boolean;
+      includeMessageId?: boolean;
+    } 
+  }) => {
     try {
       // Create a dummy embedding for the query
       const dummyEmbedding = await embed({
@@ -160,25 +169,26 @@ export const fetchCommunityMessagesTool = createTool({
         };
       }
 
-      // Track unique users
-      const userSet = new Set<string>();
-      queryResults.forEach(message => {
-        if (message.metadata.authorId) {
-          userSet.add(message.metadata.authorId);
-        }
-      });
-
-      // Sort messages by timestamp (newest first)
-      const sortedMessages = queryResults.sort((a, b) => 
-        b.metadata.timestamp - a.metadata.timestamp
-      );
-
-      // Generate transcript
-      const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
-
-      // Generate stats if requested
-      let stats: MessageStats | undefined;
+      // Track stats only if requested
       if (context.includeStats) {
+        // Track unique users
+        const userSet = new Set<string>();
+        queryResults.forEach(message => {
+          if (message.metadata.authorId) {
+            userSet.add(message.metadata.authorId);
+          }
+        });
+
+        // Sort messages by timestamp (newest first)
+        const sortedMessages = queryResults.sort((a, b) => 
+          b.metadata.timestamp - a.metadata.timestamp
+        );
+
+        // Generate transcript
+        const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
+
+        // Generate stats
+        let stats: MessageStats | undefined;
         // Calculate messages by date
         const dateCountMap = new Map<string, number>();
         // Track unique users by date
@@ -247,14 +257,25 @@ export const fetchCommunityMessagesTool = createTool({
             }))
             .sort((a, b) => b.count - a.count)
         };
-      }
 
-      return {
-        transcript,
-        messageCount: sortedMessages.length,
-        uniqueUserCount: userSet.size,
-        ...(stats && { stats })
-      };
+        return {
+          transcript,
+          messageCount: sortedMessages.length,
+          uniqueUserCount: userSet.size,
+          stats
+        };
+      } else {
+        // Just return transcript without stats
+        const sortedMessages = queryResults.sort((a, b) => 
+          b.metadata.timestamp - a.metadata.timestamp
+        );
+        
+        const transcript = await formatMessagesByChannel(sortedMessages, context.platformId);
+        
+        return {
+          transcript
+        };
+      }
     } catch (error: any) {
       throw new Error(`No messages found in this community. Details: ${error.message}`);
     }

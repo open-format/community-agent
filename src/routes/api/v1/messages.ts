@@ -41,18 +41,15 @@ const getMessagesRoute = createRoute({
       includeStats: z
         .enum(["true", "false"])
         .optional()
-        .default("true")
-        .describe("Whether to include message statistics"),
+        .default("true"),
       formatByChannel: z
         .enum(["true", "false"])
         .optional()
-        .default("true")
-        .describe("Whether to format messages grouped by channel"),
+        .default("true"),
       includeMessageId: z
         .enum(["true", "false"])
         .optional()
         .default("true")
-        .describe("Whether to include message IDs in the transcript")
     }),
   },
   responses: {
@@ -126,29 +123,33 @@ app.openapi(getMessagesRoute, async (c) => {
       includeMessageId 
     } = c.req.valid("query");
     
-    // Create explicit date objects, following the approach that works in agent route
-    let startDate, endDate;
+    // Create date objects and convert to timestamps
+    let startTimestamp: number, endTimestamp: number;
     
     // Check if custom dates were provided or use defaults
     if (startDateStr === getOneWeekAgo() && endDateStr === getToday()) {
-      // Use the exact same approach as the working code
-      endDate = new Date();
-      startDate = new Date();
-      startDate.setDate(startDate.getDate() - 7); // Go back 7 days
+      const now = new Date();
+      endTimestamp = now.getTime();
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      startTimestamp = weekAgo.getTime();
     } else {
-      // Use the provided dates
-      startDate = new Date(startDateStr);
-      endDate = new Date(endDateStr);
+      startTimestamp = new Date(startDateStr).getTime();
+      endTimestamp = new Date(endDateStr).getTime();
     }
     
-    console.log(`Fetching messages from ${startDate.toISOString()} to ${endDate.toISOString()} for platform ${platformId}`);
+    console.log(`Fetching messages from ${startTimestamp} to ${endTimestamp} for platform ${platformId}`);
     
+    if (!fetchCommunityMessagesTool.execute) {
+      throw new Error("Fetch messages tool not initialized");
+    }
+
     const result = await fetchCommunityMessagesTool.execute({
       context: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+        startDate: startTimestamp,
+        endDate: endTimestamp,
         platformId,
-        includeStats: includeStats === "true",
+        includeStats: includeStats === "false",
         formatByChannel: formatByChannel === "true",
         includeMessageId: includeMessageId === "true"
       },
