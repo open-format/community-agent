@@ -93,6 +93,9 @@ export const getMessages = createRoute({
   summary: "Fetch community messages",
   description: "Fetch messages from a community with optional statistics",
   request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
     query: z.object({
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
@@ -161,6 +164,9 @@ export const getMessages = createRoute({
         }
       }
     },
+    404: {
+      description: "The community was not found",
+    },
     500: {
       description: "Internal server error",
       content: {
@@ -172,4 +178,89 @@ export const getMessages = createRoute({
       }
     }
   }
+});
+
+export const getImpactReport = createRoute({
+  method: "get",
+  path: "/report",
+  tags: ["Reports"],
+  summary: "Generate impact report",
+  description: "Generate an impact report for a community over a specified time period",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    query: z.object({
+      platformId: z.string()
+        .describe("Platform ID"),
+      startDate: z
+        .string({ message: "must be a valid ISO 8601 date format" })
+        .datetime({ message: "must be a valid ISO 8601 date format" }),
+      endDate: z
+        .string({ message: "must be a valid ISO 8601 date format" })
+        .datetime({ message: "must be a valid ISO 8601 date format" }),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The report was generated successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            report: z.object({
+              overview: z.object({
+                totalMessages: z.number(),
+                uniqueUsers: z.number(),
+                activeChannels: z.number()
+              }),
+              dailyActivity: z.array(z.object({
+                date: z.string(),
+                messageCount: z.number(),
+                uniqueUsers: z.number()
+              })),
+              topContributors: z.array(z.object({
+                username: z.string(),
+                messageCount: z.number()
+              })),
+              channelBreakdown: z.array(z.object({
+                channelName: z.string(),
+                messageCount: z.number(),
+                uniqueUsers: z.number()
+              })),
+              keyTopics: z.array(z.object({
+                topic: z.string(),
+                messageCount: z.number(),
+                description: z.string(),
+                examples: z.array(z.string())
+              })),
+              userSentiment: z.object({
+                excitement: z.array(z.object({
+                  title: z.string(),
+                  description: z.string(),
+                  users: z.array(z.string()),
+                  examples: z.array(z.string())
+                })),
+                frustrations: z.array(z.object({
+                  title: z.string(),
+                  description: z.string(),
+                  users: z.array(z.string()),
+                  examples: z.array(z.string())
+                }))
+              })
+            }),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "The community was not found",
+    },
+    500: {
+      description: "An error occurred while generating the report",
+    },
+  },
 });

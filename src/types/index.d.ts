@@ -57,6 +57,8 @@ declare global {
       startDate: number;
       endDate: number;
       platformId: string;
+      includeStats?: boolean;
+      includeMessageId?: boolean;
     };
   }
 
@@ -94,6 +96,81 @@ declare global {
     uniqueUsers: number;
   }
 
+  // Impact Report Types
+  interface ImpactReportMetadata {
+    platformId: string;
+    timestamp: number; 
+    startDate: number; 
+    endDate: number; 
+    messageCount: number;
+    uniqueUserCount: number;
+    overview: ImpactReportOverview;
+    dailyActivity: DailyActivity[];
+    topContributors: TopContributor[];
+    channelBreakdown: ChannelBreakdown[];
+    keyTopics: KeyTopic[];
+    userSentiment: UserSentiment;
+    summaryId?: string;
+  }
+
+  interface ImpactReportOverview {
+    totalMessages: number;
+    uniqueUsers: number;
+    activeChannels: number;
+  }
+
+  interface DailyActivity {
+    date: string;
+    messageCount: number;
+    uniqueUsers: number;
+  }
+
+  interface TopContributor {
+    username: string;
+    messageCount: number;
+  }
+
+  interface ChannelBreakdown {
+    channelName: string;
+    messageCount: number;
+    uniqueUsers: number;
+  }
+
+  interface KeyTopic {
+    topic: string;
+    messageCount: number;
+    description: string;
+    examples: string[];
+  }
+
+  interface UserSentiment {
+    excitement: SentimentItem[];
+    frustrations: SentimentItem[];
+  }
+
+  interface SentimentItem {
+    title: string;
+    description: string;
+    users: string[];
+    examples: string[];
+  }
+
+  interface Timeframe {
+    startDate: string;
+    endDate: string;
+  }
+
+  interface SummaryResponse {
+    summary: string;
+    timeframe: Timeframe;
+  }
+
+  interface MessagesResponse {
+    message: string;
+    transcript: string;
+    timeframe: Timeframe;
+    stats?: MessageStats;
+  }
 }
 
 declare module "hono" {

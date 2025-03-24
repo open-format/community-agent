@@ -1,14 +1,13 @@
 import { Workflow, Step } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { fetchCommunityMessagesTool } from '../tools/index';
 import { generateImpactReport } from '../agents/impact';
 import { generateSummary } from '../agents/summary';
-import { saveSummaryTool, saveImpactReportTool } from '../tools/index';
+import { saveSummaryTool, saveImpactReportTool, getMessagesTool } from '../tools/index';
 
 interface WorkflowContext {
   triggerData: {
-    startDate: Date | string;
-    endDate: Date | string;
+    startDate: number;
+    endDate: number;
     platformId: string;
     communityId: string;
   };
@@ -65,8 +64,16 @@ interface WorkflowContext {
 export const impactReportWorkflow = new Workflow({
   name: 'community-impact-report',
   triggerSchema: z.object({
-    startDate: z.date(),
-    endDate: z.date(),
+    startDate: z.number()
+      .refine(val => {
+        const digits = Math.floor(Math.log10(val)) + 1;
+        return digits === 10 || digits === 13;
+      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
+    endDate: z.number()
+      .refine(val => {
+        const digits = Math.floor(Math.log10(val)) + 1;
+        return digits === 10 || digits === 13;
+      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
     platformId: z.string().nonempty(),
     communityId: z.string().nonempty()
   }),
@@ -111,24 +118,26 @@ const fetchMessagesStep = new Step({
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
     try {
-      const startDate = typeof context.triggerData.startDate === 'object' 
-        ? context.triggerData.startDate.getTime()
-        : new Date(context.triggerData.startDate).getTime();
+      // Convert to milliseconds if in seconds
+      const startDate = context.triggerData.startDate.toString().length === 10 
+        ? context.triggerData.startDate * 1000 
+        : context.triggerData.startDate;
       
-      const endDate = typeof context.triggerData.endDate === 'object'
-        ? context.triggerData.endDate.getTime()
-        : new Date(context.triggerData.endDate).getTime();
+      const endDate = context.triggerData.endDate.toString().length === 10
+        ? context.triggerData.endDate * 1000
+        : context.triggerData.endDate;
 
-      if (!fetchCommunityMessagesTool.execute) {
+      if (!getMessagesTool.execute) {
         throw new Error('Fetch messages tool not initialized');
       }
 
-      const result = await fetchCommunityMessagesTool.execute({
+      const result = await getMessagesTool.execute({
         context: {
           startDate,
           endDate,
           platformId: context.triggerData.platformId,
-          includeStats: true
+          includeStats: true,
+          includeMessageId: true
         }
       });
 
@@ -194,8 +203,8 @@ const saveSummaryStep = new Step({
       context: {
         communityId: context.triggerData.communityId,
         summary: context.steps.generateSummary.output.summary,
-        startDate: context.triggerData.startDate.toString(),
-        endDate: context.triggerData.endDate.toString(),
+        startDate: context.triggerData.startDate,
+        endDate: context.triggerData.endDate,
         messageCount: context.steps.fetchMessages.output.messageCount,
         uniqueUserCount: context.steps.fetchMessages.output.uniqueUserCount,
         platformId: context.triggerData.platformId

@@ -4,55 +4,6 @@ import { vectorStore } from '@/agent/stores';
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
 
-interface ImpactReportMetadata {
-  platformId: string;
-  timestamp: number; 
-  startDate: number; 
-  endDate: number; 
-  messageCount: number;
-  uniqueUserCount: number;
-  overview: {
-    totalMessages: number;
-    uniqueUsers: number;
-    activeChannels: number;
-  };
-  dailyActivity: Array<{
-    date: string;
-    messageCount: number;
-    uniqueUsers: number;
-  }>;
-  topContributors: Array<{
-    username: string;
-    messageCount: number;
-  }>;
-  channelBreakdown: Array<{
-    channelName: string;
-    messageCount: number;
-    uniqueUsers: number;
-  }>;
-  keyTopics: Array<{
-    topic: string;
-    messageCount: number;
-    description: string;
-    examples: string[];
-  }>;
-  userSentiment: {
-    excitement: Array<{
-      title: string;
-      description: string;
-      users: string[];
-      examples: string[];
-    }>;
-    frustrations: Array<{
-      title: string;
-      description: string;
-      users: string[];
-      examples: string[];
-    }>;
-  };
-  summaryId?: string;
-}
-
 export const saveImpactReportTool = createTool({
   id: "save-impact-report",
   description: "Save an impact report to the database with vector embeddings",
@@ -99,8 +50,8 @@ export const saveImpactReportTool = createTool({
         }))
       })
     }),
-    startDate: z.string(),
-    endDate: z.string(),
+    startDate: z.number(),
+    endDate: z.number(),
     messageCount: z.number(),
     uniqueUserCount: z.number(),
     platformId: z.string(),
@@ -111,7 +62,23 @@ export const saveImpactReportTool = createTool({
     reportId: z.string().uuid().optional(),
     error: z.string().optional(),
   }),
-  execute: async ({ context }: { context: any }) => {
+  execute: async ({ context }: { context: {
+    communityId: string;
+    report: {
+      overview: ImpactReportOverview;
+      dailyActivity: DailyActivity[];
+      topContributors: TopContributor[];
+      channelBreakdown: ChannelBreakdown[];
+      keyTopics: KeyTopic[];
+      userSentiment: UserSentiment;
+    };
+    startDate: number;
+    endDate: number;
+    messageCount: number;
+    uniqueUserCount: number;
+    platformId: string;
+    summaryId?: string;
+  } }) => {
     try {
       const reportId = crypto.randomUUID();
       const reportText = JSON.stringify(context.report);
@@ -123,9 +90,9 @@ export const saveImpactReportTool = createTool({
 
       const reportMetadata: ImpactReportMetadata = {
         platformId: context.platformId,
-        timestamp: Math.floor(new Date(context.startDate).getTime() / 1000),
-        startDate: Math.floor(new Date(context.startDate).getTime() / 1000),
-        endDate: Math.floor(new Date(context.endDate).getTime() / 1000),
+        timestamp: Date.now(),
+        startDate: context.startDate,
+        endDate: context.endDate,
         messageCount: context.messageCount,
         uniqueUserCount: context.uniqueUserCount,
         overview: context.report.overview,

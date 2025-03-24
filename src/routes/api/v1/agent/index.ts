@@ -5,7 +5,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages } from "./routes";
+import { getAgentSummary, postAgentSummary, getMessages, getImpactReport } from "./routes";
 import { getMessagesTool } from "@/agent/tools/getMessages";
 
 enum Errors {
@@ -134,46 +134,72 @@ Please search through the conversation history to find relevant information.
 });
 
 // Add the report endpoint
-agentRoute.get("/report", async (c) => {
+agentRoute.openapi(getImpactReport, async (c) => {
   try {
-    const workflow = mastra.getWorkflow("impactReportWorkflow"); // Make sure this matches the name in your workflow definition
-    const { runId, start } = workflow.createRun();
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
 
-    // Set date range for the past week
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7);
+    const platform = await db.query.platformConnections.findFirst({
+      where: eq(platformConnections.communityId, communityId as string),
+    });
 
-    // Convert dates to timestamps
+    if (!platform) {
+      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+    }
+
+    // Get date range from query params or use defaults
+    const { startDate, endDate } = c.req.query();
+    const startDateMs = startDate ? dayjs(startDate).valueOf() : dayjs().subtract(7, "day").valueOf();
+    const endDateMs = endDate ? dayjs(endDate).valueOf() : dayjs().valueOf();
+
+    const workflow = mastra.getWorkflow("impactReportWorkflow");
+    const { start } = workflow.createRun();
+
     const result = await start({
       triggerData: {
-        startDate: startDate.getTime(),
-        endDate: endDate.getTime(),
-        platformId: "932238833146277958",
-        communityId: "123",
+        startDate: startDateMs,
+        endDate: endDateMs,
+        platformId: platform.platformId,
+        communityId,
       },
     });
 
     if (!result.results?.generateReport?.output) {
       console.error('Workflow results:', result.results);
-      throw new Error('Report generation failed - no output available');
+      return c.json({ message: "Failed to generate report" }, 500);
     }
 
     return c.json({
-      report: result.results.generateReport.output.report
+      report: result.results.generateReport.output.report,
+      timeframe: {
+        startDate: dayjs(startDate).toISOString(),
+        endDate: dayjs(endDate).toISOString(),
+      },
     });
-  } catch (error: any) {
-    console.error('Error in report generation:', error);
-    return c.json({
-      error: error.message || 'Unknown error occurred',
-      success: false
-    });
+  } catch (error) {
+    console.error("Error generating impact report:", error);
+    return c.json({ message: "Failed to generate impact report", error: String(error) }, 500);
   }
 });
 
 // Add the messages endpoint
 agentRoute.openapi(getMessages, async (c) => {
   try {
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+
+    const platform = await db.query.platformConnections.findFirst({
+      where: eq(platformConnections.communityId, communityId as string),
+    });
+
+    if (!platform) {
+      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+    }
+
     const { 
       startDate, 
       endDate, 
@@ -182,13 +208,14 @@ agentRoute.openapi(getMessages, async (c) => {
       includeMessageId = "false"
     } = c.req.query();
 
+    // Validate that the provided platformId matches the community's platform
+    if (platformId !== platform.platformId) {
+      return c.json({ message: "Invalid platform ID for this community" }, 400);
+    }
+
     // Convert string "true"/"false" to boolean
     const includeStatsBool = includeStats === "true";
     const includeMessageIdBool = includeMessageId === "true";
-
-    // Parse dates using dayjs, defaulting to last 7 days if not provided
-    const startDateMs = startDate || dayjs().subtract(7, "day").toISOString();
-    const endDateMs = endDate || dayjs().toISOString();
 
     // Convert to Unix timestamps for internal use
     const startMs = dayjs(startDate).valueOf();
