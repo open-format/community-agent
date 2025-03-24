@@ -15,7 +15,6 @@ export const summaryWorkflow = new Workflow({
       .datetime({ message: "must be a valid ISO 8601 date format" })
       .transform(val => dayjs(val).valueOf()),
     platformId: z.string().nonempty(),
-    communityId: z.string().nonempty(),
   }),
 });
 
@@ -100,7 +99,6 @@ const saveSummaryStep = new Step({
 
     // Create the context with required fields
     const saveContext = {
-      communityId: context.triggerData.communityId,
       summary: context.steps.generateSummary.output.summary,
       startDate: context.triggerData.startDate,
       endDate: context.triggerData.endDate,

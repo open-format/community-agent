@@ -1,2 +1,2 @@
-export { summaryAgent } from "./summary";
-export { impactAgent } from "./impact";
+export { summaryAgent, generateSummary } from "./summary";
+export { impactAgent, generateImpactReport } from "./impact";
