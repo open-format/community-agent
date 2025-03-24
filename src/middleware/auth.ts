@@ -2,13 +2,6 @@ import type { MiddlewareHandler } from "hono";
 
 export function authMiddleware(): MiddlewareHandler {
   return async (c, next) => {
-    // Handle webhook paths
-    if (c.req.path.startsWith("/api/v1/webhooks")) {
-      // Webhooks don't need auth or community ID
-      return next();
-    }
-
-    // For non-webhook paths, manually check bearer token without calling next()
     const token = process.env.API_KEY as string;
     const authHeader = c.req.header("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ") || authHeader.slice(7) !== token) {

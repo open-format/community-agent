@@ -10,7 +10,12 @@ import webhooksRoute from "./webhooks";
 const app = new OpenAPIHono();
 
 app.use("/webhooks/github", githubWebhookMiddleware());
-app.use("*", authMiddleware());
+app.use("*", async (c, next) => {
+  if (c.req.path.includes("/webhooks/")) {
+    return next();
+  }
+  return authMiddleware()(c, next);
+});
 
 app.route("/docs", docs);
 app.route("/agent", agentRoute);
