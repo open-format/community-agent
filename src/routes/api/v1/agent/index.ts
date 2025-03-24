@@ -47,7 +47,6 @@ agentRoute.openapi(getAgentSummary, async (c) => {
         startDate: startMs,
         endDate: endMs,
         platformId: platform.platformId,
-        communityId: communityId,
       },
     });
 
@@ -162,17 +161,17 @@ agentRoute.openapi(getImpactReport, async (c) => {
         startDate: startDateMs,
         endDate: endDateMs,
         platformId: platform.platformId,
-        communityId,
       },
     });
 
-    if (!result.results?.generateReport?.output) {
+    if (!result.results?.saveReport?.output) {
       console.error('Workflow results:', result.results);
-      return c.json({ message: "Failed to generate report" }, 500);
+      return c.json({ message: "Failed to save report" }, 500);
     }
 
     return c.json({
-      report: result.results.generateReport.output.report,
+      success: result.results.saveReport.output.success,
+      reportId: result.results.saveReport.output.reportId,
       timeframe: {
         startDate: dayjs(startDate).toISOString(),
         endDate: dayjs(endDate).toISOString(),

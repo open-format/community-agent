@@ -1,7 +1,6 @@
 import { Workflow, Step } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { generateImpactReport } from '../agents/impact';
-import { generateSummary } from '../agents/summary';
+import { generateImpactReport, generateSummary } from '../agents/index';
 import { saveSummaryTool, saveImpactReportTool, getMessagesTool } from '../tools/index';
 
 interface WorkflowContext {
@@ -9,7 +8,6 @@ interface WorkflowContext {
     startDate: number;
     endDate: number;
     platformId: string;
-    communityId: string;
   };
   steps: {
     fetchMessages: {
@@ -19,6 +17,8 @@ interface WorkflowContext {
         messageCount: number;
         uniqueUserCount: number;
         stats?: {
+          messageCount: number;
+          uniqueUserCount: number;
           messagesByDate: Array<{ date: string; count: number; uniqueUsers: number }>;
           topContributors: Array<{ username: string; count: number }>;
           messagesByChannel: Array<{ 
@@ -35,7 +35,47 @@ interface WorkflowContext {
     generateReport: {
       status: string;
       output: {
-        report: string;
+        report: {
+          overview: {
+            totalMessages: number;
+            uniqueUsers: number;
+            activeChannels: number;
+          };
+          dailyActivity: Array<{
+            date: string;
+            messageCount: number;
+            uniqueUsers: number;
+          }>;
+          topContributors: Array<{
+            username: string;
+            messageCount: number;
+          }>;
+          channelBreakdown: Array<{
+            channelName: string;
+            messageCount: number;
+            uniqueUsers: number;
+          }>;
+          keyTopics: Array<{
+            topic: string;
+            messageCount: number;
+            description: string;
+            examples: string[];
+          }>;
+          userSentiment: {
+            excitement: Array<{
+              title: string;
+              description: string;
+              users: string[];
+              examples: string[];
+            }>;
+            frustrations: Array<{
+              title: string;
+              description: string;
+              users: string[];
+              examples: string[];
+            }>;
+          };
+        };
       };
     };
     generateSummary: {
@@ -75,7 +115,6 @@ export const impactReportWorkflow = new Workflow({
         return digits === 10 || digits === 13;
       }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
     platformId: z.string().nonempty(),
-    communityId: z.string().nonempty()
   }),
 });
 
@@ -153,7 +192,47 @@ const fetchMessagesStep = new Step({
 const generateReportStep = new Step({
   id: 'generateReport',
   outputSchema: z.object({
-    report: z.string(),
+    report: z.object({
+      overview: z.object({
+        totalMessages: z.number(),
+        uniqueUsers: z.number(),
+        activeChannels: z.number(),
+      }),
+      dailyActivity: z.array(z.object({
+        date: z.string(),
+        messageCount: z.number(),
+        uniqueUsers: z.number(),
+      })),
+      topContributors: z.array(z.object({
+        username: z.string(),
+        messageCount: z.number(),
+      })),
+      channelBreakdown: z.array(z.object({
+        channelName: z.string(),
+        messageCount: z.number(),
+        uniqueUsers: z.number(),
+      })),
+      keyTopics: z.array(z.object({
+        topic: z.string(),
+        messageCount: z.number(),
+        description: z.string(),
+        examples: z.array(z.string()),
+      })),
+      userSentiment: z.object({
+        excitement: z.array(z.object({
+          title: z.string(),
+          description: z.string(),
+          users: z.array(z.string()),
+          examples: z.array(z.string()),
+        })),
+        frustrations: z.array(z.object({
+          title: z.string(),
+          description: z.string(),
+          users: z.array(z.string()),
+          examples: z.array(z.string()),
+        })),
+      }),
+    }),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
     if (context.steps.fetchMessages.status !== 'success') {
@@ -201,12 +280,9 @@ const saveSummaryStep = new Step({
 
     return saveSummaryTool.execute({
       context: {
-        communityId: context.triggerData.communityId,
         summary: context.steps.generateSummary.output.summary,
         startDate: context.triggerData.startDate,
         endDate: context.triggerData.endDate,
-        messageCount: context.steps.fetchMessages.output.messageCount,
-        uniqueUserCount: context.steps.fetchMessages.output.uniqueUserCount,
         platformId: context.triggerData.platformId
       }
     });
@@ -230,14 +306,49 @@ const saveReportStep = new Step({
       throw new Error('Save report tool not initialized');
     }
 
+    // Transform the stats from getMessages into the format expected by saveImpactReport
+    const messagesStats = context.steps.fetchMessages.output.stats;
+    if (!messagesStats) {
+      throw new Error('No message stats available');
+    }
+
+    // Get the report from generateReport step (it's already an object)
+    const generatedReport = context.steps.generateReport.output.report;
+
+    const report = {
+      overview: {
+        totalMessages: messagesStats.messageCount,
+        uniqueUsers: messagesStats.uniqueUserCount,
+        activeChannels: messagesStats.messagesByChannel.length
+      },
+      dailyActivity: messagesStats.messagesByDate.map(day => ({
+        date: day.date,
+        messageCount: day.count,
+        uniqueUsers: day.uniqueUsers
+      })),
+      topContributors: messagesStats.topContributors.map(contributor => ({
+        username: contributor.username,
+        messageCount: contributor.count
+      })),
+      channelBreakdown: messagesStats.messagesByChannel.map(channel => ({
+        channelName: channel.channel.name,
+        messageCount: channel.count,
+        uniqueUsers: channel.uniqueUsers
+      })),
+      keyTopics: generatedReport.keyTopics || [],
+      userSentiment: generatedReport.userSentiment || {
+        excitement: [],
+        frustrations: []
+      }
+    };
+
     return saveImpactReportTool.execute({
       context: {
-        communityId: context.triggerData.communityId,
-        report: context.steps.generateReport.output.report,
-        startDate: context.triggerData.startDate.toString(),
-        endDate: context.triggerData.endDate.toString(),
-        messageCount: context.steps.fetchMessages.output.messageCount,
-        uniqueUserCount: context.steps.fetchMessages.output.uniqueUserCount,
+        report,
+        startDate: context.triggerData.startDate,
+        endDate: context.triggerData.endDate,
+        messageCount: messagesStats.messageCount,
+        uniqueUserCount: messagesStats.uniqueUserCount,
         platformId: context.triggerData.platformId,
         summaryId: context.steps.saveSummary.output.summaryId
       }

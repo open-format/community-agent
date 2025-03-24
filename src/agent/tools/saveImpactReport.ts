@@ -8,7 +8,6 @@ export const saveImpactReportTool = createTool({
   id: "save-impact-report",
   description: "Save an impact report to the database with vector embeddings",
   inputSchema: z.object({
-    communityId: z.string(),
     report: z.object({
       overview: z.object({
         totalMessages: z.number(),
@@ -63,7 +62,6 @@ export const saveImpactReportTool = createTool({
     error: z.string().optional(),
   }),
   execute: async ({ context }: { context: {
-    communityId: string;
     report: {
       overview: ImpactReportOverview;
       dailyActivity: DailyActivity[];
