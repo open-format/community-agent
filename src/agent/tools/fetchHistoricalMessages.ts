@@ -2,12 +2,12 @@ import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core";
 import { embed } from "ai";
-import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import dayjs from "dayjs";
+import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import { z } from "zod";
 
 // Discord rate limit is 50 requests/sec, so we process in batches with delays
-const BATCH_SIZE = 100; 
+const BATCH_SIZE = 100;
 const RATE_LIMIT_DELAY = 200; // milliseconds
 
 export const fetchHistoricalMessagesTool = createTool({
@@ -23,7 +23,7 @@ export const fetchHistoricalMessagesTool = createTool({
   }),
   execute: async ({ context }) => {
     console.log(`Starting historical message fetch for platform: ${context.platformId}`);
-    
+
     // Initialize Discord client with required permissions
     const client = new Client({
       intents: [
@@ -36,7 +36,7 @@ export const fetchHistoricalMessagesTool = createTool({
     try {
       // Setup and initialization
       await client.login(process.env.DISCORD_TOKEN);
-      const twoWeeksAgo = dayjs().subtract(14, 'day').valueOf();
+      const twoWeeksAgo = dayjs().subtract(14, "day").valueOf();
       let newMessagesAdded = 0;
 
       // Fetch guild and channel information
@@ -51,7 +51,7 @@ export const fetchHistoricalMessagesTool = createTool({
 
         let lastMessageId;
         let messageBatch: any[] = [];
-        
+
         // Fetch messages in batches until we reach messages older than 2 weeks
         while (true) {
           const options: { limit: number; before?: string } = { limit: 100 }; // 100 messages is the maximum that can be fetched at once
@@ -63,13 +63,23 @@ export const fetchHistoricalMessagesTool = createTool({
             if (messages.size === 0) break;
 
             // Filter for recent messages only
-            const recentMessages = messages.filter(msg => msg.createdTimestamp >= twoWeeksAgo);
-            
+            const recentMessages = messages.filter((msg) => msg.createdTimestamp >= twoWeeksAgo);
+
             // Process each message in the batch
             for (const msg of recentMessages.values()) {
               // Skip empty content
-              if (!msg.content || msg.content.trim() === '') continue;
+              if (!msg.content || msg.content.trim() === "") continue;
 
+              const exists = await vectorStore.query({
+                indexName: "community_messages",
+                queryVector: new Array(1536).fill(0),
+                topK: 1,
+                filter: {
+                  messageId: msg.id,
+                },
+              });
+
+              if (exists.length > 0) continue;
               // Prepare message data for vector storage
               messageBatch.push({
                 content: msg.content,
@@ -84,8 +94,8 @@ export const fetchHistoricalMessagesTool = createTool({
                   timestamp: msg.createdTimestamp,
                   text: msg.content,
                   isReaction: false,
-                  isBotQuery: msg.author.bot
-                }
+                  isBotQuery: msg.author.bot,
+                },
               });
 
               // When batch size is reached, process and store messages
@@ -94,7 +104,7 @@ export const fetchHistoricalMessagesTool = createTool({
                 newMessagesAdded += messageBatch.length;
                 messageBatch = [];
                 // Rate limiting delay between batches
-                await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
+                await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY));
               }
             }
 
@@ -105,9 +115,8 @@ export const fetchHistoricalMessagesTool = createTool({
             }
 
             // Break if we've reached messages older than 2 weeks
-            if ([...messages.values()].some(m => m.createdTimestamp < twoWeeksAgo)) break;
+            if ([...messages.values()].some((m) => m.createdTimestamp < twoWeeksAgo)) break;
             lastMessageId = messages.last()?.id;
-
           } catch (err) {
             console.error(`Error fetching messages from ${channel.name}:`, err);
             break;
@@ -123,7 +132,6 @@ export const fetchHistoricalMessagesTool = createTool({
         success: true,
         newMessagesAdded,
       };
-
     } catch (error: unknown) {
       // Handle fatal errors and cleanup
       console.error("Fatal error:", error);
@@ -142,24 +150,21 @@ export const fetchHistoricalMessagesTool = createTool({
  * @param messages Array of messages to process
  * @param channelName Channel name for logging
  */
-async function processMessageBatch(
-  messages: any[], 
-  channelName: string
-) {
+async function processMessageBatch(messages: any[], channelName: string) {
   try {
     // Create embeddings for all messages in parallel
     const embeddings = await Promise.all(
-      messages.map(msg => 
+      messages.map((msg) =>
         embed({
           model: openai.embedding("text-embedding-3-small"),
           value: msg.content,
-        })
-      )
+        }),
+      ),
     );
 
     // Prepare data for batch storage
-    const vectors = embeddings.map(e => e.embedding);
-    const metadata = messages.map(msg => msg.metadata);
+    const vectors = embeddings.map((e) => e.embedding);
+    const metadata = messages.map((msg) => msg.metadata);
 
     // Store messages and embeddings in vector database
     await vectorStore.upsert({
@@ -170,4 +175,4 @@ async function processMessageBatch(
   } catch (err) {
     console.error(`Error processing batch from ${channelName}:`, err);
   }
-} 
+}
