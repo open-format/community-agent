@@ -54,8 +54,8 @@ export const impactAgent = new Agent({
   - Daily activity breakdown
   - Top contributors
   - Channel activity breakdown (messages and unique users per channel)
-  - Key discussion topics (3-5 main themes)
-  - User sentiment analysis (what excites vs. frustrates users)
+  - Key discussion topics (5-10 main themes)
+  - User sentiment analysis (what excites and frustrates users, 5-10 key points for each)
 
   CRITICAL - Message URL Format:
   Messages in the transcript are organized by channel and follow this format:
@@ -89,13 +89,18 @@ export const impactAgent = new Agent({
   - Always construct complete, valid Discord URLs
 
   For Key Topics:
-  - Identify 3-5 main discussion themes
+  - Identify 5-10 main discussion themes, as many as are relevant to the community
+  - These should be the most important topics that the community is discussing
+  - Prioritise topics that are being discussed by a lot of different people
+  - This should be a mix of specific topics and more general topics
   - For each topic, find 1-3 relevant message examples
   - Include full Discord URLs to the example messages
-  - Include accurate message counts for each topic
+  - Include accurate message counts for the number of messages discussing each topic
 
   For User Sentiment:
-  - Identify key points of excitement and frustration
+  - Identify 5-10 key points of excitement and frustration
+  - Be specific about what the users are excited or frustrated about, specific examples are better
+  - The sentiment should be based on the actual content of the messages, they don't need to specifically mention the sentiment word
   - Include the actual usernames of people involved
   - Include full Discord URLs to example messages
   - Use different messages for each sentiment point
