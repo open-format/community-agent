@@ -1,12 +1,12 @@
 import { mastra } from "@/agent";
+import { getMessagesTool } from "@/agent/tools/getMessages";
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages, getImpactReport } from "./routes";
-import { getMessagesTool } from "@/agent/tools/getMessages";
+import { getAgentSummary, getImpactReport, getMessages, postAgentSummary } from "./routes";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not for given community",
@@ -17,13 +17,10 @@ const agentRoute = new OpenAPIHono();
 
 agentRoute.openapi(getAgentSummary, async (c) => {
   try {
-    const communityId = c.get("communityId");
-    if (!communityId) {
-      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
-    }
+    const platformId = c.req.query("platformId");
 
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platformId as string),
     });
 
     if (!platform) {
@@ -32,20 +29,16 @@ agentRoute.openapi(getAgentSummary, async (c) => {
 
     // Get date range from query params or use defaults
     const query = c.req.query();
-    const startDate = query.startDate || dayjs().subtract(7, "day").toISOString();
-    const endDate = query.endDate || dayjs().toISOString();
-
-    // Convert to Unix timestamps for the workflow
-    const startMs = dayjs(startDate).valueOf();
-    const endMs = dayjs(endDate).valueOf();
+    const startDate = dayjs(query.startDate || dayjs().subtract(30, "day")).valueOf();
+    const endDate = dayjs(query.endDate || dayjs()).valueOf();
 
     const workflow = mastra.getWorkflow("summaryWorkflow");
     const { start } = workflow.createRun();
 
     const result = await start({
       triggerData: {
-        startDate: startMs,
-        endDate: endMs,
+        startDate,
+        endDate,
         platformId: platform.platformId,
       },
     });
@@ -54,8 +47,8 @@ agentRoute.openapi(getAgentSummary, async (c) => {
       return c.json({
         summary: result.results.generateSummary.output.summary,
         timeframe: {
-          startDate,
-          endDate,
+          startDate: dayjs(startDate).toISOString(),
+          endDate: dayjs(endDate).toISOString(),
         },
       });
     }
@@ -70,24 +63,19 @@ agentRoute.openapi(getAgentSummary, async (c) => {
 // POST endpoint for querying conversation history
 agentRoute.openapi(postAgentSummary, async (c) => {
   try {
-    // Get the community ID from context
-    const communityId = c.get("communityId");
+    const { query, start_date, end_date, platform_id } = await c.req.json();
 
-    // Get connected platform
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platform_id as string),
     });
 
     if (!platform) {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Get query from request body
-    const { query, start_date, end_date } = await c.req.json();
-
     // Default to last 30 days if no timeframe provided
-    const endDate = dayjs(end_date).valueOf() || dayjs().valueOf();
-    const startDate = dayjs(start_date).valueOf() || dayjs().subtract(30, "day").valueOf();
+    const startDate = dayjs(start_date || dayjs().subtract(30, "day")).valueOf();
+    const endDate = dayjs(end_date || dayjs()).valueOf();
 
     // Get the RAG agent from mastra
     const ragAgent = mastra.getAgent("ragAgent");
@@ -150,7 +138,9 @@ agentRoute.openapi(getImpactReport, async (c) => {
 
     // Get date range from query params or use defaults
     const { startDate, endDate } = c.req.query();
-    const startDateMs = startDate ? dayjs(startDate).valueOf() : dayjs().subtract(7, "day").valueOf();
+    const startDateMs = startDate
+      ? dayjs(startDate).valueOf()
+      : dayjs().subtract(7, "day").valueOf();
     const endDateMs = endDate ? dayjs(endDate).valueOf() : dayjs().valueOf();
 
     const workflow = mastra.getWorkflow("impactReportWorkflow");
@@ -165,7 +155,7 @@ agentRoute.openapi(getImpactReport, async (c) => {
     });
 
     if (!result.results?.saveReport?.output) {
-      console.error('Workflow results:', result.results);
+      console.error("Workflow results:", result.results);
       return c.json({ message: "Failed to save report" }, 500);
     }
 
@@ -199,12 +189,12 @@ agentRoute.openapi(getMessages, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    const { 
-      startDate, 
-      endDate, 
+    const {
+      startDate,
+      endDate,
       platformId,
       includeStats = "false",
-      includeMessageId = "false"
+      includeMessageId = "false",
     } = c.req.query();
 
     // Validate that the provided platformId matches the community's platform
@@ -232,8 +222,8 @@ agentRoute.openapi(getMessages, async (c) => {
         endDate: endMs,
         platformId,
         includeStats: includeStatsBool,
-        includeMessageId: includeMessageIdBool
-      }
+        includeMessageId: includeMessageIdBool,
+      },
     });
 
     const response = {
@@ -243,7 +233,7 @@ agentRoute.openapi(getMessages, async (c) => {
         startDate,
         endDate,
       },
-      ...(result.stats ? { stats: result.stats } : {})
+      ...(result.stats ? { stats: result.stats } : {}),
     };
 
     return c.json(response, 200);

@@ -3,10 +3,8 @@ export const getAgentSummary = createRoute({
   method: "get",
   path: "/summary",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     query: z.object({
+      platformId: z.string(),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
@@ -45,15 +43,13 @@ export const postAgentSummary = createRoute({
   method: "post",
   path: "/query",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     body: {
       content: {
         "application/json": {
           schema: z.object({
             query: z.string(),
-            startDate: z
+            platform_id: z.string(),
+            start_date: z
               .string({ message: "must be a valid ISO 8601 date format" })
               .datetime({ message: "must be a valid ISO 8601 date format" })
               .optional(),
@@ -105,16 +101,9 @@ export const getMessages = createRoute({
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
-      platformId: z.string()
-        .describe("Platform ID"),
-      includeStats: z
-        .enum(["true", "false"])
-        .optional()
-        .default("false"),
-      includeMessageId: z
-        .enum(["true", "false"])
-        .optional()
-        .default("false")
+      platformId: z.string().describe("Platform ID"),
+      includeStats: z.enum(["true", "false"]).optional().default("false"),
+      includeMessageId: z.enum(["true", "false"]).optional().default("false"),
     }),
   },
   responses: {
@@ -129,40 +118,48 @@ export const getMessages = createRoute({
               startDate: z.string().datetime(),
               endDate: z.string().datetime(),
             }),
-            stats: z.object({
-              messageCount: z.number(),
-              uniqueUserCount: z.number(),
-              messagesByDate: z.array(z.object({
-                date: z.string(),
-                count: z.number(),
-                uniqueUsers: z.number()
-              })),
-              topContributors: z.array(z.object({
-                username: z.string(),
-                count: z.number()
-              })),
-              messagesByChannel: z.array(z.object({
-                channel: z.object({
-                  id: z.string(),
-                  name: z.string()
-                }),
-                count: z.number(),
-                uniqueUsers: z.number()
-              }))
-            }).optional()
-          })
-        }
-      }
+            stats: z
+              .object({
+                messageCount: z.number(),
+                uniqueUserCount: z.number(),
+                messagesByDate: z.array(
+                  z.object({
+                    date: z.string(),
+                    count: z.number(),
+                    uniqueUsers: z.number(),
+                  }),
+                ),
+                topContributors: z.array(
+                  z.object({
+                    username: z.string(),
+                    count: z.number(),
+                  }),
+                ),
+                messagesByChannel: z.array(
+                  z.object({
+                    channel: z.object({
+                      id: z.string(),
+                      name: z.string(),
+                    }),
+                    count: z.number(),
+                    uniqueUsers: z.number(),
+                  }),
+                ),
+              })
+              .optional(),
+          }),
+        },
+      },
     },
     400: {
       description: "Bad request",
       content: {
         "application/json": {
           schema: z.object({
-            message: z.string()
-          })
-        }
-      }
+            message: z.string(),
+          }),
+        },
+      },
     },
     404: {
       description: "The community was not found",
@@ -172,12 +169,12 @@ export const getMessages = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            message: z.string()
-          })
-        }
-      }
-    }
-  }
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
 });
 
 export const getImpactReport = createRoute({
@@ -191,8 +188,7 @@ export const getImpactReport = createRoute({
       "X-Community-ID": z.string(),
     }),
     query: z.object({
-      platformId: z.string()
-        .describe("Platform ID"),
+      platformId: z.string().describe("Platform ID"),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" }),
@@ -211,42 +207,54 @@ export const getImpactReport = createRoute({
               overview: z.object({
                 totalMessages: z.number(),
                 uniqueUsers: z.number(),
-                activeChannels: z.number()
+                activeChannels: z.number(),
               }),
-              dailyActivity: z.array(z.object({
-                date: z.string(),
-                messageCount: z.number(),
-                uniqueUsers: z.number()
-              })),
-              topContributors: z.array(z.object({
-                username: z.string(),
-                messageCount: z.number()
-              })),
-              channelBreakdown: z.array(z.object({
-                channelName: z.string(),
-                messageCount: z.number(),
-                uniqueUsers: z.number()
-              })),
-              keyTopics: z.array(z.object({
-                topic: z.string(),
-                messageCount: z.number(),
-                description: z.string(),
-                examples: z.array(z.string())
-              })),
+              dailyActivity: z.array(
+                z.object({
+                  date: z.string(),
+                  messageCount: z.number(),
+                  uniqueUsers: z.number(),
+                }),
+              ),
+              topContributors: z.array(
+                z.object({
+                  username: z.string(),
+                  messageCount: z.number(),
+                }),
+              ),
+              channelBreakdown: z.array(
+                z.object({
+                  channelName: z.string(),
+                  messageCount: z.number(),
+                  uniqueUsers: z.number(),
+                }),
+              ),
+              keyTopics: z.array(
+                z.object({
+                  topic: z.string(),
+                  messageCount: z.number(),
+                  description: z.string(),
+                  examples: z.array(z.string()),
+                }),
+              ),
               userSentiment: z.object({
-                excitement: z.array(z.object({
-                  title: z.string(),
-                  description: z.string(),
-                  users: z.array(z.string()),
-                  examples: z.array(z.string())
-                })),
-                frustrations: z.array(z.object({
-                  title: z.string(),
-                  description: z.string(),
-                  users: z.array(z.string()),
-                  examples: z.array(z.string())
-                }))
-              })
+                excitement: z.array(
+                  z.object({
+                    title: z.string(),
+                    description: z.string(),
+                    users: z.array(z.string()),
+                    examples: z.array(z.string()),
+                  }),
+                ),
+                frustrations: z.array(
+                  z.object({
+                    title: z.string(),
+                    description: z.string(),
+                    users: z.array(z.string()),
+                    examples: z.array(z.string()),
+                  }),
+                ),
+              }),
             }),
             timeframe: z.object({
               startDate: z.string().datetime(),
