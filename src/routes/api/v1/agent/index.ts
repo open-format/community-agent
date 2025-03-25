@@ -5,8 +5,9 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis } from "./routes";
+import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis, createPrivyWallet } from "./routes";
 import { getMessagesTool } from "@/agent/tools/getMessages";
+import { createPrivyWalletTool } from "@/agent/tools/privyWallet";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not for given community",
@@ -289,6 +290,37 @@ agentRoute.openapi(postRewardsAnalysis, async (c) => {
   } catch (error) {
     console.error("Error analyzing rewards:", error);
     return c.json({ message: "Failed to analyze rewards", error: String(error) }, 500);
+  }
+});
+
+// Add the Privy wallet creation endpoint
+agentRoute.openapi(createPrivyWallet, async (c) => {
+  try {
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+
+    const { username, platform } = await c.req.json();
+
+    if (!createPrivyWalletTool.execute) {
+      return c.json({ message: "Privy wallet tool not initialized" }, 500);
+    }
+
+    const result = await createPrivyWalletTool.execute({
+      context: {
+        username,
+        platform
+      }
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error creating Privy wallet:", error);
+    return c.json({ 
+      message: "Failed to create wallet", 
+      error: error instanceof Error ? error.message : String(error) 
+    }, 500);
   }
 });
 

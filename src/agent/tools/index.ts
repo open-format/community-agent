@@ -4,3 +4,4 @@ export * from './getMessages';
 export { saveImpactReportTool } from './saveImpactReport';
 export * from './getWalletAddress';
 export * from './savePendingReward';
+export * from './privyWallet';

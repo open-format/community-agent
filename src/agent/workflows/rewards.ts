@@ -1,8 +1,8 @@
 import { Workflow, Step } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { identifyRewards } from '../agents';
-import { getMessagesTool, getWalletAddressTool, savePendingRewardTool } from '../tools';
-import { ThirdwebStorage } from "@thirdweb-dev/storage";
+import { getMessagesTool, getWalletAddressTool, savePendingRewardTool, createPrivyWalletTool } from '../tools';
+// import { ThirdwebStorage } from "@thirdweb-dev/storage";
 
 // Step 1: Fetch messages
 const fetchMessagesStep = new Step({
@@ -72,6 +72,7 @@ const getWalletAddressesStep = new Step({
     rewards: z.array(z.object({
       ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
       walletAddress: z.string().nullable(),
+      isPregenerated: z.boolean().optional(),
       error: z.string().optional(),
     })),
   }),
@@ -85,23 +86,64 @@ const getWalletAddressesStep = new Step({
     }
 
     const contributions = context.steps.identifyRewards.output.contributions;
+    console.log(`Processing ${contributions.length} contributions for wallet addresses`);
+
     const rewards = await Promise.all(
       contributions.map(async (contribution) => {
+        console.log(`Processing wallet for contributor: ${contribution.contributor}`);
+        
+        // First try to get existing wallet
         const walletInfo = await getWalletAddressTool.execute({
           context: {
             username: contribution.contributor,
-            // Assuming Discord for now 
             platform: 'discord'
           }
         });
 
+        // If no wallet exists, try to create one
+        if (!walletInfo.walletAddress && !walletInfo.error) {
+          console.log(`No existing wallet found for ${contribution.contributor}, attempting to create one`);
+          try {
+            const privyWalletInfo = await createPrivyWalletTool.execute({
+              context: {
+                username: contribution.contributor,
+                platform: 'discord'
+              }
+            });
+
+            console.log(`Successfully created new wallet for ${contribution.contributor}: ${privyWalletInfo.walletAddress}`);
+            return {
+              ...contribution,
+              walletAddress: privyWalletInfo.walletAddress,
+              isPregenerated: true
+            };
+          } catch (error) {
+            console.error(`Failed to create wallet for ${contribution.contributor}:`, error);
+            return {
+              ...contribution,
+              walletAddress: null,
+              error: `Failed to create wallet: ${error instanceof Error ? error.message : 'Unknown error'}`
+            };
+          }
+        }
+
+        if (walletInfo.walletAddress) {
+          console.log(`Found existing wallet for ${contribution.contributor}: ${walletInfo.walletAddress}`);
+        } else if (walletInfo.error) {
+          console.error(`Error getting wallet for ${contribution.contributor}:`, walletInfo.error);
+        }
+
         return {
           ...contribution,
           walletAddress: walletInfo.walletAddress,
-          ...(walletInfo.error ? { error: walletInfo.error } : {}),
+          ...(walletInfo.error ? { error: walletInfo.error } : {})
         };
       })
-    );
+    ) as Array<any>;
+
+    const successCount = rewards.filter(r => r.walletAddress).length;
+    const errorCount = rewards.filter(r => r.error).length;
+    console.log(`Wallet processing complete. Success: ${successCount}, Errors: ${errorCount}`);
 
     return { rewards };
   },
@@ -123,9 +165,9 @@ const uploadMetadataStep = new Step({
       throw new Error('Failed to get wallet addresses');
     }
 
-    const storage = new ThirdwebStorage({
-      secretKey: process.env.THIRDWEB_SECRET,
-    });
+    // const storage = new ThirdwebStorage({
+    //   secretKey: process.env.THIRDWEB_SECRET,
+    // });
 
     const rewards = await Promise.all(
       context.steps.getWalletAddresses.output.rewards.map(async (reward) => {
@@ -137,14 +179,14 @@ const uploadMetadataStep = new Step({
           reasoning: reward.suggested_reward.reasoning,
           timestamp: Date.now(),
         };
-
+/*
         try {
-          const ipfsHash = await storage.upload(metadata, {
-            uploadWithoutDirectory: true,
-          });
+          // const ipfsHash = await storage.upload(metadata, {
+          //   uploadWithoutDirectory: true,
+          // });
           return {
             ...reward,
-            metadataUri: ipfsHash,
+            metadataUri: 'ipfsHash',
           };
         } catch (error) {
           console.error(`Failed to upload metadata for ${reward.contributor}:`, error);
@@ -153,6 +195,7 @@ const uploadMetadataStep = new Step({
             error: `Failed to upload metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
           };
         }
+*/
       })
     );
 

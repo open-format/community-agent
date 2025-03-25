@@ -323,3 +323,53 @@ export const postRewardsAnalysis = createRoute({
     },
   },
 });
+
+export const createPrivyWallet = createRoute({
+  method: "post",
+  path: "/privy-wallet",
+  tags: ["Wallet"],
+  summary: "Create a Privy wallet for a Discord user",
+  description: "Creates a new Privy wallet for a Discord user who doesn't have one yet",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            username: z.string(),
+            platform: z.enum(["discord"]),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Wallet created successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            walletAddress: z.string(),
+            isPregenerated: z.boolean(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Bad request",
+    },
+    500: {
+      description: "Failed to create wallet",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+            error: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+});
