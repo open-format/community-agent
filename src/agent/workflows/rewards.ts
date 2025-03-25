@@ -196,6 +196,11 @@ const uploadMetadataStep = new Step({
           };
         }
 */
+     // Return dummy hash for now since IPFS upload is commented out
+     return {
+      ...reward,
+      metadataUri: `dummy-hash-${Date.now()}`,
+    };
       })
     );
 
