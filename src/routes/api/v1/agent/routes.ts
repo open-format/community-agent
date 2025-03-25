@@ -264,3 +264,62 @@ export const getImpactReport = createRoute({
     },
   },
 });
+
+export const postRewardsAnalysis = createRoute({
+  method: "post",
+  path: "/rewards",
+  tags: ["Rewards"],
+  summary: "Analyze community activity for rewards",
+  description: "Analyzes community messages to identify and suggest rewards for valuable contributions",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            platformId: z.string(),
+            startDate: z
+              .string()
+              .datetime({ message: "must be a valid ISO 8601 date format" }),
+            endDate: z
+              .string()
+              .datetime({ message: "must be a valid ISO 8601 date format" }),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Rewards analysis completed successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            rewards: z.array(z.object({
+              contributor: z.string(),
+              walletAddress: z.string().nullable(),
+              rewardId: z.string(),
+              points: z.number(),
+              error: z.string().optional(),
+            })),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Bad request",
+    },
+    404: {
+      description: "Community not found",
+    },
+    500: {
+      description: "An error occurred while analyzing rewards",
+    },
+  },
+});

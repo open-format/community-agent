@@ -5,7 +5,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages, getImpactReport } from "./routes";
+import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis } from "./routes";
 import { getMessagesTool } from "@/agent/tools/getMessages";
 
 enum Errors {
@@ -250,6 +250,45 @@ agentRoute.openapi(getMessages, async (c) => {
   } catch (error: any) {
     console.error("Error fetching messages:", error);
     return c.json({ message: error.message || "Failed to fetch messages" }, 500);
+  }
+});
+
+// Add to agentRoute
+agentRoute.openapi(postRewardsAnalysis, async (c) => {
+  try {
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+
+    const { platformId, startDate, endDate } = await c.req.json();
+    
+    const workflow = mastra.getWorkflow("rewardsWorkflow");
+    const { start } = workflow.createRun();
+
+    const result = await start({
+      triggerData: {
+        communityId,
+        platformId,
+        startDate: dayjs(startDate).valueOf(),
+        endDate: dayjs(endDate).valueOf(),
+      },
+    });
+
+    if (result.results.getWalletAddresses?.status === "success") {
+      return c.json({
+        rewards: result.results.getWalletAddresses.output.rewards,
+        timeframe: {
+          startDate,
+          endDate,
+        },
+      });
+    }
+
+    return c.json({ message: "Failed to analyze rewards" }, 500);
+  } catch (error) {
+    console.error("Error analyzing rewards:", error);
+    return c.json({ message: "Failed to analyze rewards", error: String(error) }, 500);
   }
 });
 

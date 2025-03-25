@@ -98,6 +98,31 @@ export const platformConnections = pgTable(
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
 );
 
+export const pendingRewards = pgTable(
+  "pending_rewards",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    communityId: text("community_id")
+      .notNull()
+      .references(() => communities.id),
+    contributorName: text("contributor_name").notNull(),
+    walletAddress: text("wallet_address").notNull(),
+    platform: text("platform", { enum: PLATFORM_TYPES }).notNull(),
+    rewardId: text("reward_id").notNull(),
+    points: integer("points").notNull(),
+    metadataUri: text("metadata_uri").notNull(),
+    status: text("status", { enum: ["pending", "processed", "failed"] }).default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (table) => [
+    index("pending_rewards_community_idx").on(table.communityId),
+    index("pending_rewards_status_idx").on(table.status),
+  ]
+);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
@@ -106,6 +131,13 @@ export const communitiesRelations = relations(communities, ({ many }) => ({
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
   community: one(communities, {
     fields: [platformConnections.communityId],
+    references: [communities.id],
+  }),
+}));
+
+export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
+  community: one(communities, {
+    fields: [pendingRewards.communityId],
     references: [communities.id],
   }),
 }));
