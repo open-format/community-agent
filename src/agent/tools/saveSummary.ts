@@ -9,7 +9,6 @@ export const saveSummaryTool = createTool({
   id: "save-summary",
   description: "Save a community summary to the database with vector embeddings",
   inputSchema: z.object({
-    communityId: z.string(),
     summary: z.string(),
     startDate: z.string(),
     endDate: z.string(),

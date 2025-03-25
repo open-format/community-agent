@@ -10,7 +10,6 @@ export const summaryWorkflow = new Workflow({
     startDate: z.number(),
     endDate: z.number(),
     platformId: z.string().nonempty(),
-    communityId: z.string().nonempty(),
   }),
 });
 
@@ -98,7 +97,6 @@ const saveSummaryStep = new Step({
 
     // Create the context with required fields
     const saveContext = {
-      communityId: context.triggerData.communityId,
       summary: context.steps.generateSummary.output.summary,
       startDate: context.triggerData.startDate,
       endDate: context.triggerData.endDate,

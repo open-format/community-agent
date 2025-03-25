@@ -16,13 +16,10 @@ const agentRoute = new OpenAPIHono();
 
 agentRoute.openapi(getAgentSummary, async (c) => {
   try {
-    const communityId = c.get("communityId");
-    if (!communityId) {
-      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
-    }
+    const platformId = c.req.query("platformId");
 
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platformId as string),
     });
 
     if (!platform) {
@@ -31,8 +28,8 @@ agentRoute.openapi(getAgentSummary, async (c) => {
 
     // Get date range from query params or use defaults
     const query = c.req.query();
-    const startDate = dayjs(query.start_date).valueOf() ?? dayjs().subtract(7, "day").valueOf();
-    const endDate = dayjs(query.end_date).valueOf() ?? dayjs().valueOf();
+    const startDate = dayjs(query.startDate || dayjs().subtract(7, "day")).valueOf();
+    const endDate = dayjs(query.endDate || dayjs()).valueOf();
 
     const workflow = mastra.getWorkflow("summaryWorkflow");
     const { start } = workflow.createRun();
@@ -42,7 +39,6 @@ agentRoute.openapi(getAgentSummary, async (c) => {
         startDate: startDate,
         endDate: endDate,
         platformId: platform.platformId,
-        communityId: communityId,
       },
     });
 
@@ -66,24 +62,19 @@ agentRoute.openapi(getAgentSummary, async (c) => {
 // POST endpoint for querying conversation history
 agentRoute.openapi(postAgentSummary, async (c) => {
   try {
-    // Get the community ID from context
-    const communityId = c.get("communityId");
+    const { query, start_date, end_date, platform_id } = await c.req.json();
 
-    // Get connected platform
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platform_id as string),
     });
 
     if (!platform) {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Get query from request body
-    const { query, start_date, end_date } = await c.req.json();
-
     // Default to last 30 days if no timeframe provided
-    const endDate = dayjs(end_date).valueOf() || dayjs().valueOf();
-    const startDate = dayjs(start_date).valueOf() || dayjs().subtract(30, "day").valueOf();
+    const startDate = dayjs(start_date || dayjs().subtract(30, "day")).valueOf();
+    const endDate = dayjs(end_date || dayjs()).valueOf();
 
     // Get the RAG agent from mastra
     const ragAgent = mastra.getAgent("ragAgent");
