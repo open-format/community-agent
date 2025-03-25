@@ -17,3 +17,19 @@ export function validateTimeWindow(start_time?: string, end_time?: string): bool
 
   return true;
 }
+
+// function to create a timestamp from a date this will falllback to configurate days ago if no date is provided
+//     const startTimestamp = dayjs(startDate || dayjs().subtract(30, "day")).valueOf();
+// const endTimestamp = dayjs(endDate || dayjs()).valueOf();
+
+export function createUnixTimestamp(date?: string, daysAgo?: number) {
+  if (!date && !daysAgo) {
+    return dayjs().valueOf();
+  }
+
+  if (daysAgo) {
+    return dayjs().subtract(daysAgo, "day").valueOf();
+  }
+
+  return dayjs(date).valueOf();
+}

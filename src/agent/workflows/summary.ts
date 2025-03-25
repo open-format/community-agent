@@ -1,16 +1,20 @@
 import { Step, Workflow } from "@mastra/core";
 import { z } from "zod";
 import { generateSummary } from "../agents/summary";
-import { fetchCommunityMessagesTool, saveSummaryTool } from "../tools/index";
+import { getMessagesTool, saveSummaryTool } from "../tools/index";
+import dayjs from "dayjs";
 
 // Define the workflow
 export const summaryWorkflow = new Workflow({
   name: "community-summary",
   triggerSchema: z.object({
-    startDate: z.number(),
-    endDate: z.number(),
+    startDate: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
+    endDate: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
     platformId: z.string().nonempty(),
-    communityId: z.string().nonempty(),
   }),
 });
 
@@ -19,21 +23,20 @@ const fetchMessagesStep = new Step({
   id: "fetchMessages",
   outputSchema: z.object({
     transcript: z.string(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
   }),
   execute: async ({ context }) => {
-    if (!fetchCommunityMessagesTool.execute) {
+    if (!getMessagesTool.execute) {
       throw new Error("Fetch messages tool not initialized");
     }
 
     try {
-      // Call our fetchCommunityMessagesTool directly with trigger data
-      const result = await fetchCommunityMessagesTool.execute({
+      const result = await getMessagesTool.execute({
         context: {
           startDate: context.triggerData.startDate,
           endDate: context.triggerData.endDate,
           platformId: context.triggerData.platformId,
+          includeStats: false,
+          includeMessageId: false,
         },
       });
 
@@ -47,8 +50,6 @@ const fetchMessagesStep = new Step({
       // Instead of throwing, return a transcript indicating no messages
       return {
         transcript: `No messages found. Note: ${error instanceof Error ? error.message : "Unknown error"}`,
-        messageCount: 0,
-        uniqueUserCount: 0,
       };
     }
   },
@@ -98,13 +99,10 @@ const saveSummaryStep = new Step({
 
     // Create the context with required fields
     const saveContext = {
-      communityId: context.triggerData.communityId,
       summary: context.steps.generateSummary.output.summary,
       startDate: context.triggerData.startDate,
       endDate: context.triggerData.endDate,
       platformId: context.triggerData.platformId,
-      messageCount: context.steps.fetchMessages.output.messageCount,
-      uniqueUserCount: context.steps.fetchMessages.output.uniqueUserCount,
       summarizationResult: context.steps.generateSummary.output.summarizationResult,
     };
 

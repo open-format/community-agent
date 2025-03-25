@@ -1,3 +1,10 @@
+# [0.17.0](https://github.com/open-format/community-agent/compare/v0.16.0...v0.17.0) (2025-03-25)
+
+
+### Features
+
+* enhance Discord client to manage platform connections ([c797c55](https://github.com/open-format/community-agent/commit/c797c553a5b99fd8804a4c4eb1c5471198a04d45))
+
 # [0.16.0](https://github.com/open-format/community-agent/compare/v0.15.0...v0.16.0) (2025-03-21)
 
 

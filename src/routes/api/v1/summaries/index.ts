@@ -1,49 +1,45 @@
 import { mastra } from "@/agent";
+import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
+import { createUnixTimestamp } from "@/utils/time";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, postHistoricalMessages } from "./routes";
-import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+import { getAgentSummary, getHistoricalMessages, postAgentSummary } from "./routes";
 
 enum Errors {
-  PLATFORM_NOT_FOUND = "Platform not for given community",
-  COMMUNITY_NOT_FOUND = "Community not found",
+  PLATFORM_NOT_FOUND = "Platform not found",
 }
 
-const agentRoute = new OpenAPIHono();
+const summariesRoute = new OpenAPIHono();
 
-agentRoute.openapi(getAgentSummary, async (c) => {
+summariesRoute.openapi(getAgentSummary, async (c) => {
   try {
-    const communityId = c.get("communityId");
-    if (!communityId) {
-      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
-    }
+    const platformId = c.req.query("platformId");
 
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platformId as string),
     });
 
     if (!platform) {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Get date range from query params or use defaults
     const query = c.req.query();
-    const startDate = dayjs(query.start_date).valueOf() ?? dayjs().subtract(7, "day").valueOf();
-    const endDate = dayjs(query.end_date).valueOf() ?? dayjs().valueOf();
+    const startDate = createUnixTimestamp(query.startDate, 30);
+    const endDate = createUnixTimestamp(query.endDate);
 
     const workflow = mastra.getWorkflow("summaryWorkflow");
     const { start } = workflow.createRun();
 
     const result = await start({
       triggerData: {
-        startDate: startDate,
-        endDate: endDate,
+        startDate,
+        endDate,
         platformId: platform.platformId,
-        communityId: communityId,
       },
     });
 
@@ -64,32 +60,23 @@ agentRoute.openapi(getAgentSummary, async (c) => {
   }
 });
 
-// POST endpoint for querying conversation history
-agentRoute.openapi(postAgentSummary, async (c) => {
+summariesRoute.openapi(postAgentSummary, async (c) => {
   try {
-    // Get the community ID from context
-    const communityId = c.get("communityId");
+    const { query, start_date, end_date, platform_id } = await c.req.json();
 
-    // Get connected platform
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.communityId, communityId as string),
+      where: eq(platformConnections.platformId, platform_id as string),
     });
 
     if (!platform) {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Get query from request body
-    const { query, start_date, end_date } = await c.req.json();
+    const startDate = createUnixTimestamp(start_date, 30);
+    const endDate = createUnixTimestamp(end_date);
 
-    // Default to last 30 days if no timeframe provided
-    const endDate = dayjs(end_date).valueOf() || dayjs().valueOf();
-    const startDate = dayjs(start_date).valueOf() || dayjs().subtract(30, "day").valueOf();
-
-    // Get the RAG agent from mastra
     const ragAgent = mastra.getAgent("ragAgent");
 
-    // Create context with timeframe information
     const contextWithTimeDetails = `
 Query: ${query}
 
@@ -116,10 +103,8 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
-    // Generate response using the RAG agent
     const response = await ragAgent.generate(contextWithTimeDetails);
 
-    // Return response in the expected format
     return c.json({
       summary: response.text,
     });
@@ -130,9 +115,18 @@ Please search through the conversation history to find relevant information.
 });
 
 // Add historical messages endpoint
-agentRoute.openapi(postHistoricalMessages, async (c) => {
+summariesRoute.openapi(getHistoricalMessages, async (c) => {
   try {
-    const { platformId } = await c.req.json();
+    const { platformId } = c.req.query();
+
+    //check if platform exists in db
+    const platform = await db.query.platformConnections.findFirst({
+      where: eq(platformConnections.platformId, platformId as string),
+    });
+
+    if (!platform) {
+      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+    }
 
     if (!fetchHistoricalMessagesTool.execute) {
       throw new Error("Historical messages tool not initialized");
@@ -149,14 +143,14 @@ agentRoute.openapi(postHistoricalMessages, async (c) => {
   } catch (error) {
     console.error("Error fetching historical messages:", error);
     return c.json(
-      { 
-        success: false, 
-        newMessagesAdded: 0, 
-        error: error instanceof Error ? error.message : "Unknown error occurred" 
-      }, 
-      500
+      {
+        success: false,
+        newMessagesAdded: 0,
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      },
+      500,
     );
   }
 });
 
-export default agentRoute;
+export default summariesRoute;
