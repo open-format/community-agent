@@ -1,7 +1,8 @@
 import { createRoute, z } from "@hono/zod-openapi";
+
 export const getAgentSummary = createRoute({
   method: "get",
-  path: "/summary",
+  path: "/",
   request: {
     query: z.object({
       platformId: z.string(),
@@ -89,9 +90,6 @@ export const getMessages = createRoute({
   summary: "Fetch community messages",
   description: "Fetch messages from a community with optional statistics",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     query: z.object({
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
@@ -177,24 +175,23 @@ export const getMessages = createRoute({
   },
 });
 
-export const getImpactReport = createRoute({
-  method: "get",
-  path: "/report",
+export const generateImpactReport = createRoute({
+  method: "post",
+  path: "/reports/impact",
   tags: ["Reports"],
   summary: "Generate impact report",
   description: "Generate an impact report for a community over a specified time period",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     query: z.object({
       platformId: z.string().describe("Platform ID"),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
-        .datetime({ message: "must be a valid ISO 8601 date format" }),
+        .datetime({ message: "must be a valid ISO 8601 date format" })
+        .optional(),
       endDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
-        .datetime({ message: "must be a valid ISO 8601 date format" }),
+        .datetime({ message: "must be a valid ISO 8601 date format" })
+        .optional(),
     }),
   },
   responses: {
@@ -269,6 +266,39 @@ export const getImpactReport = createRoute({
     },
     500: {
       description: "An error occurred while generating the report",
+    },
+  },
+});
+
+export const getReportStatus = createRoute({
+  method: "get",
+  path: "/report/status/:jobId",
+  tags: ["Reports"],
+  summary: "Check report generation status",
+  description: "Check the status of an ongoing report generation request",
+  request: {
+    params: z.object({
+      jobId: z.string().uuid().describe("Job ID for the report generation"),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Report status retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            jobId: z.string(),
+            status: z.enum(["pending", "processing", "completed", "failed"]),
+            reportId: z.string().uuid().optional(),
+            report: z.any().optional().describe("The report data if completed"),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
+            error: z.string().optional(),
+          }),
+        },
+      },
     },
   },
 });
