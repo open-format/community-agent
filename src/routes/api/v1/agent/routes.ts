@@ -74,3 +74,36 @@ export const postAgentSummary = createRoute({
     },
   },
 });
+
+export const postHistoricalMessages = createRoute({
+  method: "post",
+  path: "/historical-messages",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            guildId: z.string().nonempty(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Historical messages were fetched and stored successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            messageCount: z.number(),
+            error: z.string().optional(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "An error occurred while fetching messages",
+    },
+  },
+});

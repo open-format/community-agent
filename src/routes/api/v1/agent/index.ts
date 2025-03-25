@@ -5,7 +5,8 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary } from "./routes";
+import { getAgentSummary, postAgentSummary, postHistoricalMessages } from "./routes";
+import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not for given community",
@@ -125,6 +126,36 @@ Please search through the conversation history to find relevant information.
   } catch (error) {
     console.error("Error querying conversations:", error);
     throw error;
+  }
+});
+
+// Add historical messages endpoint
+agentRoute.openapi(postHistoricalMessages, async (c) => {
+  try {
+    const { guildId } = await c.req.json();
+
+    if (!fetchHistoricalMessagesTool.execute) {
+      throw new Error("Historical messages tool not initialized");
+    }
+
+    // Execute the historical messages tool
+    const result = await fetchHistoricalMessagesTool.execute({
+      context: {
+        guildId,
+      },
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching historical messages:", error);
+    return c.json(
+      { 
+        success: false, 
+        messageCount: 0, 
+        error: error instanceof Error ? error.message : "Unknown error occurred" 
+      }, 
+      500
+    );
   }
 });
 
