@@ -132,7 +132,7 @@ Please search through the conversation history to find relevant information.
 // Add historical messages endpoint
 agentRoute.openapi(postHistoricalMessages, async (c) => {
   try {
-    const { guildId } = await c.req.json();
+    const { platformId } = await c.req.json();
 
     if (!fetchHistoricalMessagesTool.execute) {
       throw new Error("Historical messages tool not initialized");
@@ -141,7 +141,7 @@ agentRoute.openapi(postHistoricalMessages, async (c) => {
     // Execute the historical messages tool
     const result = await fetchHistoricalMessagesTool.execute({
       context: {
-        guildId,
+        platformId,
       },
     });
 
@@ -151,7 +151,7 @@ agentRoute.openapi(postHistoricalMessages, async (c) => {
     return c.json(
       { 
         success: false, 
-        messageCount: 0, 
+        newMessagesAdded: 0, 
         error: error instanceof Error ? error.message : "Unknown error occurred" 
       }, 
       500

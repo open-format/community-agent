@@ -83,7 +83,7 @@ export const postHistoricalMessages = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            guildId: z.string().nonempty(),
+            platformId: z.string().nonempty(),
           }),
         },
       },
@@ -96,7 +96,7 @@ export const postHistoricalMessages = createRoute({
         "application/json": {
           schema: z.object({
             success: z.boolean(),
-            messageCount: z.number(),
+            newMessagesAdded: z.number(),
             error: z.string().optional(),
           }),
         },
