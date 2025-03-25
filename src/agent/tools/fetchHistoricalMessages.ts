@@ -67,8 +67,8 @@ export const fetchHistoricalMessagesTool = createTool({
             
             // Process each message in the batch
             for (const msg of recentMessages.values()) {
-              // Skip bot messages and empty content
-              if (msg.author.bot || !msg.content || msg.content.trim() === '') continue;
+              // Skip empty content
+              if (!msg.content || msg.content.trim() === '') continue;
 
               // Prepare message data for vector storage
               messageBatch.push({
@@ -84,6 +84,7 @@ export const fetchHistoricalMessagesTool = createTool({
                   timestamp: msg.createdTimestamp,
                   text: msg.content,
                   isReaction: false,
+                  isBotQuery: msg.author.bot
                 }
               });
 
