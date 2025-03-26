@@ -44,8 +44,8 @@ const identifyRewardsStep = new Step({
   outputSchema: z.object({
     contributions: z.array(z.object({
       contributor: z.string(),
-      summary: z.string(),
-      description: z.string(),
+      short_summary: z.string(),
+      comprehensive_description: z.string(),
       impact: z.string(),
       evidence: z.array(z.string()),
       rewardId: z.string(),
@@ -187,7 +187,7 @@ const uploadMetadataStep = new Step({
       context.steps.getWalletAddresses.output.rewards.map(async (reward) => {
         const metadata = {
           platform: 'discord',
-          description: reward.description,
+          description: reward.comprehensive_description,
           impact: reward.impact,
           evidence: reward.evidence,
           reasoning: reward.suggested_reward.reasoning,
@@ -240,8 +240,8 @@ const savePendingRewardsStep = new Step({
 
     const rewards = context.steps.uploadMetadata.output.rewards as Array<{
       contributor: string;
-      summary: string;
-      description: string;
+      short_summary: string;
+      comprehensive_description: string;
       impact: string;
       evidence: Array<{
         channelId: string;
@@ -274,8 +274,8 @@ const savePendingRewardsStep = new Step({
             platform: 'discord',
             rewardId: reward.rewardId,
             points: reward.suggested_reward.points,
-            summary: reward.summary,
-            description: reward.description,
+            summary: reward.short_summary,
+            description: reward.comprehensive_description,
             impact: reward.impact,
             evidence: reward.evidence,
             reasoning: reward.suggested_reward.reasoning,
@@ -321,8 +321,8 @@ interface WorkflowContext {
       output: {
         contributions: Array<{
           contributor: string;
-          summary: string;
-          description: string;
+          short_summary: string;
+          comprehensive_description: string;
           impact: string;
           evidence: Array<{
             channelId: string;
@@ -341,8 +341,8 @@ interface WorkflowContext {
       output: {
         rewards: Array<{
           contributor: string;
-          summary: string;
-          description: string;
+          short_summary: string;
+          comprehensive_description: string;
           impact: string;
           evidence: Array<{
             channelId: string;
@@ -363,8 +363,8 @@ interface WorkflowContext {
       output: {
         rewards: Array<{
           contributor: string;
-          summary: string;
-          description: string;
+          short_summary: string;
+          comprehensive_description: string;
           impact: string;
           evidence: Array<{
             channelId: string;

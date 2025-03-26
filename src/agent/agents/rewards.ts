@@ -35,8 +35,8 @@ But the same contribution should not be identified multiple times.
 
 For each meaningful contribution, provide:
 1. Who made the contribution
-2. A high-level summary (5-12 words) that quickly captures the essence of the contribution
-3. A detailed description that explains the contribution in depth
+2. A high-level short summary (5-12 words) that quickly captures the essence of the contribution
+3. A detailed comprehensive description that explains the contribution in depth
 4. The impact on the community
 5. Evidence: an array of objects containing channelId and messageId for each message that proves this contribution
 6. A short kebab-case rewardId that describes the contribution (max 32 chars)
@@ -51,8 +51,8 @@ Return the response in this exact JSON format:
   "contributions": [
     {
       "contributor": "username",
-      "summary": "Short 5-12 word summary of the contribution",
-      "description": "Detailed explanation of what was contributed and how it helps",
+      "short_summary": "Short 5-12 word summary of the contribution",
+      "comprehensive_description": "Detailed explanation of what was contributed and how it helps",
       "impact": "Specific impact on community",
       "evidence": [
         {
@@ -76,13 +76,15 @@ Remember:
 - Make sure the messageId is one of the messages that proves the contribution
 - Make sure the channelId is the channel associated with the messageId
 - Include ALL relevant messages that support the contribution
-- Summary should be concise (5-12 words) and capture the essence
-- Description should be detailed and explain the full context
-- For summaries be specific within reason and start the summary as if the contributors name was before it e.g.
-  - Dan_sm1th "fixed an important bug in the base code"
-  - MysticMelody "helped to onboard a new user"
-  - LunarWhisper "answered a question about the project's documentation"
-  - CrimsonBolt "suggested a new endpoint for the API"
+- The short summary should be concise (5-12 words) and capture the essence
+- The comprehensive description should be detailed and explain the full context
+- For the short summary be specific (within reason)
+- Start the short summary as if the contributors name was before it e.g.
+  - "fixed an important bug in the base code"
+  - "helped to onboard a new user"
+  - "answered a question about the project's documentation"
+  - "suggested a new endpoint for the API"
+- The comprehensive description should start with a capital letter as normal, it shouldn't be the same structure as the short summary.
 
 Chat transcript:
 ${transcript}`;
