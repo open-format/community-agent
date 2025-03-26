@@ -114,8 +114,8 @@ const getWalletAddressesStep = new Step({
           }
         });
 
-        // If no wallet exists, try to create one
-        if (!walletInfo.walletAddress && !walletInfo.error) {
+        // If no wallet exists or user needs to create one, try to create one
+        if (!walletInfo.walletAddress) {
           console.log(`No existing wallet found for ${contribution.contributor}, attempting to create one`);
           try {
             const privyWalletInfo = await createPrivyWalletTool.execute({
@@ -125,12 +125,21 @@ const getWalletAddressesStep = new Step({
               }
             });
 
-            console.log(`Successfully created new wallet for ${contribution.contributor}: ${privyWalletInfo.walletAddress}`);
-            return {
-              ...contribution,
-              walletAddress: privyWalletInfo.walletAddress,
-              isPregenerated: true
-            };
+            if (privyWalletInfo.walletAddress) {
+              console.log(`Successfully created new wallet for ${contribution.contributor}: ${privyWalletInfo.walletAddress}`);
+              return {
+                ...contribution,
+                walletAddress: privyWalletInfo.walletAddress,
+                isPregenerated: true
+              };
+            } else {
+              console.error(`Failed to create wallet for ${contribution.contributor}: No wallet address returned`);
+              return {
+                ...contribution,
+                walletAddress: null,
+                error: `Failed to create wallet: No wallet address returned`
+              };
+            }
           } catch (error) {
             console.error(`Failed to create wallet for ${contribution.contributor}:`, error);
             return {
@@ -141,16 +150,21 @@ const getWalletAddressesStep = new Step({
           }
         }
 
+        // If we have a wallet address, return it
         if (walletInfo.walletAddress) {
           console.log(`Found existing wallet for ${contribution.contributor}: ${walletInfo.walletAddress}`);
-        } else if (walletInfo.error) {
-          console.error(`Error getting wallet for ${contribution.contributor}:`, walletInfo.error);
+          return {
+            ...contribution,
+            walletAddress: walletInfo.walletAddress
+          };
         }
 
+        // If we get here, there was an error getting the wallet
+        console.error(`Error getting wallet for ${contribution.contributor}:`, walletInfo.error);
         return {
           ...contribution,
-          walletAddress: walletInfo.walletAddress,
-          ...(walletInfo.error ? { error: walletInfo.error } : {})
+          walletAddress: null,
+          error: walletInfo.error || 'Unknown error getting wallet'
         };
       })
     ) as Array<any>;
@@ -181,6 +195,7 @@ const uploadMetadataStep = new Step({
 
     const storage = new ThirdwebStorage({
       secretKey: process.env.THIRDWEB_SECRET,
+      gatewayUrls: ['https://storage.thirdweb.com/ipfs/upload'],
     });
 
     const rewards = await Promise.all(
@@ -194,22 +209,41 @@ const uploadMetadataStep = new Step({
           timestamp: Date.now(),
         };
 
-        try {
-          const ipfsHash = await storage.upload(metadata, {
-            uploadWithoutDirectory: true,
-          });
-          console.log(`Successfully uploaded metadata for ${reward.contributor}: ${ipfsHash}`);
-          return {
-            ...reward,
-            metadataUri: ipfsHash,
-          };
-        } catch (error) {
-          console.error(`Failed to upload metadata for ${reward.contributor}:`, error);
-          return {
-            ...reward,
-            error: `Failed to upload metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
-          };
+        let retries = 0;
+        const maxRetries = 3;
+        let lastError: Error | null = null;
+
+        while (retries < maxRetries) {
+          try {
+            const ipfsHash = await storage.upload(metadata, {
+              uploadWithoutDirectory: true,
+            });
+            console.log(`Successfully uploaded metadata for ${reward.contributor}: ${ipfsHash}`);
+            return {
+              ...reward,
+              metadataUri: ipfsHash,
+            };
+          } catch (error) {
+            lastError = error as Error;
+            retries++;
+            
+            if (retries < maxRetries) {
+              console.log(`Retry ${retries}/${maxRetries} for ${reward.contributor} after error:`, error);
+              await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+            } else {
+              console.error(`Failed to upload metadata for ${reward.contributor} after ${maxRetries} attempts:`, error);
+              return {
+                ...reward,
+                error: `Failed to upload metadata after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`
+              };
+            }
+          }
         }
+
+        return {
+          ...reward,
+          error: `Failed to upload metadata: ${lastError?.message || 'Unknown error'}`
+        };
       })
     );
 
