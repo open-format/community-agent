@@ -1,5 +1,5 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 
 export const rewardsAgent = new Agent({
   name: "community-rewards",
@@ -19,20 +19,27 @@ export const rewardsAgent = new Agent({
   - Knowledge sharing and expertise
   
   Always provide clear reasoning for your reward suggestions, focusing on objective metrics for contribution value.`,
-  model: openai("gpt-4o"),
+  model: google("gemini-2.0-flash-001"),
 });
 
 // Function to identify rewards from a transcript
 export async function identifyRewards(transcript: string) {
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
+Identify any and all meaningful contributions, and if there are none, return an empty array.
+Do not be afraid to identify many contributions, there is no limit to the number of contributions you can identify.
+Anyone who has made a meaningful contribution should be identified.
+The same person may make multiple contributions, and should be identified multiple times if they have made multiple meaningful contributions.
+But the same contribution should not be identified multiple times.
+
 For each meaningful contribution, provide:
 1. Who made the contribution
-2. What they contributed
-3. The impact on the community
-4. Evidence: an array of message IDs that prove this contribution (extract messageId from each relevant message)
-5. A short kebab-case rewardId that describes the contribution (max 32 chars)
-6. Suggested rewards (10-1000 points) based on:
+2. A high-level summary (5-12 words) that quickly captures the essence of the contribution
+3. A detailed description that explains the contribution in depth
+4. The impact on the community
+5. Evidence: an array of objects containing channelId and messageId for each message that proves this contribution
+6. A short kebab-case rewardId that describes the contribution (max 32 chars)
+7. Suggested rewards (10-1000 points) based on:
    - Contribution value and impact
    - Time/effort invested
    - Community benefit
@@ -43,9 +50,15 @@ Return the response in this exact JSON format:
   "contributions": [
     {
       "contributor": "username",
-      "description": "Clear description of contribution",
+      "summary": "Short 5-12 word summary of the contribution",
+      "description": "Detailed explanation of what was contributed and how it helps",
       "impact": "Specific impact on community",
-      "evidence": ["messageId1", "messageId2", "messageId3"],
+      "evidence": [
+        {
+          "channelId": "channel_id_here",
+          "messageId": "message_id_here"
+        }
+      ],
       "rewardId": "technical-documentation-update",
       "suggested_reward": {
         "points": 100,
@@ -58,8 +71,15 @@ Return the response in this exact JSON format:
 Remember:
 - rewardId must be in kebab-case (lowercase with hyphens)
 - rewardId should be descriptive but under 32 characters
-- evidence must be an array of message IDs extracted from the transcript
-- Include ALL relevant message IDs that support the contribution
+- evidence must be an array of objects with channelId and messageId
+- Include ALL relevant messages that support the contribution
+- Summary should be concise (5-12 words) and capture the essence
+- Description should be detailed and explain the full context
+- For summaries be specific within reason and start the summary as if the contributors name was before it e.g.
+  - Dan_sm1th "fixed an important bug in the base code"
+  - MysticMelody "helped to onboard a new user"
+  - LunarWhisper "answered a question about the project's documentation"
+  - CrimsonBolt "suggested a new endpoint for the API"
 
 Chat transcript:
 ${transcript}`;

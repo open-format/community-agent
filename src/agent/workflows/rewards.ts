@@ -2,7 +2,7 @@ import { Workflow, Step } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { identifyRewards } from '../agents';
 import { getMessagesTool, getWalletAddressTool, savePendingRewardTool, createPrivyWalletTool } from '../tools';
-// import { ThirdwebStorage } from "@thirdweb-dev/storage";
+import { ThirdwebStorage } from "@thirdweb-dev/storage";
 
 // Step 1: Fetch messages
 const fetchMessagesStep = new Step({
@@ -44,9 +44,13 @@ const identifyRewardsStep = new Step({
   outputSchema: z.object({
     contributions: z.array(z.object({
       contributor: z.string(),
+      summary: z.string(),
       description: z.string(),
       impact: z.string(),
-      evidence: z.array(z.string()),
+      evidence: z.array(z.object({
+        channelId: z.string(),
+        messageId: z.string()
+      })),
       rewardId: z.string(),
       suggested_reward: z.object({
         points: z.number(),
@@ -165,9 +169,9 @@ const uploadMetadataStep = new Step({
       throw new Error('Failed to get wallet addresses');
     }
 
-    // const storage = new ThirdwebStorage({
-    //   secretKey: process.env.THIRDWEB_SECRET,
-    // });
+    const storage = new ThirdwebStorage({
+      secretKey: process.env.THIRDWEB_SECRET,
+    });
 
     const rewards = await Promise.all(
       context.steps.getWalletAddresses.output.rewards.map(async (reward) => {
@@ -179,14 +183,15 @@ const uploadMetadataStep = new Step({
           reasoning: reward.suggested_reward.reasoning,
           timestamp: Date.now(),
         };
-/*
+
         try {
-          // const ipfsHash = await storage.upload(metadata, {
-          //   uploadWithoutDirectory: true,
-          // });
+          const ipfsHash = await storage.upload(metadata, {
+            uploadWithoutDirectory: true,
+          });
+          console.log(`Successfully uploaded metadata for ${reward.contributor}: ${ipfsHash}`);
           return {
             ...reward,
-            metadataUri: 'ipfsHash',
+            metadataUri: ipfsHash,
           };
         } catch (error) {
           console.error(`Failed to upload metadata for ${reward.contributor}:`, error);
@@ -195,12 +200,6 @@ const uploadMetadataStep = new Step({
             error: `Failed to upload metadata: ${error instanceof Error ? error.message : 'Unknown error'}`
           };
         }
-*/
-     // Return dummy hash for now since IPFS upload is commented out
-     return {
-      ...reward,
-      metadataUri: `dummy-hash-${Date.now()}`,
-    };
       })
     );
 
@@ -231,9 +230,13 @@ const savePendingRewardsStep = new Step({
 
     const rewards = context.steps.uploadMetadata.output.rewards as Array<{
       contributor: string;
+      summary: string;
       description: string;
       impact: string;
-      evidence: string[];
+      evidence: Array<{
+        channelId: string;
+        messageId: string;
+      }>;
       rewardId: string;
       suggested_reward: {
         points: number;
@@ -303,9 +306,13 @@ interface WorkflowContext {
       output: {
         contributions: Array<{
           contributor: string;
+          summary: string;
           description: string;
           impact: string;
-          evidence: string[];
+          evidence: Array<{
+            channelId: string;
+            messageId: string;
+          }>;
           rewardId: string;
           suggested_reward: {
             points: number;
@@ -319,9 +326,13 @@ interface WorkflowContext {
       output: {
         rewards: Array<{
           contributor: string;
+          summary: string;
           description: string;
           impact: string;
-          evidence: string[];
+          evidence: Array<{
+            channelId: string;
+            messageId: string;
+          }>;
           rewardId: string;
           suggested_reward: {
             points: number;
@@ -337,9 +348,13 @@ interface WorkflowContext {
       output: {
         rewards: Array<{
           contributor: string;
+          summary: string;
           description: string;
           impact: string;
-          evidence: string[];
+          evidence: Array<{
+            channelId: string;
+            messageId: string;
+          }>;
           rewardId: string;
           suggested_reward: {
             points: number;
@@ -379,4 +394,4 @@ rewardsWorkflow
   .then(getWalletAddressesStep)
   .then(uploadMetadataStep)
   .then(savePendingRewardsStep)
-  .commit(); 
+  .commit();
