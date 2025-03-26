@@ -264,6 +264,8 @@ agentRoute.openapi(postRewardsAnalysis, async (c) => {
 
     const { platformId, startDate, endDate } = await c.req.json();
     
+    console.log('Starting rewards analysis with:', { communityId, platformId, startDate, endDate });
+    
     const workflow = mastra.getWorkflow("rewardsWorkflow");
     const { start } = workflow.createRun();
 
@@ -276,6 +278,8 @@ agentRoute.openapi(postRewardsAnalysis, async (c) => {
       },
     });
 
+    console.log('Workflow results:', JSON.stringify(result.results, null, 2));
+
     if (result.results.getWalletAddresses?.status === "success") {
       return c.json({
         rewards: result.results.getWalletAddresses.output.rewards,
@@ -286,10 +290,24 @@ agentRoute.openapi(postRewardsAnalysis, async (c) => {
       });
     }
 
+    // Log the specific step that failed
+    const failedStep = Object.entries(result.results || {}).find(([_, step]) => step.status === "error");
+    if (failedStep) {
+      console.error('Workflow failed at step:', failedStep[0], failedStep[1]);
+      return c.json({ 
+        message: "Failed to analyze rewards", 
+        error: `Failed at step ${failedStep[0]}: ${failedStep[1].error || 'Unknown error'}`
+      }, 500);
+    }
+
     return c.json({ message: "Failed to analyze rewards" }, 500);
   } catch (error) {
     console.error("Error analyzing rewards:", error);
-    return c.json({ message: "Failed to analyze rewards", error: String(error) }, 500);
+    return c.json({ 
+      message: "Failed to analyze rewards", 
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    }, 500);
   }
 });
 

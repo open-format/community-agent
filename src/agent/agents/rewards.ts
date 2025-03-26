@@ -27,6 +27,7 @@ export async function identifyRewards(transcript: string) {
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
 Identify any and all meaningful contributions, and if there are none, return an empty array.
+If you are identifying no contributions make sure there actually are no contributions.
 Do not be afraid to identify many contributions, there is no limit to the number of contributions you can identify.
 Anyone who has made a meaningful contribution should be identified.
 The same person may make multiple contributions, and should be identified multiple times if they have made multiple meaningful contributions.
@@ -72,6 +73,8 @@ Remember:
 - rewardId must be in kebab-case (lowercase with hyphens)
 - rewardId should be descriptive but under 32 characters
 - evidence must be an array of objects with channelId and messageId
+- Make sure the messageId is one of the messages that proves the contribution
+- Make sure the channelId is the channel associated with the messageId
 - Include ALL relevant messages that support the contribution
 - Summary should be concise (5-12 words) and capture the essence
 - Description should be detailed and explain the full context

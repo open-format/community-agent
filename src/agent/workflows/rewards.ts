@@ -47,10 +47,7 @@ const identifyRewardsStep = new Step({
       summary: z.string(),
       description: z.string(),
       impact: z.string(),
-      evidence: z.array(z.object({
-        channelId: z.string(),
-        messageId: z.string()
-      })),
+      evidence: z.array(z.string()),
       rewardId: z.string(),
       suggested_reward: z.object({
         points: z.number(),
@@ -65,7 +62,20 @@ const identifyRewardsStep = new Step({
 
     const transcript = context.steps.fetchMessages.output.transcript;
     const rewards = await identifyRewards(transcript);
-    return rewards;
+
+    // Add Discord message URLs to each piece of evidence
+    const enhancedRewards = {
+      contributions: rewards.contributions.map((contribution: {
+        evidence: Array<{ channelId: string; messageId: string }>;
+      }) => ({
+        ...contribution,
+        evidence: contribution.evidence.map((evidence: { channelId: string; messageId: string }) => 
+          `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
+        )
+      }))
+    };
+
+    return enhancedRewards;
   },
 });
 
@@ -264,6 +274,11 @@ const savePendingRewardsStep = new Step({
             platform: 'discord',
             rewardId: reward.rewardId,
             points: reward.suggested_reward.points,
+            summary: reward.summary,
+            description: reward.description,
+            impact: reward.impact,
+            evidence: reward.evidence,
+            reasoning: reward.suggested_reward.reasoning,
             metadataUri: reward.metadataUri || '',
           }
         }));

@@ -8,12 +8,20 @@ export const savePendingRewardTool = createTool({
   description: "Save a single reward to the pending_rewards table",
   inputSchema: z.object({
     communityId: z.string(),
-    contributor: z.string().optional(),
+    contributor: z.string(),
     walletAddress: z.string(),
-    platform: z.enum(["discord", "github", "telegram"]).optional(),
+    platform: z.enum(["discord", "github", "telegram"]),
     rewardId: z.string(),
     points: z.number(),
-    metadataUri: z.string().optional(),
+    summary: z.string(),
+    description: z.string(),
+    impact: z.string(),
+    evidence: z.array(z.object({
+      channelId: z.string(),
+      messageId: z.string()
+    })),
+    reasoning: z.string(),
+    metadataUri: z.string(),
   }),
   outputSchema: z.object({
     id: z.string(),
@@ -28,6 +36,11 @@ export const savePendingRewardTool = createTool({
         platform: context.platform || 'discord',
         rewardId: context.rewardId,
         points: context.points,
+        summary: context.summary,
+        description: context.description,
+        impact: context.impact,
+        evidence: context.evidence,
+        reasoning: context.reasoning,
         metadataUri: context.metadataUri || '',
       }).returning();
 
