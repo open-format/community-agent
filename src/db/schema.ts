@@ -31,18 +31,6 @@ export const communities = pgTable("communities", {
   communityWalletAddress: text("community_wallet_address"),
 });
 
-export const communityDocuments = pgTable("community_documents", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  metadata: jsonb("metadata"),
-  chunkContent: text("chunk_content"),
-  embedding: vector("embedding", { dimensions: 1536 }),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id), // FK to communities
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   nickname: text("nickname"),
