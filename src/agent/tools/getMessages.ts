@@ -215,12 +215,13 @@ function formatMessagesChronologically(messages: VectorStoreResult[], platformId
 
   // Format each channel's messages
   const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
-    const channelHeader = `=== Messages from Channel ID: [${channelId}] ===\n`;
+    const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
     const channelMessages = msgs.map(msg => {
       const messageIdPart = includeMessageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : '';
       return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
     }).join('\n');
-    return channelHeader + channelMessages;
+    const channelFooter = `=== End of Messages from Channel with Channel ID: [${channelId}] ===\n`;
+    return channelHeader + channelMessages + '\n' + channelFooter;
   });
 
   return header + sections.join('\n\n');
