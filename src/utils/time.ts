@@ -23,13 +23,13 @@ export function validateTimeWindow(start_time?: string, end_time?: string): bool
 // const endTimestamp = dayjs(endDate || dayjs()).valueOf();
 
 export function createUnixTimestamp(date?: string, daysAgo?: number) {
-  if (!date && !daysAgo) {
-    return dayjs().valueOf();
+  if (date) {
+    return dayjs(date).valueOf();
   }
 
   if (daysAgo) {
     return dayjs().subtract(daysAgo, "day").valueOf();
   }
 
-  return dayjs(date).valueOf();
+  return dayjs().valueOf();
 }
