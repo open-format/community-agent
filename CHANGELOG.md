@@ -1,3 +1,25 @@
+# [0.18.0](https://github.com/open-format/community-agent/compare/v0.17.0...v0.18.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* change summary model to gpt-4o-mini so that it does not exceed gpt 4o's 450,000 token per minute limit ([34ee7dc](https://github.com/open-format/community-agent/commit/34ee7dc7ad15ee55c43e92be59dd6f33ae1cb917))
+* includeStats filter now completely filters all stats, if its false it just returns a transcript ([924c248](https://github.com/open-format/community-agent/commit/924c2488e2ab5e873e415d8806b54c424e850617))
+* updated to support unix timestamp ([454d0cb](https://github.com/open-format/community-agent/commit/454d0cb05adcb05c3aca334a35a5e4bcb229498b))
+
+
+### Features
+
+* add createUnixTimestamp function for flexible timestamp generation ([dc9ac52](https://github.com/open-format/community-agent/commit/dc9ac52d4d9001940751ce14341678f4f2528d3b))
+* add impact report workflow and related tools, update API routes ([4f462ab](https://github.com/open-format/community-agent/commit/4f462abb9331aef9029668d95e974d4b3f91a769))
+* add Redis service to docker-compose for improved caching ([5420cdf](https://github.com/open-format/community-agent/commit/5420cdfaff70a2fe20e038bf1a33636c21d25640))
+* add report endpoint ([cafa381](https://github.com/open-format/community-agent/commit/cafa38188793a53bcd6eb1349b37faffdbdb798b))
+* added the ability to save the summaries and impact reports into a vector store ([6a2f1a8](https://github.com/open-format/community-agent/commit/6a2f1a805d8dae08c4d317201a2900d238fa5a9f))
+* enhance impact report schema with channel breakdown and user sentiment analysis; update message formatting functions for improved structure ([f574401](https://github.com/open-format/community-agent/commit/f5744010d1424d4bc07db85b4ad3219d8dea64b7))
+* implement report generation and management with Redis integration ([5f49c58](https://github.com/open-format/community-agent/commit/5f49c58a9e6785ba9bf2b8df5c5c3290e5f426e5))
+* optionally return message stats when calling the agent/summary api ([b5ba424](https://github.com/open-format/community-agent/commit/b5ba42414a7c99d88342448094c1c931882b40a7))
+* test api call for getMessages tool ([640cc2d](https://github.com/open-format/community-agent/commit/640cc2d725bf25a2939341f0bb5569069933ec86))
+
 # [0.17.0](https://github.com/open-format/community-agent/compare/v0.16.0...v0.17.0) (2025-03-25)
 
 
