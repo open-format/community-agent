@@ -302,3 +302,30 @@ export const getReportStatus = createRoute({
     },
   },
 });
+
+export const getHistoricalMessages = createRoute({
+  method: "get",
+  path: "/historical-messages",
+  request: {
+    query: z.object({
+      platformId: z.string().nonempty(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Historical messages were fetched and stored successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            newMessagesAdded: z.number(),
+            error: z.string().optional(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "An error occurred while fetching messages",
+    },
+  },
+});

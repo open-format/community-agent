@@ -1,4 +1,6 @@
 import { mastra } from "@/agent";
+import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { createUnixTimestamp } from "@/utils/time";
@@ -6,11 +8,10 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary } from "./routes";
+import { getAgentSummary, getHistoricalMessages, postAgentSummary } from "./routes";
 
 enum Errors {
-  PLATFORM_NOT_FOUND = "Platform not for given community",
-  COMMUNITY_NOT_FOUND = "Community not found",
+  PLATFORM_NOT_FOUND = "Platform not found",
 }
 
 const summariesRoute = new OpenAPIHono();
@@ -110,6 +111,45 @@ Please search through the conversation history to find relevant information.
   } catch (error) {
     console.error("Error querying conversations:", error);
     throw error;
+  }
+});
+
+// Add historical messages endpoint
+summariesRoute.openapi(getHistoricalMessages, async (c) => {
+  try {
+    const { platformId } = c.req.query();
+
+    //check if platform exists in db
+    const platform = await db.query.platformConnections.findFirst({
+      where: eq(platformConnections.platformId, platformId as string),
+    });
+
+    if (!platform) {
+      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+    }
+
+    if (!fetchHistoricalMessagesTool.execute) {
+      throw new Error("Historical messages tool not initialized");
+    }
+
+    // Execute the historical messages tool
+    const result = await fetchHistoricalMessagesTool.execute({
+      context: {
+        platformId,
+      },
+    });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching historical messages:", error);
+    return c.json(
+      {
+        success: false,
+        newMessagesAdded: 0,
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      },
+      500,
+    );
   }
 });
 
