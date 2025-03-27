@@ -3,10 +3,8 @@ export const getAgentSummary = createRoute({
   method: "get",
   path: "/summary",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     query: z.object({
+      platformId: z.string(),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
@@ -45,15 +43,13 @@ export const postAgentSummary = createRoute({
   method: "post",
   path: "/query",
   request: {
-    headers: z.object({
-      "X-Community-ID": z.string(),
-    }),
     body: {
       content: {
         "application/json": {
           schema: z.object({
             query: z.string(),
-            startDate: z
+            platform_id: z.string(),
+            start_date: z
               .string({ message: "must be a valid ISO 8601 date format" })
               .datetime({ message: "must be a valid ISO 8601 date format" })
               .optional(),

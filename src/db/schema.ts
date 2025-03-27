@@ -87,9 +87,10 @@ export const platformConnections = pgTable(
   "platform_connections",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id")
-      .notNull()
-      .references(() => communities.id),
+    communityId: text("community_id").references(() => communities.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     platformId: text("platform_id").notNull(),
     platformType: text("platform_type", { enum: PLATFORM_TYPES }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
