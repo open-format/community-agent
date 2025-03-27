@@ -59,20 +59,29 @@ interface WorkflowContext {
             topic: string;
             messageCount: number;
             description: string;
-            examples: string[];
+            evidence: Array<{
+              channelId: string;
+              messageId: string;
+            }>;
           }>;
           userSentiment: {
             excitement: Array<{
               title: string;
               description: string;
               users: string[];
-              examples: string[];
+              evidence: Array<{
+                channelId: string;
+                messageId: string;
+              }>;
             }>;
             frustrations: Array<{
               title: string;
               description: string;
               users: string[];
-              examples: string[];
+              evidence: Array<{
+                channelId: string;
+                messageId: string;
+              }>;
             }>;
           };
         };
@@ -216,20 +225,29 @@ const generateReportStep = new Step({
         topic: z.string(),
         messageCount: z.number(),
         description: z.string(),
-        examples: z.array(z.string()),
+        evidence: z.array(z.object({
+          channelId: z.string(),
+          messageId: z.string()
+        })),
       })),
       userSentiment: z.object({
         excitement: z.array(z.object({
           title: z.string(),
           description: z.string(),
           users: z.array(z.string()),
-          examples: z.array(z.string()),
+          evidence: z.array(z.object({
+            channelId: z.string(),
+            messageId: z.string()
+          })),
         })),
         frustrations: z.array(z.object({
           title: z.string(),
           description: z.string(),
           users: z.array(z.string()),
-          examples: z.array(z.string()),
+          evidence: z.array(z.object({
+            channelId: z.string(),
+            messageId: z.string()
+          })),
         })),
       }),
     }),
@@ -335,10 +353,25 @@ const saveReportStep = new Step({
         messageCount: channel.count,
         uniqueUsers: channel.uniqueUsers
       })),
-      keyTopics: generatedReport.keyTopics || [],
-      userSentiment: generatedReport.userSentiment || {
-        excitement: [],
-        frustrations: []
+      keyTopics: generatedReport.keyTopics.map(topic => ({
+        ...topic,
+        evidence: topic.evidence.map(evidence => 
+          `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
+        )
+      })),
+      userSentiment: {
+        excitement: generatedReport.userSentiment.excitement.map(item => ({
+          ...item,
+          evidence: item.evidence.map(evidence => 
+            `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
+          )
+        })),
+        frustrations: generatedReport.userSentiment.frustrations.map(item => ({
+          ...item,
+          evidence: item.evidence.map(evidence => 
+            `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
+          )
+        }))
       }
     };
 

@@ -27,20 +27,29 @@ const impactReportSchema = z.object({
     topic: z.string(),
     messageCount: z.number(),
     description: z.string(),
-    examples: z.array(z.string()).min(1).max(5)
+    evidence: z.array(z.object({
+      channelId: z.string(),
+      messageId: z.string()
+    })).min(2).max(5)
   })),
   userSentiment: z.object({
     excitement: z.array(z.object({
       title: z.string(),
       description: z.string(),
       users: z.array(z.string()),
-      examples: z.array(z.string()).min(1).max(5)
+      evidence: z.array(z.object({
+        channelId: z.string(),
+        messageId: z.string()
+      })).min(1).max(5)
     })),
     frustrations: z.array(z.object({
       title: z.string(),
       description: z.string(),
       users: z.array(z.string()),
-      examples: z.array(z.string()).min(1).max(5)
+      evidence: z.array(z.object({
+        channelId: z.string(),
+        messageId: z.string()
+      })).min(1).max(5)
     }))
   })
 });
@@ -57,60 +66,63 @@ export const impactAgent = new Agent({
   - Key discussion topics (5-10 main themes)
   - User sentiment analysis (what excites and frustrates users, 5-10 key points for each)
 
-  CRITICAL - Message URL Format:
-  Messages in the transcript are organized by channel and follow this format:
-  === Messages from Channel ID: [channelId] (Channel name: channelName) ===
-  [timestamp] [DISCORD_MESSAGE_ID=messageId] username: content
-
-  The server ID is provided at the start of the transcript as: The server ID is [serverId]
-
-  When referencing messages:
-  1. Extract the server ID from the transcript header
-  2. Extract the channel ID from the channel section header: [channelId]
-  3. Extract the message ID from the message: [DISCORD_MESSAGE_ID=messageId]
-  4. Construct the full Discord URL using this format:
-     https://discord.com/channels/[serverId]/[channelId]/[messageId]
+  For Message Examples as evidence:
+  1. Extract the channel ID from the channel section header: === Messages from Channel with Channel ID: [channelId] ===
+  2. Extract the message ID from the message: [DISCORD_MESSAGE_ID=messageId]
+  3. Return them in the evidence array as objects with channelId and messageId
 
   Example:
   From transcript:
-  The server ID is [123456789]
-  === Messages from Channel ID: [987654321] ===
+  === Messages from Channel with Channel ID: [987654321] ===
   [2024-03-20] [DISCORD_MESSAGE_ID=111222333] username: content
 
   Should become:
-  https://discord.com/channels/123456789/987654321/111222333
+  evidence: [{ "channelId": "987654321", "messageId": "111222333" }]
 
-  Rules for Message References:
-  - Only use message IDs that appear in [DISCORD_MESSAGE_ID=xxx] format
-  - Only use channel IDs that appear in channel headers [channelId]
-  - Never reuse a message ID
+  - Only use channel IDs that appear in channel headers === Messages from Channel with Channel ID: [channelId] ===
+  - Use the appropriate message IDs for the message you are referencing
   - Never modify or make up IDs
   - Use fewer examples if you can't find enough relevant messages
-  - Always construct complete, valid Discord URLs
 
   For Key Topics:
   - Identify 5-10 main discussion themes, as many as are relevant to the community
   - These should be the most important topics that the community is discussing
   - Prioritise topics that are being discussed by a lot of different people
   - This should be a mix of specific topics and more general topics
-  - For each topic, find 1-3 relevant message examples
-  - Include full Discord URLs to the example messages
+  - For each topic, find 2-5 relevant message examples as evidence
   - Include accurate message counts for the number of messages discussing each topic
 
   For User Sentiment:
   - Identify 5-10 key points of excitement and frustration
+  - Don't include the sentiment word in the title, just use the topic (no 'excitement', no 'frustration')
   - Be specific about what the users are excited or frustrated about, specific examples are better
+  - Use the surrounding context of the message to provide more specificity
+  - If you cant be specific, and you can't use the surrounding context to be specific, then don't include the sentiment
   - The sentiment should be based on the actual content of the messages, they don't need to specifically mention the sentiment word
   - Include the actual usernames of people involved
-  - Include full Discord URLs to example messages
+  - Include 1-3 relevant message examples as evidence
   - Use different messages for each sentiment point
   - Make sure each example is relevant to the sentiment being described
+  - If you are going to mentione a specific user, make sure they actually sent or are mentioned in the message
+
+  GOOD EXAMPLES OF TITLES:
+  - Authentication Issues with Privy
+  - Speed of the new release
+  - userRewardAppStats is now working in the subgraph
+
+  AVOID THESE BAD EXAMPLES OF TITLES:
+  - Frustration Over Technical Issues
+  - Excitement Over Something Working
+  - Something Working
+  - Something Sorted
+  - Issue Resolved
+  
 
   For Channel Breakdown:
   - Use the channel names provided in the channel headers
   - Include accurate message counts and unique user counts per channel
 
-  Remember: Quality over quantity - it's better to have fewer examples with correct URLs than many examples with incorrect or reused message IDs.`,
+  Remember: Quality over quantity - it's better to have fewer examples with correct IDs than many examples with incorrect or reused message IDs.`,
   model: google("gemini-2.0-flash-001"),
 });
 
