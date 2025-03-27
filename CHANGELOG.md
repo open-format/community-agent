@@ -1,3 +1,21 @@
+# [0.20.0](https://github.com/open-format/community-agent/compare/v0.19.0...v0.20.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* wallet pregeneration error and IPFS upload error ([b15e291](https://github.com/open-format/community-agent/commit/b15e291b5152f1d616cd6bcb5735d6408c8f63bd))
+
+
+### Features
+
+* add endpoint that gets all the pending rewards ([158eb89](https://github.com/open-format/community-agent/commit/158eb897edbb856b8869acc4b4c4e43c3fe14531))
+* add Privy wallet creation tool and API endpoint for Discord users; integrate into rewards workflow for seamless wallet management ([a5dedc4](https://github.com/open-format/community-agent/commit/a5dedc4b83915399dfefead5f72752e063def46a))
+* added endpoint to delete a pending reward once it has either been rewarded or rejected ([9bdf68b](https://github.com/open-format/community-agent/commit/9bdf68bed27b170073600a53b9409bedd4c90d7f))
+* create pending_rewards table and associated metadata; update journal and snapshot for new schema version ([0af353f](https://github.com/open-format/community-agent/commit/0af353f007d3110192697291db1132bf86ba33b7))
+* enhance rewards identification and evidence structure; update savePendingReward tool and schema for improved metadata handling ([4f5b50d](https://github.com/open-format/community-agent/commit/4f5b50d88774d67dd6f596c47cd154d15bf1b631))
+* implement community rewards analysis workflow with new tools and API endpoint for identifying and suggesting rewards based on contributions ([ec3c8f8](https://github.com/open-format/community-agent/commit/ec3c8f83aac98bb967c3d29d1c78f397472c4001))
+* update rewards agent to use Google Gemini model and enhance reward identification criteria; improve evidence structure and output format in rewards workflow ([1d5eff2](https://github.com/open-format/community-agent/commit/1d5eff2914e4df0f421f16e3d54690197ec79dcc))
+
 # [0.19.0](https://github.com/open-format/community-agent/compare/v0.18.0...v0.19.0) (2025-03-27)
 
 
