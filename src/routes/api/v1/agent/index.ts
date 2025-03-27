@@ -1,11 +1,11 @@
 import { mastra } from "@/agent";
 import { db } from "@/db";
-import { platformConnections } from "@/db/schema";
+import { platformConnections, pendingRewards } from "@/db/schema";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
-import { eq } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis, createPrivyWallet } from "./routes";
+import { and, eq, sql } from "drizzle-orm";
+import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis, createPrivyWallet, getPendingRewards } from "./routes";
 import { getMessagesTool } from "@/agent/tools/getMessages";
 import { createPrivyWalletTool } from "@/agent/tools/privyWallet";
 
@@ -321,6 +321,66 @@ agentRoute.openapi(createPrivyWallet, async (c) => {
     return c.json({ 
       message: "Failed to create wallet", 
       error: error instanceof Error ? error.message : String(error) 
+    }, 500);
+  }
+});
+
+// Add the get pending rewards endpoint
+agentRoute.openapi(getPendingRewards, async (c) => {
+  try {
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+
+    const { status, limit = "50", offset = "0" } = c.req.query();
+
+    // Build the query conditions
+    const conditions = [eq(pendingRewards.communityId, communityId)];
+    if (status) {
+      conditions.push(eq(pendingRewards.status, status as "pending" | "processed" | "failed"));
+    }
+
+    // Get total count
+    const [{ count }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(pendingRewards)
+      .where(and(...conditions));
+
+    // Get paginated results
+    const rewards = await db
+      .select({
+        id: pendingRewards.id,
+        contributorName: pendingRewards.contributorName,
+        walletAddress: pendingRewards.walletAddress,
+        platform: pendingRewards.platform,
+        rewardId: pendingRewards.rewardId,
+        points: pendingRewards.points,
+        summary: pendingRewards.summary,
+        description: pendingRewards.description,
+        impact: pendingRewards.impact,
+        evidence: pendingRewards.evidence,
+        reasoning: pendingRewards.reasoning,
+        metadataUri: pendingRewards.metadataUri,
+        createdAt: pendingRewards.createdAt,
+      })
+      .from(pendingRewards)
+      .where(and(...conditions))
+      .orderBy(pendingRewards.createdAt)
+      .limit(Number(limit))
+      .offset(Number(offset));
+
+    return c.json({
+      rewards,
+      total: Number(count),
+      limit,
+      offset,
+    });
+  } catch (error) {
+    console.error("Error retrieving pending rewards:", error);
+    return c.json({ 
+      message: "Failed to retrieve pending rewards", 
+      error: error instanceof Error ? error.message : String(error)
     }, 500);
   }
 });

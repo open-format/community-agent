@@ -373,3 +373,56 @@ export const createPrivyWallet = createRoute({
     },
   },
 });
+
+export const getPendingRewards = createRoute({
+  method: "get",
+  path: "/pending-rewards",
+  tags: ["Rewards"],
+  summary: "Get pending rewards for a community",
+  description: "Retrieves all pending rewards for a specific community",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    query: z.object({
+      status: z.enum(["pending", "processed", "failed"]).optional(),
+      limit: z.string().transform(val => Number(val)).pipe(z.number().min(1).max(100)).optional().default("50"),
+      offset: z.string().transform(val => Number(val)).pipe(z.number().min(0)).optional().default("0"),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Pending rewards retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            rewards: z.array(z.object({
+              id: z.string(),
+              contributorName: z.string(),
+              walletAddress: z.string(),
+              platform: z.enum(["discord", "github", "telegram"]),
+              rewardId: z.string(),
+              points: z.number(),
+              summary: z.string().nullable(),
+              description: z.string().nullable(),
+              impact: z.string().nullable(),
+              evidence: z.array(z.string()),
+              reasoning: z.string().nullable(),
+              metadataUri: z.string(),
+              createdAt: z.string().datetime(),
+            })),
+            total: z.number(),
+            limit: z.number(),
+            offset: z.number(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Community not found",
+    },
+    500: {
+      description: "An error occurred while retrieving pending rewards",
+    },
+  },
+});
