@@ -1,6 +1,7 @@
 import { mastra } from "@/agent";
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
+import { createUnixTimestamp } from "@/utils/time";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
@@ -12,9 +13,9 @@ enum Errors {
   COMMUNITY_NOT_FOUND = "Community not found",
 }
 
-const agentRoute = new OpenAPIHono();
+const summariesRoute = new OpenAPIHono();
 
-agentRoute.openapi(getAgentSummary, async (c) => {
+summariesRoute.openapi(getAgentSummary, async (c) => {
   try {
     const platformId = c.req.query("platformId");
 
@@ -26,18 +27,17 @@ agentRoute.openapi(getAgentSummary, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Get date range from query params or use defaults
     const query = c.req.query();
-    const startDate = dayjs(query.startDate || dayjs().subtract(7, "day")).valueOf();
-    const endDate = dayjs(query.endDate || dayjs()).valueOf();
+    const startDate = createUnixTimestamp(query.startDate, 30);
+    const endDate = createUnixTimestamp(query.endDate);
 
     const workflow = mastra.getWorkflow("summaryWorkflow");
     const { start } = workflow.createRun();
 
     const result = await start({
       triggerData: {
-        startDate: startDate,
-        endDate: endDate,
+        startDate,
+        endDate,
         platformId: platform.platformId,
       },
     });
@@ -59,8 +59,7 @@ agentRoute.openapi(getAgentSummary, async (c) => {
   }
 });
 
-// POST endpoint for querying conversation history
-agentRoute.openapi(postAgentSummary, async (c) => {
+summariesRoute.openapi(postAgentSummary, async (c) => {
   try {
     const { query, start_date, end_date, platform_id } = await c.req.json();
 
@@ -72,14 +71,11 @@ agentRoute.openapi(postAgentSummary, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    // Default to last 30 days if no timeframe provided
-    const startDate = dayjs(start_date || dayjs().subtract(30, "day")).valueOf();
-    const endDate = dayjs(end_date || dayjs()).valueOf();
+    const startDate = createUnixTimestamp(start_date, 30);
+    const endDate = createUnixTimestamp(end_date);
 
-    // Get the RAG agent from mastra
     const ragAgent = mastra.getAgent("ragAgent");
 
-    // Create context with timeframe information
     const contextWithTimeDetails = `
 Query: ${query}
 
@@ -106,10 +102,8 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
-    // Generate response using the RAG agent
     const response = await ragAgent.generate(contextWithTimeDetails);
 
-    // Return response in the expected format
     return c.json({
       summary: response.text,
     });
@@ -119,4 +113,4 @@ Please search through the conversation history to find relevant information.
   }
 });
 
-export default agentRoute;
+export default summariesRoute;

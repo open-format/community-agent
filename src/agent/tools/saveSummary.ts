@@ -10,10 +10,8 @@ export const saveSummaryTool = createTool({
   description: "Save a community summary to the database with vector embeddings",
   inputSchema: z.object({
     summary: z.string(),
-    startDate: z.string(),
-    endDate: z.string(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
+    startDate: z.number(),
+    endDate: z.number(),
     summarizationResult: z.any().optional(),
     platformId: z.string(),
   }),
@@ -39,16 +37,12 @@ export const saveSummaryTool = createTool({
         value: context.summary,
       });
 
-      // Create metadata for the summary in the same format as Discord messages
       const summaryMetadata: SummaryMetadata = {
-        platform: "summary", // Indicates this is a summary
         platformId: context.platformId,
         timestamp: dayjs().valueOf(),
         text: context.summary,
         startDate: context.startDate,
         endDate: context.endDate,
-        messageCount: context.messageCount,
-        uniqueUserCount: context.uniqueUserCount,
         summarizationScore,
         coverageScore,
         alignmentScore,

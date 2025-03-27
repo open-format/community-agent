@@ -1,10 +1,11 @@
 import { githubWebhookMiddleware } from "@/middleware/github-webhook";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { bearerAuth } from "hono/bearer-auth";
-import agentRoute from "./agent";
 import automationsRoute from "./automations";
 import communitiesRoute from "./communities";
 import docs from "./docs";
+import reportsRoute from "./reports";
+import summariesRoute from "./summaries";
 import webhooksRoute from "./webhooks";
 
 const app = new OpenAPIHono();
@@ -26,9 +27,9 @@ app.use("*", async (c, next) => {
 });
 
 app.route("/docs", docs);
-app.route("/agent", agentRoute);
 app.route("/automations", automationsRoute);
 app.route("/communities", communitiesRoute);
 app.route("/webhooks", webhooksRoute);
-
+app.route("/summaries", summariesRoute);
+app.route("/reports", reportsRoute);
 export default app;
