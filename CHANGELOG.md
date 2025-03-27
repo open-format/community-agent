@@ -1,3 +1,16 @@
+# [0.19.0](https://github.com/open-format/community-agent/compare/v0.18.0...v0.19.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* update historical messages endpoint to use platformId and newMessagesAdded ([bce9256](https://github.com/open-format/community-agent/commit/bce9256934c7f6192545ea61f1362d68ce09bd76))
+
+
+### Features
+
+* add API route for fetching historical messages ([8d5fcbe](https://github.com/open-format/community-agent/commit/8d5fcbe54826faed392e906c8213c1055b621047))
+* add historical messages fetching tool and API endpoint ([e00ad6f](https://github.com/open-format/community-agent/commit/e00ad6f3f0d7621483249f7bca7ada50b627e997))
+
 # [0.18.0](https://github.com/open-format/community-agent/compare/v0.17.0...v0.18.0) (2025-03-27)
 
 
