@@ -5,7 +5,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { and, eq, sql } from "drizzle-orm";
-import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis, createPrivyWallet, getPendingRewards } from "./routes";
+import { getAgentSummary, postAgentSummary, getMessages, getImpactReport, postRewardsAnalysis, createPrivyWallet, getPendingRewards, deletePendingReward } from "./routes";
 import { getMessagesTool } from "@/agent/tools/getMessages";
 import { createPrivyWalletTool } from "@/agent/tools/privyWallet";
 
@@ -380,6 +380,38 @@ agentRoute.openapi(getPendingRewards, async (c) => {
     console.error("Error retrieving pending rewards:", error);
     return c.json({ 
       message: "Failed to retrieve pending rewards", 
+      error: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Add the delete pending reward endpoint
+agentRoute.openapi(deletePendingReward, async (c) => {
+  try {
+    const communityId = c.get("communityId");
+    if (!communityId) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+
+    const { id } = c.req.param();
+
+    // Delete the reward, ensuring it belongs to the community
+    const result = await db
+      .delete(pendingRewards)
+      .where(and(
+        eq(pendingRewards.id, id),
+        eq(pendingRewards.communityId, communityId)
+      ));
+
+    if (!result) {
+      return c.json({ message: "Pending reward not found" }, 404);
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting pending reward:", error);
+    return c.json({ 
+      message: "Failed to delete pending reward", 
       error: error instanceof Error ? error.message : String(error)
     }, 500);
   }

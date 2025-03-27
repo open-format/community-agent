@@ -426,3 +426,37 @@ export const getPendingRewards = createRoute({
     },
   },
 });
+
+export const deletePendingReward = createRoute({
+  method: "delete",
+  path: "/pending-rewards/{id}",
+  tags: ["Rewards"],
+  summary: "Delete a pending reward",
+  description: "Deletes a specific pending reward by ID",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    params: z.object({
+      id: z.string().uuid(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Pending reward deleted successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Pending reward not found",
+    },
+    500: {
+      description: "An error occurred while deleting the pending reward",
+    },
+  },
+});
