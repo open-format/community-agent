@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { google } from "@ai-sdk/google";
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
 
@@ -111,7 +111,7 @@ export const impactAgent = new Agent({
   - Include accurate message counts and unique user counts per channel
 
   Remember: Quality over quantity - it's better to have fewer examples with correct URLs than many examples with incorrect or reused message IDs.`,
-  model: openai("gpt-4o"),
+  model: google("gemini-2.0-flash-001"),
 });
 
 interface ImpactReportData {
