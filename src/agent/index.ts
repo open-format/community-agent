@@ -10,7 +10,7 @@ import { rewardsWorkflow } from "./workflows/rewards";
 export const ragAgent = new Agent({
   name: "RAG Agent One",
   instructions: ragAgentPrompt,
-  model: openai("gpt-4o-mini"),
+  model: openai("gpt-4o"),
   tools: {
     vectorQueryTool,
   },
