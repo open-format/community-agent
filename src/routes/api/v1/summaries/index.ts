@@ -19,6 +19,7 @@ const summariesRoute = new OpenAPIHono();
 summariesRoute.openapi(getAgentSummary, async (c) => {
   try {
     const platformId = c.req.query("platformId");
+    const channelId = c.req.query("channelId");
 
     const platform = await db.query.platformConnections.findFirst({
       where: eq(platformConnections.platformId, platformId as string),
@@ -40,6 +41,7 @@ summariesRoute.openapi(getAgentSummary, async (c) => {
         startDate,
         endDate,
         platformId: platform.platformId,
+        channelId: channelId,
       },
     });
 
@@ -50,6 +52,7 @@ summariesRoute.openapi(getAgentSummary, async (c) => {
           startDate: dayjs(startDate).toISOString(),
           endDate: dayjs(endDate).toISOString(),
         },
+        channelId: channelId,
       });
     }
 

@@ -15,6 +15,7 @@ export const summaryWorkflow = new Workflow({
       .datetime({ message: "must be a valid ISO 8601 date format" })
       .transform(val => dayjs(val).valueOf()),
     platformId: z.string().nonempty(),
+    channelId: z.string().optional(),
   }),
 });
 
@@ -35,6 +36,7 @@ const fetchMessagesStep = new Step({
           startDate: context.triggerData.startDate,
           endDate: context.triggerData.endDate,
           platformId: context.triggerData.platformId,
+          channelId: context.triggerData.channelId,
           includeStats: false,
           includeMessageId: false,
         },
