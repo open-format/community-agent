@@ -15,6 +15,13 @@
       "when": 1742814938884,
       "tag": "0001_fine_puff_adder",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1742994822082,
+      "tag": "0002_numerous_amazoness",
+      "breakpoints": true
     }
   ]
 }

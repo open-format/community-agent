@@ -93,6 +93,7 @@ export const platformConnections = pgTable(
     }),
     platformId: text("platform_id").notNull(),
     platformType: text("platform_type", { enum: PLATFORM_TYPES }).notNull(),
+    platformName: text("platform_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

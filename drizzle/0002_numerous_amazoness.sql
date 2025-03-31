@@ -1,0 +1,1 @@
+ALTER TABLE "platform_connections" ADD COLUMN "platform_name" text;
