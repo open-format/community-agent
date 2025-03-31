@@ -3,7 +3,15 @@ import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
-import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
+import {
+  Client,
+  Collection,
+  GatewayIntentBits,
+  type Message,
+  MessageFlags,
+  Partials,
+} from "discord.js";
+import { registerCommandsForGuild } from "./commands";
 
 const discordClient = new Client({
   intents: [
@@ -15,6 +23,8 @@ const discordClient = new Client({
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
+
+discordClient.commands = new Collection();
 
 discordClient.on("guildCreate", async (guild) => {
   console.log(`Bot joined new server: ${guild.name} (${guild.id})`);
@@ -51,6 +61,8 @@ discordClient.on("ready", async () => {
   for (const guild of discordClient.guilds.cache.values()) {
     console.log(`- ${guild.name} (ID: ${guild.id}) with ${guild.memberCount} members`);
 
+    await registerCommandsForGuild(guild.id, guild.name, discordClient);
+
     // Check if guild exists in platform connections
     const exists = existingConnections.some((conn) => conn.platformId === guild.id);
 
@@ -60,12 +72,32 @@ discordClient.on("ready", async () => {
           communityId: null,
           platformId: guild.id,
           platformType: "discord",
+          platformName: guild.name,
         });
         console.log(`Added existing guild ${guild.name} to platform connections`);
       } catch (error) {
         console.error(`Failed to add guild ${guild.name}:`, error);
       }
     }
+  }
+});
+
+discordClient.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  // TODO: Implement interaction handling
+  const command = discordClient.commands.get(interaction.commandName);
+
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({
+      content: "There was an error executing this command!",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 });
 

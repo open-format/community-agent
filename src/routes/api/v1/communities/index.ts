@@ -1,15 +1,34 @@
-import { db } from "../../../../db";
-
+import { db } from "@/db";
+import { communities, platformConnections } from "@/db/schema";
+import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
-import { communities } from "../../../../db/schema";
-import { createCommunity, getCommunity, updateCommunity } from "./routes";
-
+import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
   const id = c.req.param("id");
-  const [result] = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
+
+  // First get the community
+  const [community] = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
+
+  // If no community found, return 404
+  if (!community) {
+    return c.json({ message: "Community not found" }, 404);
+  }
+
+  // Then get all platform connections for this community
+  const connections = await db
+    .select()
+    .from(platformConnections)
+    .where(eq(platformConnections.communityId, id));
+
+  // Combine the results
+  const result = {
+    ...community,
+    platformConnections: connections,
+  };
+
   return c.json(result);
 });
 
@@ -49,6 +68,49 @@ communitiesRoute.openapi(updateCommunity, async (c) => {
     .returning();
 
   return c.json(result);
+});
+
+communitiesRoute.openapi(generateCode, async (c) => {
+  try {
+    const body = await c.req.json();
+    const { community_id } = body;
+
+    // Check if community exists
+    let [community] = await db
+      .select()
+      .from(communities)
+      .where(eq(communities.id, community_id))
+      .limit(1);
+
+    // If community doesn't exist, create it
+    if (!community) {
+      const [newCommunity] = await db
+        .insert(communities)
+        .values({
+          id: community_id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+
+      community = newCommunity;
+    }
+
+    const code = generateVerificationCode();
+    await storeVerificationCode(code, community_id);
+
+    return c.json(
+      {
+        success: true,
+        code,
+        expiresIn: "10 minutes",
+      },
+      200,
+    );
+  } catch (error) {
+    console.error(error);
+    return c.json({ message: "Failed to generate code" }, 500);
+  }
 });
 
 export default communitiesRoute;
