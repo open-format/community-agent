@@ -54,7 +54,7 @@ const identifyRewardsStep = new Step({
     }
 
     const transcript = context.steps.fetchMessages.output.transcript;
-    const rewards = await identifyRewards(transcript);
+    const rewards = await identifyRewards(transcript, context.triggerData.community_id);
 
     // Add Discord message URLs to each piece of evidence
     const enhancedRewards = {

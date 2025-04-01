@@ -118,9 +118,25 @@ export const pendingRewards = pgTable(
   ]
 );
 
+export const teamMembers = pgTable("team_members", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  discord_name: text("discord_name").notNull(),
+  role: text("role").notNull(),
+  should_be_rewarded: boolean("should_be_rewarded").default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("team_members_community_idx").on(table.community_id),
+  index("team_members_discord_name_idx").on(table.discord_name),
+]);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
+  teamMembers: many(teamMembers),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
@@ -133,6 +149,13 @@ export const platformConnectionsRelations = relations(platformConnections, ({ on
 export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
   community: one(communities, {
     fields: [pendingRewards.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  community: one(communities, {
+    fields: [teamMembers.community_id],
     references: [communities.id],
   }),
 }));
