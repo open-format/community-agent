@@ -1,3 +1,15 @@
+# [0.21.0](https://github.com/open-format/community-agent/compare/v0.20.1...v0.21.0) (2025-04-01)
+
+
+### Bug Fixes
+
+* remove the second paramater for createUnixTimestamp as it was causing problems, and increase topK results to 20 from 5 ([42df2e2](https://github.com/open-format/community-agent/commit/42df2e281e53551b76a7786b72a080d885a3eebe))
+
+
+### Features
+
+* majorly improved prompt for the ragAgent including injecting the current date and time so it has better context of when messages were sent ([3057208](https://github.com/open-format/community-agent/commit/30572082b617a2b7b27e9a4347140b74fa058b02))
+
 ## [0.20.1](https://github.com/open-format/community-agent/compare/v0.20.0...v0.20.1) (2025-04-01)
 
 
