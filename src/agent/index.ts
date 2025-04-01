@@ -4,6 +4,7 @@ import { ragAgentPrompt } from "./prompts/rag";
 import { vectorStore } from "./stores/vectorStore";
 import { vectorQueryTool } from "./tools/vectorQueryTool";
 import { impactReportWorkflow } from "./workflows/impact";
+import { rewardsWorkflow } from "./workflows/rewards";
 import { summaryWorkflow } from "./workflows/summary";
 
 export const ragAgent = new Agent({
@@ -22,6 +23,7 @@ export const mastra = new Mastra({
   workflows: {
     summaryWorkflow,
     impactReportWorkflow,
+    rewardsWorkflow,
   },
   vectors: { pgVector: vectorStore },
 });
