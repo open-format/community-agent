@@ -72,7 +72,7 @@ summariesRoute.openapi(postAgentSummary, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    const startDate = createUnixTimestamp(start_date, 30);
+    const startDate = createUnixTimestamp(start_date);
     const endDate = createUnixTimestamp(end_date);
 
     const ragAgent = mastra.getAgent("ragAgent");
@@ -97,6 +97,8 @@ Filter the context by searching the metadata.
     { timestamp: { $gte: ${startDate} } },
     { timestamp: { $lte: ${endDate} } },
   ],
+
+  Set topK to 20
  
   ${PGVECTOR_PROMPT}
 
