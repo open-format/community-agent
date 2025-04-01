@@ -1,7 +1,7 @@
 # syntax = docker/dockerfile:1
 
 # Adjust BUN_VERSION as desired
-ARG BUN_VERSION=1.2.5
+ARG BUN_VERSION=1.2.8
 FROM --platform=$BUILDPLATFORM node:lts-slim AS base
 WORKDIR /app
 
@@ -25,7 +25,7 @@ COPY . .
 
 # Production stage
 FROM base AS prod
-RUN bun install --production
+RUN bun install --no-frozen-lockfile
 
 # Use the slim bun image for runtime
 FROM oven/bun:${BUN_VERSION}-slim AS runtime
