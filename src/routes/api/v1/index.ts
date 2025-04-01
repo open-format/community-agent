@@ -7,6 +7,7 @@ import docs from "./docs";
 import reportsRoute from "./reports";
 import summariesRoute from "./summaries";
 import webhooksRoute from "./webhooks";
+import rewardsRoute from "./rewards";
 
 const app = new OpenAPIHono();
 
@@ -32,4 +33,5 @@ app.route("/communities", communitiesRoute);
 app.route("/webhooks", webhooksRoute);
 app.route("/summaries", summariesRoute);
 app.route("/reports", reportsRoute);
+app.route("/rewards", rewardsRoute);
 export default app;
