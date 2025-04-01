@@ -6,6 +6,7 @@ export const getAgentSummary = createRoute({
   request: {
     query: z.object({
       platformId: z.string(),
+      channelId: z.string().optional(),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
@@ -27,6 +28,7 @@ export const getAgentSummary = createRoute({
               startDate: z.string().datetime(),
               endDate: z.string().datetime(),
             }),
+            channelId: z.string().optional(),
           }),
         },
       },

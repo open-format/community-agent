@@ -15,6 +15,7 @@ export const getMessagesTool = createTool({
     includeMessageId: z.boolean().optional(),
     startDate: z.number(),
     endDate: z.number(),
+    channelId: z.string().optional(),
   }),
   outputSchema: z.object({
     transcript: z.string(),
@@ -47,6 +48,7 @@ export const getMessagesTool = createTool({
       platformId: string; 
       includeStats?: boolean;
       includeMessageId?: boolean;
+      channelId?: string;
     } 
   }) => {
     try {
@@ -56,21 +58,29 @@ export const getMessagesTool = createTool({
         value: "community messages",
       });
 
+      // Build filter object with optional channelId
+      const filter: any = {
+        platformId: context.platformId,
+        $and: [
+          { timestamp: { $gte: context.startDate } },
+          { timestamp: { $lte: context.endDate } },
+        ],
+        isBotQuery: {
+          $eq: false,
+        },
+      };
+
+      // Add channelId filter if provided
+      if (context.channelId) {
+        filter.channelId = context.channelId;
+      }
+
       const queryResults = (await vectorStore.query({
         indexName: "community_messages",
         queryVector: dummyEmbedding.embedding,
         topK: 10000,
         includeMetadata: true,
-        filter: {
-          platformId: context.platformId,
-          $and: [
-            { timestamp: { $gte: context.startDate } },
-            { timestamp: { $lte: context.endDate } },
-          ],
-          isBotQuery: {
-            $eq: false,
-          },
-        },
+        filter,
       })) as VectorStoreResult[];
 
       if (queryResults.length === 0) {
