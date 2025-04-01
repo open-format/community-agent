@@ -100,7 +100,7 @@ export async function getReportJob(jobId: string): Promise<ReportJob | null> {
 /**
  * Store the report result in Redis
  */
-export async function storeReportResult(jobId: string, reportData: any): Promise<void> {
+export async function storeReportResult(jobId: string, reportData: unknown): Promise<void> {
   await redis.set(
     `${REPORT_RESULT_PREFIX}${jobId}`,
     JSON.stringify(reportData),
@@ -112,7 +112,7 @@ export async function storeReportResult(jobId: string, reportData: any): Promise
 /**
  * Get the report result from Redis
  */
-export async function getReportResult(jobId: string): Promise<any | null> {
+export async function getReportResult(jobId: string): Promise<unknown | null> {
   const reportData = await redis.get(`${REPORT_RESULT_PREFIX}${jobId}`);
 
   if (!reportData) {
@@ -120,6 +120,52 @@ export async function getReportResult(jobId: string): Promise<any | null> {
   }
 
   return JSON.parse(reportData);
+}
+
+interface VerificationData {
+  communityId: string;
+  used: boolean;
+  createdAt: number;
+}
+
+export const VERIFICATION_CODE_TTL = 600; // 10 minutes in seconds
+
+export async function storeVerificationCode(code: string, communityId: string): Promise<void> {
+  const data: VerificationData = {
+    communityId,
+    used: false,
+    createdAt: Date.now(),
+  };
+
+  await redis.set(`verify:code:${code}`, JSON.stringify(data), "EX", VERIFICATION_CODE_TTL);
+}
+
+export async function getVerificationData(code: string): Promise<VerificationData | null> {
+  const data = await redis.get(`verify:code:${code}`);
+  return data ? JSON.parse(data) : null;
+}
+
+export async function markCodeAsUsed(code: string, data: VerificationData): Promise<void> {
+  await redis.set(
+    `verify:code:${code}`,
+    JSON.stringify({ ...data, used: true }),
+    "EX",
+    VERIFICATION_CODE_TTL,
+  );
+}
+
+export function generateVerificationCode(): string {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+export async function storeGuildVerification(guildId: string, communityId: string): Promise<void> {
+  await redis.set(
+    `verified:guild:${guildId}`,
+    JSON.stringify({
+      communityId,
+      verifiedAt: Date.now(),
+    }),
+  );
 }
 
 export default redis;

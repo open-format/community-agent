@@ -92,3 +92,53 @@ export const updateCommunity = createRoute({
     },
   },
 });
+
+export const generateCode = createRoute({
+  method: "post",
+  path: "/verify/generate-code",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            community_id: z.string(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The code was generated successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            code: z.string(),
+            expiresIn: z.string(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Community not found",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "Failed to generate code",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
