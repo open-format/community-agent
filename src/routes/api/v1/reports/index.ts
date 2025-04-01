@@ -33,7 +33,7 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    const startTimestamp = createUnixTimestamp(startDate, 1);
+    const startTimestamp = createUnixTimestamp(startDate, 14);
     const endTimestamp = createUnixTimestamp(endDate);
 
     const jobId = crypto.randomUUID();

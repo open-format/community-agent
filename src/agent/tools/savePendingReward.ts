@@ -30,18 +30,18 @@ export const savePendingRewardTool = createTool({
   execute: async ({ context }) => {
     try {
       const [saved] = await db.insert(pendingRewards).values({
-        communityId: context.communityId,
-        contributorName: context.contributor || 'unknown',
-        walletAddress: context.walletAddress,
-        platform: context.platform || 'discord',
-        rewardId: context.rewardId,
+        community_id: context.communityId,
+        contributor_name: context.contributor,
+        wallet_address: context.walletAddress,
+        platform: context.platform,
+        reward_id: context.rewardId,
         points: context.points,
         summary: context.summary,
         description: context.description,
         impact: context.impact,
         evidence: context.evidence,
         reasoning: context.reasoning,
-        metadataUri: context.metadataUri || '',
+        metadata_uri: context.metadataUri,
       }).returning();
 
       return {

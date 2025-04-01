@@ -92,28 +92,28 @@ export const pendingRewards = pgTable(
   "pending_rewards",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id")
+    community_id: text("community_id")
       .notNull()
       .references(() => communities.id),
-    contributorName: text("contributor_name").notNull(),
-    walletAddress: text("wallet_address").notNull(),
+    contributor_name: text("contributor_name").notNull(),
+    wallet_address: text("wallet_address").notNull(),
     platform: text("platform", { enum: PLATFORM_TYPES }).notNull(),
-    rewardId: text("reward_id").notNull(),
+    reward_id: text("reward_id").notNull(),
     points: integer("points").notNull(),
     summary: text("summary"),
     description: text("description"),
     impact: text("impact"),
     evidence: text("evidence").array(),
     reasoning: text("reasoning"),
-    metadataUri: text("metadata_uri").notNull(),
+    metadata_uri: text("metadata_uri").notNull(),
     status: text("status", { enum: ["pending", "processed", "failed"] }).default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-    processedAt: timestamp("processed_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    processed_at: timestamp("processed_at", { withTimezone: true }),
     error: text("error"),
   },
   (table) => [
-    index("pending_rewards_community_idx").on(table.communityId),
+    index("pending_rewards_community_idx").on(table.community_id),
     index("pending_rewards_status_idx").on(table.status),
   ]
 );
@@ -132,7 +132,7 @@ export const platformConnectionsRelations = relations(platformConnections, ({ on
 
 export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
   community: one(communities, {
-    fields: [pendingRewards.communityId],
+    fields: [pendingRewards.community_id],
     references: [communities.id],
   }),
 }));

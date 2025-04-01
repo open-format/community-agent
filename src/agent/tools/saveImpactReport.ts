@@ -9,6 +9,10 @@ export const saveImpactReportTool = createTool({
   description: "Save an impact report to the database with vector embeddings",
   inputSchema: z.object({
     report: z.object({
+      startDate: z.number(),
+      endDate: z.number(),
+      platformId: z.string(),
+      summaryId: z.string().optional(),
       overview: z.object({
         totalMessages: z.number(),
         uniqueUsers: z.number(),
@@ -32,29 +36,23 @@ export const saveImpactReportTool = createTool({
         topic: z.string(),
         messageCount: z.number(),
         description: z.string(),
-        examples: z.array(z.string())
+        evidence: z.array(z.string())
       })),
       userSentiment: z.object({
         excitement: z.array(z.object({
           title: z.string(),
           description: z.string(),
           users: z.array(z.string()),
-          examples: z.array(z.string())
+          evidence: z.array(z.string())
         })),
         frustrations: z.array(z.object({
           title: z.string(),
           description: z.string(),
           users: z.array(z.string()),
-          examples: z.array(z.string())
+          evidence: z.array(z.string())
         }))
       })
     }),
-    startDate: z.number(),
-    endDate: z.number(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
-    platformId: z.string(),
-    summaryId: z.string().optional(),
   }),
   outputSchema: z.object({
     success: z.boolean(),
@@ -72,8 +70,6 @@ export const saveImpactReportTool = createTool({
     };
     startDate: number;
     endDate: number;
-    messageCount: number;
-    uniqueUserCount: number;
     platformId: string;
     summaryId?: string;
   } }) => {
@@ -91,8 +87,6 @@ export const saveImpactReportTool = createTool({
         timestamp: Date.now(),
         startDate: context.startDate,
         endDate: context.endDate,
-        messageCount: context.messageCount,
-        uniqueUserCount: context.uniqueUserCount,
         overview: context.report.overview,
         dailyActivity: context.report.dailyActivity,
         topContributors: context.report.topContributors,

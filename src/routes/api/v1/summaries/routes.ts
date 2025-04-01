@@ -90,7 +90,15 @@ export const getHistoricalMessages = createRoute({
   path: "/historical-messages",
   request: {
     query: z.object({
-      platformId: z.string().nonempty(),
+      platform_id: z.string().nonempty(),
+      start_date: z
+        .string({ message: "must be a valid ISO 8601 date format" })
+        .datetime({ message: "must be a valid ISO 8601 date format" })
+        .optional(),
+      end_date: z
+        .string({ message: "must be a valid ISO 8601 date format" })
+        .datetime({ message: "must be a valid ISO 8601 date format" })
+        .optional(),
     }),
   },
   responses: {
@@ -102,6 +110,10 @@ export const getHistoricalMessages = createRoute({
             success: z.boolean(),
             newMessagesAdded: z.number(),
             error: z.string().optional(),
+            timeframe: z.object({
+              startDate: z.string().datetime(),
+              endDate: z.string().datetime(),
+            }),
           }),
         },
       },

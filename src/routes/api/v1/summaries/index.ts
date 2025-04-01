@@ -122,11 +122,11 @@ Please search through the conversation history to find relevant information.
 // Add historical messages endpoint
 summariesRoute.openapi(getHistoricalMessages, async (c) => {
   try {
-    const { platformId } = c.req.query();
+    const { platform_id, start_date, end_date } = c.req.query();
 
     //check if platform exists in db
     const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.platformId, platformId as string),
+      where: eq(platformConnections.platformId, platform_id as string),
     });
 
     if (!platform) {
@@ -137,14 +137,28 @@ summariesRoute.openapi(getHistoricalMessages, async (c) => {
       throw new Error("Historical messages tool not initialized");
     }
 
+    // Convert dates to timestamps, using defaults if not provided
+    const endTimestamp = end_date ? dayjs(end_date as string).valueOf() : dayjs().valueOf();
+    const startTimestamp = start_date 
+      ? dayjs(start_date as string).valueOf() 
+      : dayjs().subtract(14, "day").valueOf();
+
     // Execute the historical messages tool
     const result = await fetchHistoricalMessagesTool.execute({
       context: {
-        platformId,
+        platformId: platform_id as string,
+        startDate: startTimestamp,
+        endDate: endTimestamp,
       },
     });
 
-    return c.json(result);
+    return c.json({
+      ...result,
+      timeframe: {
+        startDate: dayjs(startTimestamp).toISOString(),
+        endDate: dayjs(endTimestamp).toISOString(),
+      },
+    });
   } catch (error) {
     console.error("Error fetching historical messages:", error);
     return c.json(

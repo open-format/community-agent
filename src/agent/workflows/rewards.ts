@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { identifyRewards } from '../agents';
 import { getMessagesTool, getWalletAddressTool, savePendingRewardTool, createPrivyWalletTool } from '../tools';
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
+import dayjs from 'dayjs';
 
 // Step 1: Fetch messages
 const fetchMessagesStep = new Step({
@@ -15,20 +16,12 @@ const fetchMessagesStep = new Step({
       throw new Error('Fetch messages tool not initialized');
     }
 
-    // Convert to milliseconds if in seconds
-    const startDate = context.triggerData.startDate.toString().length === 10 
-      ? context.triggerData.startDate * 1000 
-      : context.triggerData.startDate;
-    
-    const endDate = context.triggerData.endDate.toString().length === 10
-      ? context.triggerData.endDate * 1000
-      : context.triggerData.endDate;
 
     const result = await getMessagesTool.execute({
       context: {
-        startDate,
-        endDate,
-        platformId: context.triggerData.platformId,
+        startDate: context.triggerData.start_date,
+        endDate: context.triggerData.end_date,
+        platformId: context.triggerData.platform_id,
         includeStats: false,
         includeMessageId: true
       }
@@ -70,7 +63,7 @@ const identifyRewardsStep = new Step({
       }) => ({
         ...contribution,
         evidence: contribution.evidence.map((evidence: { channelId: string; messageId: string }) => 
-          `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
+          `https://discord.com/channels/${context.triggerData.platform_id}/${evidence.channelId}/${evidence.messageId}`
         )
       }))
     };
@@ -100,11 +93,9 @@ const getWalletAddressesStep = new Step({
     }
 
     const contributions = context.steps.identifyRewards.output.contributions;
-    console.log(`Processing ${contributions.length} contributions for wallet addresses`);
 
     const rewards = await Promise.all(
       contributions.map(async (contribution) => {
-        console.log(`Processing wallet for contributor: ${contribution.contributor}`);
         
         // First try to get existing wallet
         const walletInfo = await getWalletAddressTool.execute({
@@ -116,7 +107,6 @@ const getWalletAddressesStep = new Step({
 
         // If no wallet exists or user needs to create one, try to create one
         if (!walletInfo.walletAddress) {
-          console.log(`No existing wallet found for ${contribution.contributor}, attempting to create one`);
           try {
             const privyWalletInfo = await createPrivyWalletTool.execute({
               context: {
@@ -126,14 +116,12 @@ const getWalletAddressesStep = new Step({
             });
 
             if (privyWalletInfo.walletAddress) {
-              console.log(`Successfully created new wallet for ${contribution.contributor}: ${privyWalletInfo.walletAddress}`);
               return {
                 ...contribution,
                 walletAddress: privyWalletInfo.walletAddress,
                 isPregenerated: true
               };
             } else {
-              console.error(`Failed to create wallet for ${contribution.contributor}: No wallet address returned`);
               return {
                 ...contribution,
                 walletAddress: null,
@@ -152,7 +140,6 @@ const getWalletAddressesStep = new Step({
 
         // If we have a wallet address, return it
         if (walletInfo.walletAddress) {
-          console.log(`Found existing wallet for ${contribution.contributor}: ${walletInfo.walletAddress}`);
           return {
             ...contribution,
             walletAddress: walletInfo.walletAddress
@@ -171,7 +158,6 @@ const getWalletAddressesStep = new Step({
 
     const successCount = rewards.filter(r => r.walletAddress).length;
     const errorCount = rewards.filter(r => r.error).length;
-    console.log(`Wallet processing complete. Success: ${successCount}, Errors: ${errorCount}`);
 
     return { rewards };
   },
@@ -218,7 +204,6 @@ const uploadMetadataStep = new Step({
             const ipfsHash = await storage.upload(metadata, {
               uploadWithoutDirectory: true,
             });
-            console.log(`Successfully uploaded metadata for ${reward.contributor}: ${ipfsHash}`);
             return {
               ...reward,
               metadataUri: ipfsHash,
@@ -228,7 +213,6 @@ const uploadMetadataStep = new Step({
             retries++;
             
             if (retries < maxRetries) {
-              console.log(`Retry ${retries}/${maxRetries} for ${reward.contributor} after error:`, error);
               await new Promise(resolve => setTimeout(resolve, 1000 * retries));
             } else {
               console.error(`Failed to upload metadata for ${reward.contributor} after ${maxRetries} attempts:`, error);
@@ -302,7 +286,7 @@ const savePendingRewardsStep = new Step({
 
         const result = await (savePendingRewardTool.execute!({
           context: {
-            communityId: context.triggerData.communityId,
+            communityId: context.triggerData.community_id,
             contributor: reward.contributor,
             walletAddress: reward.walletAddress,
             platform: 'discord',
@@ -338,10 +322,10 @@ const savePendingRewardsStep = new Step({
 
 interface WorkflowContext {
   triggerData: {
-    communityId: string;
-    platformId: string;
-    startDate: number;
-    endDate: number;
+    community_id: string;
+    platform_id: string;
+    start_date: number;
+    end_date: number;
   };
   steps: {
     fetchMessages: {
@@ -421,18 +405,14 @@ interface WorkflowContext {
 export const rewardsWorkflow = new Workflow({
   name: 'community-rewards',
   triggerSchema: z.object({
-    communityId: z.string(),
-    platformId: z.string(),
-    startDate: z.number()
-      .refine(val => {
-        const digits = Math.floor(Math.log10(val)) + 1;
-        return digits === 10 || digits === 13;
-      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
-    endDate: z.number()
-      .refine(val => {
-        const digits = Math.floor(Math.log10(val)) + 1;
-        return digits === 10 || digits === 13;
-      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
+    community_id: z.string(),
+    platform_id: z.string(),
+    start_date: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
+    end_date: z.string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform(val => dayjs(val).valueOf()),
   }),
 });
 

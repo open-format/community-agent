@@ -102,8 +102,6 @@ declare global {
     timestamp: number; 
     startDate: number; 
     endDate: number; 
-    messageCount: number;
-    uniqueUserCount: number;
     overview: ImpactReportOverview;
     dailyActivity: DailyActivity[];
     topContributors: TopContributor[];
