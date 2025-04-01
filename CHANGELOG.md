@@ -1,3 +1,11 @@
+# [0.23.0](https://github.com/open-format/community-agent/compare/v0.22.0...v0.23.0) (2025-04-01)
+
+
+### Features
+
+* add platform_name column to platform_connections table ([405771a](https://github.com/open-format/community-agent/commit/405771a92d6440b5c1d512e044fad02db86b855e))
+* implement Discord command for server verification and code generation ([1c3bad3](https://github.com/open-format/community-agent/commit/1c3bad32b8713f031d0142cea47ceef225aa7d21))
+
 # [0.22.0](https://github.com/open-format/community-agent/compare/v0.21.0...v0.22.0) (2025-04-01)
 
 
