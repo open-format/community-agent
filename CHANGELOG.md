@@ -1,3 +1,10 @@
+## [0.20.1](https://github.com/open-format/community-agent/compare/v0.20.0...v0.20.1) (2025-04-01)
+
+
+### Bug Fixes
+
+* for the createUnixTimestamp function when both a date and daysAgo was present it prioritised daysAgo and did that amount of days ago from the present time ([6760316](https://github.com/open-format/community-agent/commit/676031603fb2c66a5dfbb5ecd5714250837287e4))
+
 # [0.20.0](https://github.com/open-format/community-agent/compare/v0.19.0...v0.20.0) (2025-03-27)
 
 
