@@ -1,3 +1,10 @@
+# [0.22.0](https://github.com/open-format/community-agent/compare/v0.21.0...v0.22.0) (2025-04-01)
+
+
+### Features
+
+* Enhance message retrieval and summary workflows by adding optional channelId parameter. Update related API routes and tools to support filtering by channelId, improving message querying capabilities. ([095fdb2](https://github.com/open-format/community-agent/commit/095fdb2bac22fc9394e3ed39efad500d6c817c3f))
+
 # [0.21.0](https://github.com/open-format/community-agent/compare/v0.20.1...v0.21.0) (2025-04-01)
 
 
