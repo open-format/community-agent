@@ -169,6 +169,25 @@ declare global {
     timeframe: Timeframe;
     stats?: MessageStats;
   }
+
+  interface CommunityPlatform {
+    type: string;
+    id: string;
+    name?: string;
+  }
+
+  interface Community {
+    id: string;
+    name: string;
+    description?: string;
+    goals: string[];
+    platforms: CommunityPlatform[];
+    roles: string[];
+    stage: string;
+    type: string;
+    stage_description?: string;
+    type_description?: string;
+  }
 }
 
 declare module "hono" {

@@ -25,6 +25,8 @@ export const communities = pgTable("communities", {
   roles: jsonb("roles").default([]),
   goals: jsonb("goals").default([]),
   platforms: jsonb("platforms").default([]),
+  type: text("type"),
+  stage: text("stage"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   communityWalletId: text("community_wallet_id"),

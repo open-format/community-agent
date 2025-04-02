@@ -2,6 +2,7 @@ import { Agent } from '@mastra/core/agent';
 import { google } from "@ai-sdk/google";
 import { getTeamDetailsContext } from '../context-providers/team_details';
 import { getTokenDetailsContext } from '../context-providers/token_details';
+import { getCommunityContext } from '../context-providers/community';
 
 export const rewardsAgent = new Agent({
   name: "community-rewards",
@@ -29,7 +30,8 @@ export async function identifyRewards(transcript: string, communityId: string) {
   // Get team details context
   const teamContext = await getTeamDetailsContext(communityId);
   const tokenContext = await getTokenDetailsContext(communityId);
-  console.log('Token Context:', tokenContext);
+  const communityContext = await getCommunityContext(communityId);
+
   
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
@@ -43,6 +45,8 @@ But the same contribution should not be identified multiple times.
 ${teamContext}
 
 ${tokenContext}
+
+${communityContext}
 
 For each meaningful contribution, provide:
 1. Who made the contribution
@@ -101,7 +105,6 @@ Remember:
 
 Chat transcript:
 ${transcript}`;
-console.log('Prompt:', prompt);
   const result = await rewardsAgent.generate(prompt);
   const contributions = JSON.parse(result.text.replace(/```json\n?|```/g, '').trim());
   
