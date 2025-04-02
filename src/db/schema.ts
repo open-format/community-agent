@@ -133,10 +133,29 @@ export const teamMembers = pgTable("team_members", {
   index("team_members_discord_name_idx").on(table.discord_name),
 ]);
 
+export const tokenDetails = pgTable("token_details", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  token_address: text("token_address").notNull(),
+  token_name: text("token_name").notNull(),
+  reward_condition: text("reward_condition").notNull(), // e.g., "always", "only for major contributions", etc.
+  major_contribution_amount: integer("major_contribution_amount").notNull(),
+  minor_contribution_amount: integer("minor_contribution_amount").notNull(),
+  additional_context: text("additional_context"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("token_details_community_idx").on(table.community_id),
+  index("token_details_token_address_idx").on(table.token_address),
+]);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
   teamMembers: many(teamMembers),
+  tokenDetails: many(tokenDetails),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
@@ -156,6 +175,13 @@ export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
 export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
   community: one(communities, {
     fields: [teamMembers.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const tokenDetailsRelations = relations(tokenDetails, ({ one }) => ({
+  community: one(communities, {
+    fields: [tokenDetails.community_id],
     references: [communities.id],
   }),
 }));

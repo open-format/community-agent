@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { google } from "@ai-sdk/google";
 import { getTeamDetailsContext } from '../context-providers/team_details';
+import { getTokenDetailsContext } from '../context-providers/token_details';
 
 export const rewardsAgent = new Agent({
   name: "community-rewards",
@@ -27,6 +28,9 @@ export const rewardsAgent = new Agent({
 export async function identifyRewards(transcript: string, communityId: string) {
   // Get team details context
   const teamContext = await getTeamDetailsContext(communityId);
+  const tokenContext = await getTokenDetailsContext(communityId);
+  console.log('Token Context:', tokenContext);
+  
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
 Identify any and all meaningful contributions, and if there are none, return an empty array.
@@ -38,6 +42,8 @@ But the same contribution should not be identified multiple times.
 
 ${teamContext}
 
+${tokenContext}
+
 For each meaningful contribution, provide:
 1. Who made the contribution
 2. A high-level short summary (5-12 words) that quickly captures the essence of the contribution
@@ -45,11 +51,12 @@ For each meaningful contribution, provide:
 4. The impact on the community
 5. Evidence: an array of objects containing channelId and messageId for each message that proves this contribution
 6. A short kebab-case rewardId that describes the contribution (max 32 chars)
-7. Suggested rewards (10-1000 points) based on:
+7. Suggested rewards based on:
    - Contribution value and impact
    - Time/effort invested
    - Community benefit
    - Technical complexity
+   - The appropriate token to use (MUST include the token address)
 
 Return the response in this exact JSON format:
 {
@@ -68,7 +75,8 @@ Return the response in this exact JSON format:
       "rewardId": "technical-documentation-update",
       "suggested_reward": {
         "points": 100,
-        "reasoning": "Detailed explanation of reward suggestion"
+        "reasoning": "Detailed explanation of reward suggestion",
+        "tokenAddress": "token_address_here" // MUST be the most appropriate token address provided in the context for the sppecific contribution. If no token is provided then leave blank.
       }
     }
   ]
@@ -93,7 +101,7 @@ Remember:
 
 Chat transcript:
 ${transcript}`;
-
+console.log('Prompt:', prompt);
   const result = await rewardsAgent.generate(prompt);
   const contributions = JSON.parse(result.text.replace(/```json\n?|```/g, '').trim());
   

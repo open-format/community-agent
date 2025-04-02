@@ -4,6 +4,7 @@ import { identifyRewards } from '../agents';
 import { getMessagesTool, getWalletAddressTool, savePendingRewardTool, createPrivyWalletTool } from '../tools';
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
 import dayjs from 'dayjs';
+import { getTokenDetailsContext } from '../context-providers/token_details';
 
 // Step 1: Fetch messages
 const fetchMessagesStep = new Step({
@@ -47,6 +48,7 @@ const identifyRewardsStep = new Step({
         reasoning: z.string(),
       }),
     })),
+    tokenAddress: z.string().optional(),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
     if (context.steps.fetchMessages.status !== 'success') {
@@ -54,7 +56,8 @@ const identifyRewardsStep = new Step({
     }
 
     const transcript = context.steps.fetchMessages.output.transcript;
-    const rewards = await identifyRewards(transcript, context.triggerData.community_id);
+    const tokenContext = await getTokenDetailsContext(context.triggerData.community_id);
+    const rewards = await identifyRewards(transcript, context.triggerData.community_id, tokenContext);
 
     // Add Discord message URLs to each piece of evidence
     const enhancedRewards = {
@@ -155,9 +158,6 @@ const getWalletAddressesStep = new Step({
         };
       })
     ) as Array<any>;
-
-    const successCount = rewards.filter(r => r.walletAddress).length;
-    const errorCount = rewards.filter(r => r.error).length;
 
     return { rewards };
   },
