@@ -43,8 +43,8 @@ export const createCommunity = createRoute({
         },
       },
     },
-    404: {
-      description: "Community not found",
+    409: {
+      description: "Community already exists",
       content: {
         "application/json": {
           schema: z.object({
