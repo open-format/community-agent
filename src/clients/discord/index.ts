@@ -13,6 +13,7 @@ import {
   MessageFlags,
   Partials,
 } from "discord.js";
+import { eq } from "drizzle-orm";
 import { registerCommandsForGuild } from "./commands";
 
 const discordClient = new Client({
@@ -65,21 +66,30 @@ discordClient.on("ready", async () => {
 
     await registerCommandsForGuild(guild.id, guild.name, discordClient);
 
-    // Check if guild exists in platform connections
-    const exists = existingConnections.some((conn) => conn.platformId === guild.id);
+    const existingConnection = existingConnections.find((conn) => conn.platformId === guild.id);
 
-    if (!exists) {
-      try {
+    try {
+      if (existingConnection) {
+        // Update if the connection exists and either name is different or null/undefined
+        if (existingConnection.platformName !== guild.name || !existingConnection.platformName) {
+          await db
+            .update(platformConnections)
+            .set({ platformName: guild.name })
+            .where(eq(platformConnections.platformId, guild.id));
+          console.log(`Updated guild name for ${guild.name}`);
+        }
+      } else {
+        // Insert new guild if it doesn't exist
         await db.insert(platformConnections).values({
           communityId: null,
           platformId: guild.id,
           platformType: "discord",
           platformName: guild.name,
         });
-        console.log(`Added existing guild ${guild.name} to platform connections`);
-      } catch (error) {
-        console.error(`Failed to add guild ${guild.name}:`, error);
+        console.log(`Added new guild ${guild.name} to platform connections`);
       }
+    } catch (error) {
+      console.error(`Failed to upsert guild ${guild.name}:`, error);
     }
   }
 });
@@ -247,6 +257,7 @@ Additional Instructions:
     threadId: msg.id,
     timestamp: msg.createdTimestamp,
     text: msg.content,
+    isBotQuery: msg.author.bot,
     isReaction: false,
     isBotQuery: msg.mentions.has(discordClient.user?.id ?? ""),
   };
