@@ -4,6 +4,7 @@ import { getTeamDetailsContext } from '../context-providers/team_details';
 import { getTokenDetailsContext } from '../context-providers/token_details';
 import { getCommunityContext } from '../context-providers/community';
 import { getExampleRewardsContext } from '../context-providers/example_rewards';
+import { getRewardIdsContext } from '../context-providers/reward_ids';
 
 export const rewardsAgent = new Agent({
   name: "community-rewards",
@@ -33,7 +34,7 @@ export async function identifyRewards(transcript: string, communityId: string) {
   const tokenContext = await getTokenDetailsContext(communityId);
   const communityContext = await getCommunityContext(communityId);
   const exampleRewardsContext = await getExampleRewardsContext(communityId);
-
+  const rewardIdsContext = await getRewardIdsContext();
   
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
@@ -52,13 +53,15 @@ ${communityContext}
 
 ${exampleRewardsContext}
 
+${rewardIdsContext}
+
 For each meaningful contribution, provide:
 1. Who made the contribution
 2. A high-level short summary (5-12 words) that quickly captures the essence of the contribution
 3. A detailed comprehensive description that explains the contribution in depth
 4. The impact on the community
 5. Evidence: an array of objects containing channelId and messageId for each message that proves this contribution
-6. A short kebab-case rewardId that describes the contribution (max 32 chars)
+6. A short kebab-case rewardId that describes the contribution (max 32 chars) - MUST be one of the exact reward IDs provided in the context
 7. Suggested rewards based on:
    - Contribution value and impact
    - Time/effort invested
@@ -91,8 +94,6 @@ Return the response in this exact JSON format:
 }
 
 Remember:
-- rewardId must be in kebab-case (lowercase with hyphens)
-- rewardId should be descriptive but under 32 characters
 - evidence must be an array of objects with channelId and messageId
 - Make sure the messageId is one of the messages that proves the contribution
 - Make sure the channelId is the channel associated with the messageId
