@@ -11,7 +11,7 @@ export async function getRewardIdsContext(): Promise<string> {
   context += '6. asked-technical-question - Awarded for posing a thoughtful technical question that fosters deeper discussion or problem-solving.\n';
   context += '7. answered-technical-question - Awarded for giving a clear, helpful, and accurate response to a technical inquiry.\n';
   context += '8. shared-technical-resource - Awarded for posting tools, libraries, or references that help others tackle development challenges.\n';
-  context += '9. miscellaneous-technical-contribution - Awarded for any other notable technical input not covered by the above categories.\n\n';
+  context += '9. misc-technical-contribution - Awarded for any other notable technical input not covered by the above categories.\n\n';
 
   // Product Category
   context += 'PRODUCT CATEGORY:\n';
@@ -20,7 +20,7 @@ export async function getRewardIdsContext(): Promise<string> {
   context += '3. identified-a-problem - Awarded for spotting a user-facing issue, bug, or design flaw that needs attention.\n';
   context += '4. identified-an-opportunity - Awarded for highlighting a new angle or market gap the product could address.\n';
   context += '5. shared-user-experience - Awarded for posting personal usage insights or case studies that shed light on product strengths/weaknesses.\n';
-  context += '6. miscellaneous-product-contribution - Awarded for any other notable product-related input not covered by the above categories.\n\n';
+  context += '6. misc-product-contribution - Awarded for any other notable product-related input not covered by the above categories.\n\n';
 
   // Community & Support Category
   context += 'COMMUNITY & SUPPORT CATEGORY:\n';
@@ -36,15 +36,15 @@ export async function getRewardIdsContext(): Promise<string> {
   context += '10. initiated-a-conversation - Awarded for starting a constructive thread or topic that brings value or sparks discussion.\n';
   context += '11. boosted-morale - Awarded for uplifting, encouraging, or thanking community members in a meaningful way.\n';
   context += '12. identified-spammer - Awarded for alerting moderators or the community about suspicious or spammy behavior before it causes issues.\n';
-  context += '13. miscellaneous-community-contribution - Awarded for any other notable community or support input not covered by the above categories.\n\n';
+  context += '13. misc-community-contribution - Awarded for any other notable community or support input not covered by the above categories.\n\n';
 
   // Growth Category
   context += 'GROWTH CATEGORY:\n';
   context += '1. shared-meme - Awarded for posting a relevant or engaging meme that boosts community spirit or brand awareness.\n';
-  context += '2. identified-partnership-opportunity - Awarded for highlighting a potential collaboration with another project or community that benefits everyone.\n';
+  context += '2. identified-partner-opportunity - Awarded for highlighting a potential collaboration with another project or community that benefits everyone.\n';
   context += '3. shared-success-story - Awarded for showcasing a personal or community-wide win that could inspire or attract new interest.\n';
   context += '4. proposed-growth-initiative - Awarded for suggesting a concrete marketing, referral, or growth plan to expand the project\'s reach.\n';
-  context += '5. miscellaneous-growth-contribution - Awarded for any other notable growth-related input not covered by the above categories.\n\n';
+  context += '5. misc-growth-contribution - Awarded for any other notable growth-related input not covered by the above categories.\n\n';
 
   // Instructions
   context += 'IMPORTANT INSTRUCTIONS:\n';
