@@ -1,20 +1,14 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
+import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
-import {
-  Client,
-  Collection,
-  GatewayIntentBits,
-  type Message,
-  MessageFlags,
-  Partials,
-} from "discord.js";
+import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
 import { eq } from "drizzle-orm";
-import { registerCommandsForGuild } from "./commands";
+import { handleReportCommand } from "./commands/report";
 
 const discordClient = new Client({
   intents: [
@@ -27,7 +21,21 @@ const discordClient = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-discordClient.commands = new Collection();
+discordClient.on("guildMemberUpdate", async (oldMember, newMember) => {
+  if (newMember.id === discordClient.user?.id) {
+    if (newMember.roles.cache.size > oldMember.roles.cache.size) {
+      if (!fetchHistoricalMessagesTool.execute) {
+        throw new Error("Historical messages tool not initialized");
+      }
+
+      await fetchHistoricalMessagesTool.execute({
+        context: {
+          platformId: newMember.guild.id,
+        },
+      });
+    }
+  }
+});
 
 discordClient.on("guildCreate", async (guild) => {
   console.log(`Bot joined new server: ${guild.name} (${guild.id})`);
@@ -37,6 +45,16 @@ discordClient.on("guildCreate", async (guild) => {
   }
 
   const guildId = guild.id;
+
+  if (!fetchHistoricalMessagesTool.execute) {
+    throw new Error("Historical messages tool not initialized");
+  }
+
+  await fetchHistoricalMessagesTool.execute({
+    context: {
+      platformId: guild.id,
+    },
+  });
 
   try {
     await db.insert(platformConnections).values({
@@ -63,8 +81,6 @@ discordClient.on("ready", async () => {
 
   for (const guild of discordClient.guilds.cache.values()) {
     console.log(`- ${guild.name} (ID: ${guild.id}) with ${guild.memberCount} members`);
-
-    await registerCommandsForGuild(guild.id, guild.name, discordClient);
 
     const existingConnection = existingConnections.find((conn) => conn.platformId === guild.id);
 
@@ -94,44 +110,6 @@ discordClient.on("ready", async () => {
   }
 });
 
-discordClient.on("interactionCreate", async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  // TODO: Implement interaction handling
-  const command = discordClient.commands.get(interaction.commandName);
-
-  if (!command) return;
-
-  try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
-    await interaction.reply({
-      content: "There was an error executing this command!",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-});
-
-discordClient.on("voiceStateUpdate", async (oldState, newState) => {
-  if (!newState.channelId || !newState.member?.user?.username) {
-    return;
-  }
-
-  // TODO: Implement voice channel join handling
-  // if (!oldState.channelId && newState.channelId) {
-  //   await triggerAutomation({
-  //     platformId: newState.guild.id,
-  //     platformType: "discord",
-  //     eventType: "voice_channel_join",
-  //     userId: newState.member.user.username,
-  //     metadata: {
-  //       channelId: newState.channelId,
-  //     },
-  //   });
-  // }
-});
-
 async function getThreadStartMessageId(msg: Message): Promise<string> {
   let currentMsg = msg;
 
@@ -149,9 +127,26 @@ async function getThreadStartMessageId(msg: Message): Promise<string> {
 discordClient.on("messageCreate", async (msg) => {
   // Skip messages from bots and ensure we're in a guild
   if (msg.author.bot || !msg.guild) return;
+  const isBotQuery = msg.mentions.has(discordClient.user?.id ?? "");
+
+  // Check for report generation command
+  if (isBotQuery && msg.content.toLowerCase().includes("!report")) {
+    await handleReportCommand(msg);
+    return;
+  }
 
   // If someone mentions the bot, call the ragAgent
-  if (msg.mentions.has(discordClient.user?.id ?? "")) {
+  if (isBotQuery) {
+    // Get allowed roles
+    const allowedRoles = process.env.DISCORD_ALLOWED_ROLES?.split(",") ?? [];
+    const hasAllowedRole = msg.member?.roles.cache.some((role) => allowedRoles.includes(role.id));
+
+    if (!hasAllowedRole) {
+      return;
+    }
+    // Show typing indicator immediately
+    await msg.channel.sendTyping();
+    // Then set up interval to keep it active
     const typingInterval = setInterval(() => msg.channel.sendTyping(), 9000);
 
     try {
@@ -163,81 +158,55 @@ discordClient.on("messageCreate", async (msg) => {
       const platformId = msg.guild.id;
       const guildName = msg.guild.name;
 
-      // Create agent override with specific context
-      const contextualInstructions = `
-You are a helpful assistant that answers questions based on the provided context. Keep your answers concise and relevant.
+      const contextWithTimeDetails = `
+Query: ${cleanContent}
 
-When filtering data using the vectorQueryTool, follow these guidelines:
+The user is asking about conversations in a community with platform ID: ${platformId}. Always use the guild name ${guildName} when referring to the community.
 
-1. The metadata structure contains these fields:
-{
-  platform: "discord",
-  platformId: string,
-  messageId: string,
-  authorId: string,
-  authorUsername: string,
-  channelId: string,
-  threadId: string,
-  text: string,
-  isReaction: boolean,
-  isBotQuery: boolean
-}
-
-2. ALWAYS include these REQUIRED filters:
-   - platformId must match "${platformId}"
-   - isBotQuery must be false
-
-3. For date/time filtering:
-   - Use timestamp for date ranges (it's a Unix timestamp in milliseconds)
-   - For queries like "between 9th and 11th march", convert dates to Unix timestamps and use comparison operators
-
-${PGVECTOR_PROMPT}
-
-IMPORTANT: When using the vectorQueryTool:
-- Pass filters as a JSON object, NOT as a string
-- Format should be: filter: { key: value }
-
-EXAMPLE CORRECT USAGE:
-vectorQueryTool({
-  queryText: " ",
-  topK: 5,
-  filter: {
-    platformId: "${platformId}",
-    isBotQuery: false
-    // Add timestamp filters when date ranges are mentioned
+Filter the context by searching the metadata.
+  
+  The metadata is structured as follows:
+ 
+  {
+    platformId: string,
+    timestamp: number,
   }
-})
 
-Additional Instructions:
-1. ONLY use information from the current Discord server (matching platformId: "${platformId}").
-2. NEVER return information from other platforms or servers.
-3. When asked to answer a question, please base your answer only on the context provided in the tool.
-4. If the context doesn't contain enough information to fully answer the question, please state that explicitly.
-5. If you're asked about another platform or server, respond with: "I can only provide information for the ${guildName} community."
+    filtering timestamp is like this:
+  $and: [
+    { timestamp: { $gte: [UNIX_MILLISECONDS_TIMESTAMP_FROM_30_DAYS_AGO] } },
+    { timestamp: { $lte: [UNIX_MILLISECONDS_TIMESTAMP_TODAY] } },
+  ],
+
+  if no timestamp is provided, use the past 30 days.
+
+
+  Set topK to 20
+ 
+  ${PGVECTOR_PROMPT}
+
+Please search through the conversation history to find relevant information.
 `;
 
-      const response = await mastra.getAgent("ragAgent").generate(
-        [
-          {
-            role: "system",
-            content: contextualInstructions,
-          },
-          { role: "user", content: cleanContent },
-        ],
-        {
-          threadId: await getThreadStartMessageId(msg),
-          resourceId: msg.author.id,
+      const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
+        threadId: "1234567890",
+        resourceId: msg.author.id,
+        memoryOptions: {
+          lastMessages: 10,
         },
-      );
-
-      console.log(JSON.stringify(response, null, 2));
+      });
 
       // Send the response to the channel
       await msg.reply(response.text);
+    } catch (error) {
+      console.error("Error processing message:", error);
     } finally {
-      // Always clear the typing interval
       clearInterval(typingInterval);
     }
+  }
+
+  if (isBotQuery) {
+    return;
   }
 
   // Generate embeddings for message content
@@ -259,7 +228,6 @@ Additional Instructions:
     text: msg.content,
     isBotQuery: msg.author.bot,
     isReaction: false,
-    isBotQuery: msg.mentions.has(discordClient.user?.id ?? ""),
   };
 
   // If this is a reply to another message, get the parent message's ID
@@ -294,6 +262,7 @@ discordClient.on("messageReactionAdd", async (reaction, user) => {
     threadId: message.id,
     timestamp: message.createdTimestamp,
     text: reaction.emoji.name ?? "",
+    isBotQuery: message.author.bot,
     isReaction: true,
   };
 
