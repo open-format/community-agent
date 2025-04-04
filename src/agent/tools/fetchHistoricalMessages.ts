@@ -49,8 +49,8 @@ export const fetchHistoricalMessagesTool = createTool({
         // Skip non-text channels or channels we can't access
         if (!(channel instanceof TextChannel) || !channel.viewable) continue;
 
-        let lastMessageId;
-        let messageBatch: any[] = [];
+        let lastMessageId: string | undefined;
+        let messageBatch: { content: string; metadata: MessageMetadata }[] = [];
 
         // Fetch messages in batches until we reach messages older than 2 weeks
         while (true) {
@@ -150,7 +150,10 @@ export const fetchHistoricalMessagesTool = createTool({
  * @param messages Array of messages to process
  * @param channelName Channel name for logging
  */
-async function processMessageBatch(messages: any[], channelName: string) {
+async function processMessageBatch(
+  messages: { content: string; metadata: MessageMetadata }[],
+  channelName: string,
+) {
   try {
     // Create embeddings for all messages in parallel
     const embeddings = await Promise.all(
