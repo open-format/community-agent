@@ -46,3 +46,13 @@ await vectorStore.createIndex({
   indexName: "community_messages",
   dimension: 1536,
 });
+
+await vectorStore.createIndex({
+  indexName: "summaries",
+  dimension: 1536,
+});
+
+await vectorStore.createIndex({
+  indexName: "impact_reports",
+  dimension: 1536,
+});

@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { Agent } from "@mastra/core";
+import { Agent } from "@mastra/core/agent";
 // import { SummarizationMetric } from "@mastra/evals/llm";
 
 export const summaryAgent = new Agent({
@@ -12,7 +12,7 @@ export const summaryAgent = new Agent({
   3. Notable community interactions or events
   
   Keep summaries clear, informative, interesting and to the point. Each line should convey a distinct and meaningful insight.`,
-  model: openai("gpt-4o"),
+  model: openai("gpt-4o-mini"),
   // evals: {
   //   summarization: new SummarizationMetric(openai("gpt-4o")),
   // },

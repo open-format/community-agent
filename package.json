@@ -13,7 +13,7 @@
     "mastra:dev": "mastra dev --dir src/agent"
   },
   "dependencies": {
-    "@ai-sdk/google": "^1.1.25",
+    "@ai-sdk/google": "^1.2.2",
     "@ai-sdk/openai": "^1.2.5",
     "@hono/zod-openapi": "^0.19.2",
     "@mastra/core": "^0.6.0",
@@ -23,6 +23,7 @@
     "@mastra/rag": "^0.1.9",
     "@octokit/webhooks": "^13.6.0",
     "@privy-io/server-auth": "^1.18.12",
+    "@thirdweb-dev/storage": "^2.0.15",
     "@types/pg": "^8.11.11",
     "ai": "^4.1.61",
     "dayjs": "^1.11.13",
@@ -31,6 +32,7 @@
     "drizzle-orm": "^0.39.3",
     "graphql-request": "^7.1.2",
     "hono": "^4.6.20",
+    "ioredis": "^5.6.0",
     "mastra": "^0.3.1",
     "pg": "^8.14.1",
     "viem": "^2.23.2",
@@ -44,5 +46,5 @@
     "@types/bun": "latest",
     "semantic-release": "^24.2.2"
   },
-  "version": "0.15.0"
+  "version": "0.23.0"
 }

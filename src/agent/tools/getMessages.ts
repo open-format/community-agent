@@ -1,272 +1,280 @@
-import { createTool } from '@mastra/core/tools';
-import { z } from 'zod';
-import { db } from '../../db';
-import { sql } from 'drizzle-orm';
+import { vectorStore } from "@/agent/stores";
+import { openai } from "@ai-sdk/openai";
+import { createTool } from "@mastra/core";
+import { embed } from "ai";
+import { Client, GatewayIntentBits } from 'discord.js';
+import dayjs from "dayjs";
+import { z } from "zod";
 
-// Define types for our database records
-interface ThreadRecord {
-  id: string;
-  resourceId: string;
-  title: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  metadata: {
-    platform: string;
-    platformId?: string;
-    channelId?: string;
-    messageId?: string;
-    authorId?: string;
-    authorUsername?: string;
-    [key: string]: any;
-  };
-  [key: string]: any;
-}
-
-interface MessageRecord {
-  id: string;
-  thread_id: string;
-  content: string;
-  role: string;
-  type: string;
-  createdAt: Date | string;
-  [key: string]: any;
-}
-
-
-
-export const fetchCommunityMessagesTool = createTool({
-  id: 'fetch-community-messages',
-  description: 'Fetch messages from PostgreSQL database for a specific platform ID and date range',
+export const getMessagesTool = createTool({
+  id: "get-messages",
+  description: "Fetch messages from vector store for a specific platform ID and date range",
   inputSchema: z.object({
-    startDate: z.string(),
-    endDate: z.string(),
-    platformId: z.string().nonempty()
+    platformId: z.string().nonempty(),
+    includeStats: z.boolean().optional(),
+    includeMessageId: z.boolean().optional(),
+    startDate: z.number(),
+    endDate: z.number(),
+    channelId: z.string().optional(),
   }),
   outputSchema: z.object({
     transcript: z.string(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
+    stats: z.object({
+      messageCount: z.number(),
+      uniqueUserCount: z.number(),
+      messagesByDate: z.array(z.object({
+        date: z.string(),
+        count: z.number(),
+        uniqueUsers: z.number()
+      })),
+      topContributors: z.array(z.object({
+        username: z.string(),
+        count: z.number()
+      })),
+      messagesByChannel: z.array(z.object({
+        channel: z.object({
+          id: z.string(),
+          name: z.string()
+        }),
+        count: z.number(),
+        uniqueUsers: z.number()
+      }))
+    }).optional()
   }),
-  execute: async ({ context }) => {
-    const startDate = new Date(context.startDate);
-    const endDate = new Date(context.endDate);
-
+  execute: async ({ context }: { 
+    context: { 
+      startDate: number; 
+      endDate: number; 
+      platformId: string; 
+      includeStats?: boolean;
+      includeMessageId?: boolean;
+      channelId?: string;
+    } 
+  }) => {
     try {
-      // First, check if the mastra_threads table exists and inspect its schema
-      try {
-        await db.execute(sql`
-          SELECT column_name, data_type 
-          FROM information_schema.columns 
-          WHERE table_name = 'mastra_threads'
-        `);
-      } catch (e) {
-        // Continue even if schema inspection fails
-      }
-
-      // Query for threads matching platformId
-      let threads: ThreadRecord[] = [];
-      try {
-        // First try with JSON operators
-        const threadsResult = await db.execute(sql`
-          SELECT * FROM mastra_threads
-          WHERE metadata::jsonb->>'platformId' = ${context.platformId}
-          AND "createdAt" BETWEEN ${startDate.toISOString()} AND ${endDate.toISOString()}
-        `);
-        threads = (threadsResult.rows || []) as ThreadRecord[];
-      } catch (e) {
-        // Fallback: Get all threads and filter in code
-        const allThreadsResult = await db.execute(sql`
-          SELECT * FROM mastra_threads
-          WHERE "createdAt" BETWEEN ${startDate.toISOString()} AND ${endDate.toISOString()}
-        `);
-        
-        const allThreads = (allThreadsResult.rows || []) as any[];
-        
-        // Filter threads with matching platformId in JavaScript
-        threads = allThreads.filter(thread => {
-          try {
-            // Handle different possible metadata formats
-            const metadata = typeof thread.metadata === 'string' 
-              ? JSON.parse(thread.metadata)
-              : thread.metadata;
-              
-            return metadata && metadata.platformId === context.platformId;
-          } catch (e) {
-            return false;
-          }
-        }) as ThreadRecord[];
-      }
-
-      
-      if (threads.length === 0) {
-        return { 
-          transcript: "No matching threads found for the specified platformId.",
-          messageCount: 0,
-          uniqueUserCount: 0
-        };
-      }
-
-      // Safely prepare thread IDs for the IN clause
-      const threadIds = threads.map(thread => thread.id);
-      const threadIdsSql = sql.join(
-        threadIds.map(id => sql`${id}`), 
-        sql`, `
-      );
-      
-      // Query messages from matching threads
-      const messagesResult = await db.execute(sql`
-        SELECT * FROM mastra_messages
-        WHERE thread_id IN (${threadIdsSql})
-        AND "createdAt" BETWEEN ${startDate.toISOString()} AND ${endDate.toISOString()}
-        ORDER BY "createdAt" ASC
-      `);
-      
-      // Type assertion for messages
-      const messages = (messagesResult.rows || []) as MessageRecord[];
-      
-      if (messages.length === 0 && threads.length === 0) {
-        return { 
-          transcript: "No messages found within matching threads and date range.",
-          messageCount: 0,
-          uniqueUserCount: 0
-        };
-      }
-
-      // Create lookup map for threads with properly parsed metadata
-      const threadMap: Record<string, {
-        id: string;
-        title?: string;
-        metadata: {
-          authorId?: string;
-          authorUsername?: string;
-          channelId?: string;
-          platformId?: string;
-          platform?: string;
-          [key: string]: any;
-        };
-        [key: string]: any;
-      }> = {};
-
-      threads.forEach(thread => {
-        let metadata = thread.metadata;
-        
-        // Parse metadata if it's a string
-        if (typeof metadata === 'string') {
-          try {
-            metadata = JSON.parse(metadata);
-          } catch (e) {
-            metadata = { platform: 'unknown' };
-          }
-        }
-        
-        // Store thread with parsed metadata
-        threadMap[thread.id] = {
-          ...thread,
-          metadata: metadata || { platform: 'unknown' }
-        };
+      // Create a dummy embedding for the query
+      const dummyEmbedding = await embed({
+        model: openai.embedding("text-embedding-3-small"),
+        value: "community messages",
       });
 
-      // Track unique users from thread metadata
-      const userSet = new Set<string>();
-      const usernames = new Map<string, string>();
-      
-      // First, extract user info from threads
-      for (const thread of threads) {
-        let metadata = thread.metadata;
-        
-        // Parse metadata if it's a string
-        if (typeof metadata === 'string') {
-          try {
-            metadata = JSON.parse(metadata);
-          } catch (e) {
-            metadata = { platform: 'unknown' };
-          }
-        }
-        
-        if (metadata && metadata.authorId) {
-          userSet.add(metadata.authorId);
-          if (metadata.authorUsername) {
-            usernames.set(metadata.authorId, metadata.authorUsername);
-          }
-        }
-      }
-      
-      // Format messages into transcript
-      
-      // First, create a set of thread IDs that already have messages
-      const threadsWithMessages = new Set<string>();
-      messages.forEach(message => {
-        threadsWithMessages.add(message.thread_id);
-      });
-      
-      // Filter out emoji reactions from messages
-      const validMessages = messages.filter(message => {
-        const content = message.content || '';
-        return !(content.length <= 4 && /[\p{Emoji}]/u.test(content));
-      });
-      
-      // Format regular messages
-      const messageTranscript = validMessages.map(message => {
-        // Get thread with parsed metadata
-        const thread = threadMap[message.thread_id] || { metadata: {} };
-        const threadMetadata = thread.metadata || {};
-        
-        // Extract username from thread metadata
-        let username = threadMetadata.authorUsername || 'Unknown User';
-        
-        // Format date and content
-        const datetime = new Date(message.createdAt).toISOString();
-        const content = message.content || '[No content]';
-        
-        // Simple, consistent format for all messages
-        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
-      });
-      
-      // Get threads that don't have any messages and include their titles
-      const threadsWithoutMessages = threads.filter(thread => !threadsWithMessages.has(thread.id));
-      
-      const threadTitleTranscript = threadsWithoutMessages.map(thread => {
-        // Get metadata
-        let metadata = thread.metadata;
-        if (typeof metadata === 'string') {
-          try {
-            metadata = JSON.parse(metadata);
-          } catch (e) {
-            metadata = { platform: 'unknown' };
-          }
-        }
-        
-        // Extract username
-        const username = metadata.authorUsername || 'Unknown User';
-        
-        // Format date
-        const datetime = new Date(thread.createdAt).toISOString();
-        
-        // Use thread title as content
-        const content = thread.title || '[No content]';
-        
-        // Check if it's an emoji reaction
-        if (content.length <= 4 && /[\p{Emoji}]/u.test(content)) {
-          return null; // Skip emoji threads
-        }
-        
-        return `[${datetime.slice(0, 16).replace('T', ' ')}] ${username}: ${content}`;
-      }).filter(entry => entry !== null); // Remove nulls
-      
-      // Combine both transcripts
-      const transcript = [...messageTranscript, ...threadTitleTranscript].join('\n');
-
-      // Count unique users
-      const messageCount = validMessages.length + threadTitleTranscript.length;
-      
-      return { 
-        transcript,
-        messageCount,
-        uniqueUserCount: userSet.size,
+      // Build filter object with optional channelId
+      const filter: any = {
+        platformId: context.platformId,
+        $and: [
+          { timestamp: { $gte: context.startDate } },
+          { timestamp: { $lte: context.endDate } },
+        ],
+        isBotQuery: {
+          $eq: false,
+        },
       };
+
+      // Add channelId filter if provided
+      if (context.channelId) {
+        filter.channelId = context.channelId;
+      }
+
+      const queryResults = (await vectorStore.query({
+        indexName: "community_messages",
+        queryVector: dummyEmbedding.embedding,
+        topK: 10000,
+        includeMetadata: true,
+        filter,
+      })) as VectorStoreResult[];
+
+      if (queryResults.length === 0) {
+        return {
+          transcript: `No messages found for platformId "${context.platformId}" in the date range ${context.startDate} to ${context.endDate}.`,
+          ...(context.includeStats ? {
+            stats: {
+              messageCount: 0,
+              uniqueUserCount: 0,
+              messagesByDate: [],
+              topContributors: [],
+              messagesByChannel: []
+            }
+          } : {})
+        };
+      }
+
+      // Sort messages by timestamp (newest first)
+      const sortedMessages = queryResults.sort((a, b) => 
+        b.metadata.timestamp - a.metadata.timestamp
+      );
+
+      // Generate transcript
+      const transcript = await formatMessagesByChannel(sortedMessages, context.platformId, context.includeMessageId);
+
+      // Only calculate stats if requested
+      if (context.includeStats) {
+        // Track unique users
+        const userSet = new Set<string>();
+        queryResults.forEach(message => {
+          if (message.metadata.authorId) {
+            userSet.add(message.metadata.authorId);
+          }
+        });
+
+        // Calculate messages by date
+        const dateCountMap = new Map<string, number>();
+        // Track unique users by date
+        const dateUserMap = new Map<string, Set<string>>();
+        // Calculate top contributors
+        const contributorCountMap = new Map<string, number>();
+        // Calculate messages by channel
+        const channelCountMap = new Map<string, number>();
+        // Add new map to track unique users per channel
+        const channelUserMap = new Map<string, Set<string>>();
+
+        sortedMessages.forEach(message => {
+          const dateString = dayjs(message.metadata.timestamp).format('YYYY-MM-DD');
+          const username = message.metadata.authorUsername || 'Unknown User';
+          const channelId = message.metadata.channelId;
+
+          // Update date stats
+          dateCountMap.set(dateString, (dateCountMap.get(dateString) || 0) + 1);
+          if (!dateUserMap.has(dateString)) {
+            dateUserMap.set(dateString, new Set<string>());
+          }
+          if (message.metadata.authorId) {
+            dateUserMap.get(dateString)!.add(message.metadata.authorId);
+          }
+
+          // Update contributor stats
+          contributorCountMap.set(username, (contributorCountMap.get(username) || 0) + 1);
+
+          // Update channel stats
+          if (channelId) {
+            channelCountMap.set(channelId, (channelCountMap.get(channelId) || 0) + 1);
+            if (!channelUserMap.has(channelId)) {
+              channelUserMap.set(channelId, new Set<string>());
+            }
+            if (message.metadata.authorId) {
+              channelUserMap.get(channelId)!.add(message.metadata.authorId);
+            }
+          }
+        });
+
+        // Get channel names
+        const channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
+
+        return {
+          transcript,
+          stats: {
+            messageCount: sortedMessages.length,
+            uniqueUserCount: userSet.size,
+            messagesByDate: Array.from(dateCountMap.entries())
+              .map(([date, count]) => ({
+                date,
+                count,
+                uniqueUsers: dateUserMap.get(date)?.size || 0
+              }))
+              .sort((a, b) => a.date.localeCompare(b.date)),
+
+            topContributors: Array.from(contributorCountMap.entries())
+              .map(([username, count]) => ({ username, count }))
+              .sort((a, b) => b.count - a.count)
+              .slice(0, 5),
+
+            messagesByChannel: Array.from(channelCountMap.entries())
+              .map(([channelId, count]) => ({
+                channel: {
+                  id: channelId,
+                  name: channelNameMap.get(channelId) || 'unknown'
+                },
+                count,
+                uniqueUsers: channelUserMap.get(channelId)?.size || 0
+              }))
+              .sort((a, b) => b.count - a.count)
+          }
+        };
+      } else {
+        // Just return transcript without stats
+        return { transcript };
+      }
     } catch (error: any) {
-      console.error('Error querying PostgreSQL:', error);
-      throw new Error(`Failed to fetch messages: ${error.message}`);
+      throw new Error(`No messages found in this community. Details: ${error.message}`);
     }
   },
-}); 
+});
+
+// Update the formatting functions
+function formatMessagesChronologically(messages: VectorStoreResult[], platformId: string, includeMessageId?: boolean): string {
+  const header = `The server ID is [${platformId}]\n\n`;
+  
+  // Create a structured format that's easier to parse
+  const formattedMessages = messages.map(message => {
+    return {
+      timestamp: dayjs(message.metadata.timestamp).format("YYYY-MM-DD HH:mm"),
+      channelId: message.metadata.channelId || 'unknown-channel',
+      messageId: message.metadata.messageId,
+      username: message.metadata.authorUsername || 'Unknown User',
+      content: message.metadata.text || '[No content]'
+    };
+  });
+
+  // Group messages by channel
+  const messagesByChannel = formattedMessages.reduce((acc, msg) => {
+    if (!acc[msg.channelId]) {
+      acc[msg.channelId] = [];
+    }
+    acc[msg.channelId].push(msg);
+    return acc;
+  }, {} as Record<string, typeof formattedMessages>);
+
+  // Format each channel's messages
+  const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
+    const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
+    const channelMessages = msgs.map(msg => {
+      const messageIdPart = includeMessageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : '';
+      return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
+    }).join('\n');
+    const channelFooter = `=== End of Messages from Channel with Channel ID: [${channelId}] ===\n`;
+    return channelHeader + channelMessages + '\n' + channelFooter;
+  });
+
+  return header + sections.join('\n\n');
+}
+
+async function formatMessagesByChannel(messages: VectorStoreResult[], platformId: string, includeMessageId?: boolean): Promise<string> {
+  return formatMessagesChronologically(messages, platformId, includeMessageId);
+}
+
+async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
+  const channelMap = new Map<string, string>();
+  
+  try {
+    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+    await client.login(process.env.DISCORD_TOKEN);
+    await new Promise(resolve => client.once('ready', resolve));
+
+    try {
+      // Filter out "unknown-channel" before making API calls
+      const validChannelIds = channelIds.filter(id => id !== 'unknown-channel');
+      
+      await Promise.all(validChannelIds.map(async (channelId) => {
+        try {
+          const channel = await client.channels.fetch(channelId);
+          if (channel && 'name' in channel && channel.name) {
+            channelMap.set(channelId, channel.name);
+          } else {
+            channelMap.set(channelId, 'unknown');
+          }
+        } catch (error) {
+          console.error(`Failed to fetch channel name for ${channelId}:`, error);
+          channelMap.set(channelId, 'unknown');
+        }
+      }));
+
+      // Set unknown-channel explicitly
+      channelMap.set('unknown-channel', 'Unknown Channel');
+    } finally {
+      client.destroy();
+    }
+  } catch (error) {
+    console.error('Failed to initialize Discord client:', error);
+  }
+
+  return channelMap;
+}

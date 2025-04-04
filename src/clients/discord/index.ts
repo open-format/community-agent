@@ -1,9 +1,19 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
+import { db } from "@/db";
+import { platformConnections } from "@/db/schema";
 import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
-import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
+import {
+  Client,
+  Collection,
+  GatewayIntentBits,
+  type Message,
+  MessageFlags,
+  Partials,
+} from "discord.js";
+import { registerCommandsForGuild } from "./commands";
 
 const discordClient = new Client({
   intents: [
@@ -16,21 +26,80 @@ const discordClient = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
-discordClient.on("guildCreate", (guild) => {
+discordClient.commands = new Collection();
+
+discordClient.on("guildCreate", async (guild) => {
   console.log(`Bot joined new server: ${guild.name} (${guild.id})`);
 
   if (!guild.members.me?.permissions.has("ViewChannel")) {
     console.warn(`Missing required permissions in ${guild.name}`);
   }
+
+  const guildId = guild.id;
+
+  try {
+    await db.insert(platformConnections).values({
+      communityId: null,
+      platformId: guildId,
+      platformType: "discord",
+    });
+    console.log(`Added new guild ${guild.name} to platform connections`);
+  } catch (error) {
+    console.error(error);
+  }
 });
 
-discordClient.on("ready", () => {
+discordClient.on("ready", async () => {
   console.log(`Logged in as ${discordClient.user?.username}`);
 
   // Log all servers the bot is in
   console.log(`Bot is in ${discordClient.guilds.cache.size} servers:`);
+
+  // Get all existing platform connections
+  const existingConnections = await db.query.platformConnections.findMany({
+    where: (connections, { eq }) => eq(connections.platformType, "discord"),
+  });
+
   for (const guild of discordClient.guilds.cache.values()) {
     console.log(`- ${guild.name} (ID: ${guild.id}) with ${guild.memberCount} members`);
+
+    await registerCommandsForGuild(guild.id, guild.name, discordClient);
+
+    // Check if guild exists in platform connections
+    const exists = existingConnections.some((conn) => conn.platformId === guild.id);
+
+    if (!exists) {
+      try {
+        await db.insert(platformConnections).values({
+          communityId: null,
+          platformId: guild.id,
+          platformType: "discord",
+          platformName: guild.name,
+        });
+        console.log(`Added existing guild ${guild.name} to platform connections`);
+      } catch (error) {
+        console.error(`Failed to add guild ${guild.name}:`, error);
+      }
+    }
+  }
+});
+
+discordClient.on("interactionCreate", async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  // TODO: Implement interaction handling
+  const command = discordClient.commands.get(interaction.commandName);
+
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({
+      content: "There was an error executing this command!",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 });
 

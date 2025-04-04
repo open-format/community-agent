@@ -31,18 +31,6 @@ export const communities = pgTable("communities", {
   communityWalletAddress: text("community_wallet_address"),
 });
 
-export const communityDocuments = pgTable("community_documents", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  metadata: jsonb("metadata"),
-  chunkContent: text("chunk_content"),
-  embedding: vector("embedding", { dimensions: 1536 }),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id), // FK to communities
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
   nickname: text("nickname"),
@@ -87,26 +75,64 @@ export const platformConnections = pgTable(
   "platform_connections",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id")
-      .notNull()
-      .references(() => communities.id),
+    communityId: text("community_id").references(() => communities.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
     platformId: text("platform_id").notNull(),
     platformType: text("platform_type", { enum: PLATFORM_TYPES }).notNull(),
+    platformName: text("platform_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
 );
 
+export const pendingRewards = pgTable(
+  "pending_rewards",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    communityId: text("community_id")
+      .notNull()
+      .references(() => communities.id),
+    contributorName: text("contributor_name").notNull(),
+    walletAddress: text("wallet_address").notNull(),
+    platform: text("platform", { enum: PLATFORM_TYPES }).notNull(),
+    rewardId: text("reward_id").notNull(),
+    points: integer("points").notNull(),
+    summary: text("summary"),
+    description: text("description"),
+    impact: text("impact"),
+    evidence: text("evidence").array(),
+    reasoning: text("reasoning"),
+    metadataUri: text("metadata_uri").notNull(),
+    status: text("status", { enum: ["pending", "processed", "failed"] }).default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    error: text("error"),
+  },
+  (table) => [
+    index("pending_rewards_community_idx").on(table.communityId),
+    index("pending_rewards_status_idx").on(table.status),
+  ]
+);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
-  summaries: many(summaries),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
   community: one(communities, {
     fields: [platformConnections.communityId],
+    references: [communities.id],
+  }),
+}));
+
+export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
+  community: one(communities, {
+    fields: [pendingRewards.communityId],
     references: [communities.id],
   }),
 }));

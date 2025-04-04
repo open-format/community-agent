@@ -1,3 +1,115 @@
+# [0.23.0](https://github.com/open-format/community-agent/compare/v0.22.0...v0.23.0) (2025-04-01)
+
+
+### Features
+
+* add platform_name column to platform_connections table ([405771a](https://github.com/open-format/community-agent/commit/405771a92d6440b5c1d512e044fad02db86b855e))
+* implement Discord command for server verification and code generation ([1c3bad3](https://github.com/open-format/community-agent/commit/1c3bad32b8713f031d0142cea47ceef225aa7d21))
+
+# [0.22.0](https://github.com/open-format/community-agent/compare/v0.21.0...v0.22.0) (2025-04-01)
+
+
+### Features
+
+* Enhance message retrieval and summary workflows by adding optional channelId parameter. Update related API routes and tools to support filtering by channelId, improving message querying capabilities. ([095fdb2](https://github.com/open-format/community-agent/commit/095fdb2bac22fc9394e3ed39efad500d6c817c3f))
+
+# [0.21.0](https://github.com/open-format/community-agent/compare/v0.20.1...v0.21.0) (2025-04-01)
+
+
+### Bug Fixes
+
+* remove the second paramater for createUnixTimestamp as it was causing problems, and increase topK results to 20 from 5 ([42df2e2](https://github.com/open-format/community-agent/commit/42df2e281e53551b76a7786b72a080d885a3eebe))
+
+
+### Features
+
+* majorly improved prompt for the ragAgent including injecting the current date and time so it has better context of when messages were sent ([3057208](https://github.com/open-format/community-agent/commit/30572082b617a2b7b27e9a4347140b74fa058b02))
+
+## [0.20.1](https://github.com/open-format/community-agent/compare/v0.20.0...v0.20.1) (2025-04-01)
+
+
+### Bug Fixes
+
+* for the createUnixTimestamp function when both a date and daysAgo was present it prioritised daysAgo and did that amount of days ago from the present time ([6760316](https://github.com/open-format/community-agent/commit/676031603fb2c66a5dfbb5ecd5714250837287e4))
+
+# [0.20.0](https://github.com/open-format/community-agent/compare/v0.19.0...v0.20.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* wallet pregeneration error and IPFS upload error ([b15e291](https://github.com/open-format/community-agent/commit/b15e291b5152f1d616cd6bcb5735d6408c8f63bd))
+
+
+### Features
+
+* add endpoint that gets all the pending rewards ([158eb89](https://github.com/open-format/community-agent/commit/158eb897edbb856b8869acc4b4c4e43c3fe14531))
+* add Privy wallet creation tool and API endpoint for Discord users; integrate into rewards workflow for seamless wallet management ([a5dedc4](https://github.com/open-format/community-agent/commit/a5dedc4b83915399dfefead5f72752e063def46a))
+* added endpoint to delete a pending reward once it has either been rewarded or rejected ([9bdf68b](https://github.com/open-format/community-agent/commit/9bdf68bed27b170073600a53b9409bedd4c90d7f))
+* create pending_rewards table and associated metadata; update journal and snapshot for new schema version ([0af353f](https://github.com/open-format/community-agent/commit/0af353f007d3110192697291db1132bf86ba33b7))
+* enhance rewards identification and evidence structure; update savePendingReward tool and schema for improved metadata handling ([4f5b50d](https://github.com/open-format/community-agent/commit/4f5b50d88774d67dd6f596c47cd154d15bf1b631))
+* implement community rewards analysis workflow with new tools and API endpoint for identifying and suggesting rewards based on contributions ([ec3c8f8](https://github.com/open-format/community-agent/commit/ec3c8f83aac98bb967c3d29d1c78f397472c4001))
+* update rewards agent to use Google Gemini model and enhance reward identification criteria; improve evidence structure and output format in rewards workflow ([1d5eff2](https://github.com/open-format/community-agent/commit/1d5eff2914e4df0f421f16e3d54690197ec79dcc))
+
+# [0.19.0](https://github.com/open-format/community-agent/compare/v0.18.0...v0.19.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* update historical messages endpoint to use platformId and newMessagesAdded ([bce9256](https://github.com/open-format/community-agent/commit/bce9256934c7f6192545ea61f1362d68ce09bd76))
+
+
+### Features
+
+* add API route for fetching historical messages ([8d5fcbe](https://github.com/open-format/community-agent/commit/8d5fcbe54826faed392e906c8213c1055b621047))
+* add historical messages fetching tool and API endpoint ([e00ad6f](https://github.com/open-format/community-agent/commit/e00ad6f3f0d7621483249f7bca7ada50b627e997))
+
+# [0.18.0](https://github.com/open-format/community-agent/compare/v0.17.0...v0.18.0) (2025-03-27)
+
+
+### Bug Fixes
+
+* change summary model to gpt-4o-mini so that it does not exceed gpt 4o's 450,000 token per minute limit ([34ee7dc](https://github.com/open-format/community-agent/commit/34ee7dc7ad15ee55c43e92be59dd6f33ae1cb917))
+* includeStats filter now completely filters all stats, if its false it just returns a transcript ([924c248](https://github.com/open-format/community-agent/commit/924c2488e2ab5e873e415d8806b54c424e850617))
+* updated to support unix timestamp ([454d0cb](https://github.com/open-format/community-agent/commit/454d0cb05adcb05c3aca334a35a5e4bcb229498b))
+
+
+### Features
+
+* add createUnixTimestamp function for flexible timestamp generation ([dc9ac52](https://github.com/open-format/community-agent/commit/dc9ac52d4d9001940751ce14341678f4f2528d3b))
+* add impact report workflow and related tools, update API routes ([4f462ab](https://github.com/open-format/community-agent/commit/4f462abb9331aef9029668d95e974d4b3f91a769))
+* add Redis service to docker-compose for improved caching ([5420cdf](https://github.com/open-format/community-agent/commit/5420cdfaff70a2fe20e038bf1a33636c21d25640))
+* add report endpoint ([cafa381](https://github.com/open-format/community-agent/commit/cafa38188793a53bcd6eb1349b37faffdbdb798b))
+* added the ability to save the summaries and impact reports into a vector store ([6a2f1a8](https://github.com/open-format/community-agent/commit/6a2f1a805d8dae08c4d317201a2900d238fa5a9f))
+* enhance impact report schema with channel breakdown and user sentiment analysis; update message formatting functions for improved structure ([f574401](https://github.com/open-format/community-agent/commit/f5744010d1424d4bc07db85b4ad3219d8dea64b7))
+* implement report generation and management with Redis integration ([5f49c58](https://github.com/open-format/community-agent/commit/5f49c58a9e6785ba9bf2b8df5c5c3290e5f426e5))
+* optionally return message stats when calling the agent/summary api ([b5ba424](https://github.com/open-format/community-agent/commit/b5ba42414a7c99d88342448094c1c931882b40a7))
+* test api call for getMessages tool ([640cc2d](https://github.com/open-format/community-agent/commit/640cc2d725bf25a2939341f0bb5569069933ec86))
+
+# [0.17.0](https://github.com/open-format/community-agent/compare/v0.16.0...v0.17.0) (2025-03-25)
+
+
+### Features
+
+* enhance Discord client to manage platform connections ([c797c55](https://github.com/open-format/community-agent/commit/c797c553a5b99fd8804a4c4eb1c5471198a04d45))
+
+# [0.16.0](https://github.com/open-format/community-agent/compare/v0.15.0...v0.16.0) (2025-03-21)
+
+
+### Bug Fixes
+
+* exclude previously recorded summaries from summary content ([27167fe](https://github.com/open-format/community-agent/commit/27167fefb140812ecef6a7d83ecfd277c3be76c6))
+
+
+### Features
+
+* add new database schema for community management and authentication middleware ([d9eea30](https://github.com/open-format/community-agent/commit/d9eea30278ee0d3470db0d69f95ff7e0dfe870c4))
+* add script to generate and store synthetic Discord conversations ([24ecfb9](https://github.com/open-format/community-agent/commit/24ecfb9007280e0bb7671a41e900368abeb26736))
+* add summaries index and update saveSummary tool ([ddb8436](https://github.com/open-format/community-agent/commit/ddb84369755e926f3825303baefd40ef54f99237))
+* enhance agent routes and summary handling ([701096a](https://github.com/open-format/community-agent/commit/701096a2d63f36e37fb256f01f219beacbeb0fe2))
+* refactor message fetching and summary workflow ([7394722](https://github.com/open-format/community-agent/commit/73947224dab1c354a2e27eb96e9529900ede39ec))
+* update API routes and add documentation endpoint ([90b02f1](https://github.com/open-format/community-agent/commit/90b02f13467135b4409317a85fb3df759a56b94f))
+* update conversation generation script for Discord ([f78c234](https://github.com/open-format/community-agent/commit/f78c23408f9ea2b03d724db1d8b8c71e1bc85701))
+
 # [0.15.0](https://github.com/open-format/community-agent/compare/v0.14.0...v0.15.0) (2025-03-19)
 
 
