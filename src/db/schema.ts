@@ -153,11 +153,50 @@ export const tokenDetails = pgTable("token_details", {
   index("token_details_token_address_idx").on(table.token_address),
 ]);
 
+export const goodExampleRewards = pgTable("good_example_rewards", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  contributor: text("contributor").notNull(),
+  short_summary: text("short_summary").notNull(),
+  comprehensive_description: text("comprehensive_description").notNull(),
+  impact: text("impact").notNull(),
+  evidence: text("evidence").array(),
+  reward_id: text("reward_id").notNull(),
+  suggested_reward: jsonb("suggested_reward").$type<{
+    points: number;
+    reasoning: string;
+    tokenAddress: string;
+  }>().notNull(),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("good_example_rewards_community_idx").on(table.community_id),
+]);
+
+export const badExampleRewards = pgTable("bad_example_rewards", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  contributor: text("contributor").notNull(),
+  short_summary: text("short_summary").notNull(),
+  evidence: text("evidence").array(), // Simple array of strings describing the contribution
+  why_not_reward: text("why_not_reward").notNull(), // Explanation of why this shouldn't be rewarded
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("bad_example_rewards_community_idx").on(table.community_id),
+]);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
   teamMembers: many(teamMembers),
   tokenDetails: many(tokenDetails),
+  goodExampleRewards: many(goodExampleRewards),
+  badExampleRewards: many(badExampleRewards),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
@@ -184,6 +223,20 @@ export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
 export const tokenDetailsRelations = relations(tokenDetails, ({ one }) => ({
   community: one(communities, {
     fields: [tokenDetails.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const goodExampleRewardsRelations = relations(goodExampleRewards, ({ one }) => ({
+  community: one(communities, {
+    fields: [goodExampleRewards.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const badExampleRewardsRelations = relations(badExampleRewards, ({ one }) => ({
+  community: one(communities, {
+    fields: [badExampleRewards.community_id],
     references: [communities.id],
   }),
 }));

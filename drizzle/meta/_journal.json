@@ -57,6 +57,13 @@
       "when": 1743559489548,
       "tag": "0007_living_gambit",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1743731237222,
+      "tag": "0008_parallel_gressill",
+      "breakpoints": true
     }
   ]
 }

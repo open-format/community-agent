@@ -3,6 +3,7 @@ import { google } from "@ai-sdk/google";
 import { getTeamDetailsContext } from '../context-providers/team_details';
 import { getTokenDetailsContext } from '../context-providers/token_details';
 import { getCommunityContext } from '../context-providers/community';
+import { getExampleRewardsContext } from '../context-providers/example_rewards';
 
 export const rewardsAgent = new Agent({
   name: "community-rewards",
@@ -27,10 +28,11 @@ export const rewardsAgent = new Agent({
 
 // Function to identify rewards from a transcript
 export async function identifyRewards(transcript: string, communityId: string) {
-  // Get team details context
+  // Get all context
   const teamContext = await getTeamDetailsContext(communityId);
   const tokenContext = await getTokenDetailsContext(communityId);
   const communityContext = await getCommunityContext(communityId);
+  const exampleRewardsContext = await getExampleRewardsContext(communityId);
 
   
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
@@ -47,6 +49,8 @@ ${teamContext}
 ${tokenContext}
 
 ${communityContext}
+
+${exampleRewardsContext}
 
 For each meaningful contribution, provide:
 1. Who made the contribution
