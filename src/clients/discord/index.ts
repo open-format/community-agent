@@ -125,12 +125,16 @@ async function getThreadStartMessageId(msg: Message): Promise<string> {
 }
 
 discordClient.on("messageCreate", async (msg) => {
+  const cleanContent = msg.content
+    .replace(new RegExp(`<@!?${discordClient.user?.id}>`, "g"), "")
+    .trim();
+
   // Skip messages from bots and ensure we're in a guild
   if (msg.author.bot || !msg.guild) return;
   const isBotQuery = msg.mentions.has(discordClient.user?.id ?? "");
 
   // Check for report generation command
-  if (isBotQuery && msg.content.toLowerCase().includes("!report")) {
+  if (isBotQuery && cleanContent.toLowerCase().startsWith("!report")) {
     await handleReportCommand(msg);
     return;
   }
@@ -151,9 +155,6 @@ discordClient.on("messageCreate", async (msg) => {
 
     try {
       // Process the message and generate response
-      const cleanContent = msg.content
-        .replace(new RegExp(`<@!?${discordClient.user?.id}>`, "g"), "")
-        .trim();
 
       const platformId = msg.guild.id;
       const guildName = msg.guild.name;
