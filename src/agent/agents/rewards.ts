@@ -35,7 +35,7 @@ export async function identifyRewards(transcript: string, communityId: string) {
   const communityContext = await getCommunityContext(communityId);
   const exampleRewardsContext = await getExampleRewardsContext(communityId);
   const rewardIdsContext = await getRewardIdsContext();
-  
+
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
 Identify any and all meaningful contributions, and if there are none, return an empty array.
@@ -68,6 +68,7 @@ For each meaningful contribution, provide:
    - Community benefit
    - Technical complexity
    - The appropriate token to use (MUST include the token address)
+   - Previous similar rewards (use as a reference for amount)
 
 Return the response in this exact JSON format:
 {
