@@ -6,7 +6,7 @@ import { vectorQueryTool } from "./tools/vectorQueryTool";
 import { impactReportWorkflow } from "./workflows/impact";
 import { rewardsWorkflow } from "./workflows/rewards";
 import { summaryWorkflow } from "./workflows/summary";
-
+import { alignmentAgent } from "./agents/alignment";
 export const ragAgent = new Agent({
   name: "RAG Agent One",
   instructions: ragAgentPrompt,
@@ -19,6 +19,7 @@ export const ragAgent = new Agent({
 export const mastra = new Mastra({
   agents: {
     ragAgent,
+    alignmentAgent,
   },
   workflows: {
     summaryWorkflow,

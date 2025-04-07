@@ -8,6 +8,7 @@ import reportsRoute from "./reports";
 import summariesRoute from "./summaries";
 import webhooksRoute from "./webhooks";
 import rewardsRoute from "./rewards";
+import alignmentRoute from "./alignment";
 
 const app = new OpenAPIHono();
 
@@ -34,4 +35,5 @@ app.route("/webhooks", webhooksRoute);
 app.route("/summaries", summariesRoute);
 app.route("/reports", reportsRoute);
 app.route("/rewards", rewardsRoute);
+app.route("/alignment", alignmentRoute);
 export default app;
