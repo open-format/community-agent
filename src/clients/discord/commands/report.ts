@@ -6,10 +6,7 @@ import type { ReportData } from "../formatters/report";
 import { createReportEmbeds } from "../formatters/report";
 
 export async function handleReportCommand(msg: Message) {
-  const allowedRoles = process.env.DISCORD_ALLOWED_ROLES?.split(",") ?? [];
-  const hasAllowedRole = msg.member?.roles.cache.some((role) => allowedRoles.includes(role.id));
-
-  if (!hasAllowedRole || !msg.guild) {
+  if (!msg.guild) {
     return;
   }
 
