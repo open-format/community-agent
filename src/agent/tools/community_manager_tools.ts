@@ -4,7 +4,8 @@ import {
   teamMembers, 
   tokenDetails, 
   goodExampleRewards, 
-  badExampleRewards 
+  badExampleRewards,
+  communityQuestions
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { createTool } from '@mastra/core';
@@ -395,6 +396,40 @@ export const removeBadExampleRewardTool = createTool({
     } catch (error) {
       console.error('Error removing bad example reward:', error);
       return { success: false, message: `Error removing bad example reward: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+}); 
+
+export const markQuestionsAsAskedTool = createTool({
+  id: "mark_questions_asked",
+  description: "Mark community questions as asked",
+  inputSchema: z.object({
+    questionsId: z.string(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    error: z.string().optional(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Update the questions record to mark it as asked
+      await db.update(communityQuestions)
+        .set({ is_asked: true })
+        .where(eq(communityQuestions.id, context.questionsId));
+
+      return {
+        success: true,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("Exception marking questions as asked:", error.message);
+      } else {
+        console.error("Exception marking questions as asked:", error);
+      }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   },
 }); 

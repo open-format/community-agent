@@ -241,4 +241,29 @@ export const badExampleRewardsRelations = relations(badExampleRewards, ({ one })
   }),
 }));
 
+export const communityQuestions = pgTable("community_questions", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  platform_id: text("platform_id").notNull(),
+  questions: text("questions").notNull(),
+  start_date: timestamp("start_date", { withTimezone: true }).notNull(),
+  end_date: timestamp("end_date", { withTimezone: true }).notNull(),
+  is_asked: boolean("is_asked").default(false),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("community_questions_community_idx").on(table.community_id),
+  index("community_questions_platform_idx").on(table.platform_id),
+  index("community_questions_is_asked_idx").on(table.is_asked),
+]);
+
+export const communityQuestionsRelations = relations(communityQuestions, ({ one }) => ({
+  community: one(communities, {
+    fields: [communityQuestions.community_id],
+    references: [communities.id],
+  }),
+}));
+
 export type Automation = typeof automations.$inferSelect;

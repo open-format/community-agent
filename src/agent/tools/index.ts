@@ -5,3 +5,4 @@ export { saveImpactReportTool } from './saveImpactReport';
 export * from './getWalletAddress';
 export * from './savePendingReward';
 export * from './privyWallet';
+export { saveQuestionsTool } from './saveQuestions';

@@ -64,6 +64,13 @@
       "when": 1743731237222,
       "tag": "0008_parallel_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1743996123451,
+      "tag": "0009_lame_maverick",
+      "breakpoints": true
     }
   ]
 }

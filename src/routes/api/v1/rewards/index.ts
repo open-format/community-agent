@@ -51,7 +51,7 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
     const community_id = c.req.header("X-Community-ID");
     
     if (!community_id) {
-      return c.json({ message: "Community ID is required" }, 400);
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
     }
     
     const job_id = crypto.randomUUID();

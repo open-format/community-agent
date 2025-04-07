@@ -6,7 +6,8 @@ import {
   teamMembers, 
   tokenDetails, 
   goodExampleRewards, 
-  badExampleRewards 
+  badExampleRewards,
+  communityQuestions
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import {
@@ -19,6 +20,7 @@ import {
   addBadExampleRewardTool,
   removeGoodExampleRewardTool,
   removeBadExampleRewardTool,
+  markQuestionsAsAskedTool
 } from '../tools/community_manager_tools';
 import { Memory } from "@mastra/memory";
 
@@ -126,6 +128,7 @@ export const alignmentAgent = new Agent({
     add_bad_example_reward: addBadExampleRewardTool,
     remove_good_example_reward: removeGoodExampleRewardTool,
     remove_bad_example_reward: removeBadExampleRewardTool,
+    mark_questions_asked: markQuestionsAsAskedTool,
   },
   memory, // Use the memory instance for conversation history
   instructions: `
@@ -165,8 +168,39 @@ export const alignmentAgent = new Agent({
     - Use a warm, helpful tone throughout the conversation
     - Avoid technical jargon unless necessary
     - Make the interaction feel like talking to a helpful assistant, not a system
+    
+    ## HANDLING COMMUNITY QUESTIONS
+    - When appropriate, ask the community manager questions from the unasked questions list
+    - After asking a question, mark it as asked using the mark_questions_asked tool. Do not wait for the user to confirm, just mark it as asked.
+    - Don't tell the user you are marking a question as asked, just do it
+    - Choose questions that are relevant to the current conversation
+    - Space out your questions naturally within the conversation
+    - Don't ask too many questions at once - be conversational
+    - Dont mention that you are asking a question from a list
+    - You don't need to ask the question verbatim, just ask it in a conversational way
+    - Feel free to ask follow up questions based on the answer
   `,
 });
+
+// Function to get unasked questions for a community
+export async function getUnaskedQuestions(communityId: string) {
+  try {
+    // Query for unasked questions for the community, ordered by created_at in descending order
+    const unaskedQuestions = await db.query.communityQuestions.findMany({
+      where: (questions, { and, eq }) => 
+        and(
+          eq(questions.community_id, communityId),
+          eq(questions.is_asked, false)
+        ),
+      orderBy: (questions, { desc }) => [desc(questions.created_at)],
+    });
+    
+    return unaskedQuestions;
+  } catch (error) {
+    console.error(`[Alignment Agent] Error fetching unasked questions: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
 
 // Function to get current context data for a community
 export async function getCurrentContextData(communityId: string) {
@@ -192,7 +226,9 @@ export async function getCurrentContextData(communityId: string) {
     const badExampleRewardsData = await db.query.badExampleRewards.findMany({
       where: eq(badExampleRewards.community_id, communityId),
     });
-
+    
+    // Get unasked questions
+    const unaskedQuestionsData = await getUnaskedQuestions(communityId);
 
     // Format the data as JSON strings
     const formatData = (data: any) => {
@@ -215,6 +251,7 @@ export async function getCurrentContextData(communityId: string) {
         goodExamples: goodExampleRewardsData,
         badExamples: badExampleRewardsData
       }),
+      unaskedQuestionsContext: formatData(unaskedQuestionsData),
     };
   } catch (error) {
     console.error(`[Alignment Agent] Error fetching context data: ${error instanceof Error ? error.message : String(error)}`);
@@ -223,6 +260,7 @@ export async function getCurrentContextData(communityId: string) {
       teamContext: "Error retrieving team member data.",
       tokenContext: "Error retrieving token data.",
       exampleRewardsContext: "Error retrieving example rewards data.",
+      unaskedQuestionsContext: "Error retrieving unasked questions data.",
     };
   }
 }
@@ -249,6 +287,9 @@ ${contextData.tokenContext}
 ### EXAMPLE REWARDS
 ${contextData.exampleRewardsContext}
 
+### UNASKED QUESTIONS
+${contextData.unaskedQuestionsContext}
+
 ## DATABASE SCHEMA
 ${DATABASE_SCHEMA}
 
@@ -258,12 +299,15 @@ Your role is to help the community manager provide better information for the co
 1. If the context is empty or incomplete, ask questions to gather the necessary information
 2. If the user provides information, evaluate it and then go and update the context providers
 3. Guide the user on what information is needed
+4. When appropriate, ask questions from the unasked questions list
+5. After asking a question, mark it as asked using the mark_questions_asked tool
 
 ## SPECIFIC GUIDANCE
 - For empty community information, ask about the community's goals, type, stage, and platforms
 - For empty team information, ask about team members, their roles, and whether they should be rewarded
 - For empty token information, ask about tokens used for rewards, their addresses, and reward conditions
 - For empty example rewards, ask for examples of good and bad contributions
+- When appropriate, ask questions from the unasked questions list to gather more information about the community
 
 ## AVAILABLE TOOLS
 You have access to the following tools to update the database:
@@ -277,6 +321,7 @@ You have access to the following tools to update the database:
 7. add_bad_example_reward - Add a bad example reward
 8. remove_good_example_reward - Remove a good example reward
 9. remove_bad_example_reward - Remove a bad example reward
+10. mark_questions_asked - Mark a question as asked
 
 Use these tools when appropriate to update the database based on the information provided by the community manager.
 
@@ -285,6 +330,8 @@ Use these tools when appropriate to update the database based on the information
 - If the user asks to add a goal, you MUST use the update_community_info tool to update the goals array
 - If the user asks to modify any data, you MUST use the appropriate tool to update the database
 - Always provide a clear response explaining what you did or what you need from the user
+- When you ask a question from the unasked questions list, you MUST mark it as asked using the mark_questions_asked tool
+- Choose questions that are relevant to the current conversation and space them out naturally
 
 The community manager has asked: "${userQuery}"
 
