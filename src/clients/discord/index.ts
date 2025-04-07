@@ -142,12 +142,6 @@ discordClient.on("messageCreate", async (msg) => {
   // If someone mentions the bot, call the ragAgent
   if (isBotQuery) {
     // Get allowed roles
-    const allowedRoles = process.env.DISCORD_ALLOWED_ROLES?.split(",") ?? [];
-    const hasAllowedRole = msg.member?.roles.cache.some((role) => allowedRoles.includes(role.id));
-
-    if (!hasAllowedRole) {
-      return;
-    }
     // Show typing indicator immediately
     await msg.channel.sendTyping();
     // Then set up interval to keep it active
@@ -189,8 +183,10 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
+      const threadId = await getThreadStartMessageId(msg);
+
       const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
-        threadId: "1234567890",
+        threadId: threadId,
         resourceId: msg.author.id,
         memoryOptions: {
           lastMessages: 10,
