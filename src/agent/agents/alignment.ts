@@ -8,7 +8,8 @@ import {
   goodExampleRewards, 
   badExampleRewards,
   communityQuestions,
-  communityProjects
+  communityProjects,
+  communityEvents
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import {
@@ -24,7 +25,10 @@ import {
   markQuestionsAsAskedTool,
   updateCommunityProjectTool,
   removeCommunityProjectTool,
-  updateProjectProgressTool
+  updateProjectProgressTool,
+  updateCommunityEventTool,
+  removeCommunityEventTool,
+  updateEventStatusTool
 } from '../tools/community_manager_tools';
 import { Memory } from "@mastra/memory";
 import dayjs from "dayjs";
@@ -107,6 +111,20 @@ The community_projects table stores information about projects, features, and pr
 - related_resources (jsonb): Array of links to documentation, repositories, or other relevant resources
 - created_at (timestamp): When the project was created
 - updated_at (timestamp): When the project was last updated
+
+## COMMUNITY EVENTS TABLE
+The community_events table stores information about community events:
+- id (uuid, primary key): Unique identifier for the event
+- community_id (text): ID of the community this event belongs to
+- name (text): Name of the event
+- description (text): Description of the event
+- regularity (text): How often the event occurs (one-time, weekly, monthly, etc.)
+- schedule (text): When the event occurs (e.g., "Every Wednesday at 7-8pm UK time")
+- rewards_description (text): Description of when and how users should be rewarded
+- event_type (text): Type of event (meetup, ama, hackathon, quiz, office_hours, workshop, project_showcase, community_call, partner_announcement, other)
+- is_active (boolean): Whether the event is currently active
+- created_at (timestamp): When the event was created
+- updated_at (timestamp): When the event was last updated
 `;
 
 // Create a memory instance for storing conversation history
@@ -153,6 +171,9 @@ export const alignmentAgent = new Agent({
     update_community_project: updateCommunityProjectTool,
     remove_community_project: removeCommunityProjectTool,
     update_project_progress: updateProjectProgressTool,
+    update_community_event: updateCommunityEventTool,
+    remove_community_event: removeCommunityEventTool,
+    update_event_status: updateEventStatusTool,
   },
   memory, // Use the memory instance for conversation history
   instructions: `
@@ -165,6 +186,7 @@ export const alignmentAgent = new Agent({
     4. Good Example Rewards Context - Examples of good contributions
     5. Bad Example Rewards Context - Examples of bad contributions
     6. Community Projects Context - Information about projects, features, and products within the community
+    7. Community Events Context - Information about community events, meetups, AMAs, hackathons, etc.
     
     When helping community managers, you should:
     1. Understand their needs
@@ -266,6 +288,10 @@ export async function getCurrentContextData(communityId: string) {
       where: eq(communityProjects.community_id, communityId),
     });
     
+    const communityEventsData = await db.query.communityEvents.findMany({
+      where: eq(communityEvents.community_id, communityId),
+    });
+    
     // Get unasked questions
     const unaskedQuestionsData = await getUnaskedQuestions(communityId);
 
@@ -291,6 +317,7 @@ export async function getCurrentContextData(communityId: string) {
         badExamples: badExampleRewardsData
       }),
       communityProjectsContext: formatData(communityProjectsData),
+      communityEventsContext: formatData(communityEventsData),
       unaskedQuestionsContext: formatData(unaskedQuestionsData),
     };
   } catch (error) {
@@ -301,6 +328,7 @@ export async function getCurrentContextData(communityId: string) {
       tokenContext: "Error retrieving token data.",
       exampleRewardsContext: "Error retrieving example rewards data.",
       communityProjectsContext: "Error retrieving community projects data.",
+      communityEventsContext: "Error retrieving community events data.",
       unaskedQuestionsContext: "Error retrieving unasked questions data.",
     };
   }
@@ -331,6 +359,9 @@ ${contextData.exampleRewardsContext}
 ### COMMUNITY PROJECTS
 ${contextData.communityProjectsContext}
 
+### COMMUNITY EVENTS
+${contextData.communityEventsContext}
+
 ### UNASKED QUESTIONS
 ${contextData.unaskedQuestionsContext}
 
@@ -352,6 +383,7 @@ Your task is to help the community manager update the context providers with acc
 - For empty token information, ask about tokens used for rewards, their addresses, and reward conditions
 - For empty example rewards, ask for examples of good and bad contributions
 - For empty community projects, ask about projects, features, and products within the community, their type (project, product, or feature), status, and key contributors
+- For empty community events, ask about events, meetups, AMAs, hackathons, quiz nights, office hours, etc., their regularity, schedule, and reward conditions
 - When appropriate, ask questions from the unasked questions list to gather more information about the community
 
 ## AVAILABLE TOOLS
@@ -370,6 +402,9 @@ You have access to the following tools to update the database:
 11. update_community_project - Add a new community project or update an existing one
 12. remove_community_project - Remove a project from the database
 13. update_project_progress - Update the progress of a community project
+14. update_community_event - Add a new community event or update an existing one
+15. remove_community_event - Remove an event from the database
+16. update_event_status - Update the active status of a community event
 
 Use these tools when appropriate to update the database based on the information provided by the community manager.
 
@@ -450,6 +485,9 @@ ${contextData.exampleRewardsContext}
 ### COMMUNITY PROJECTS
 ${contextData.communityProjectsContext}
 
+### COMMUNITY EVENTS
+${contextData.communityEventsContext}
+
 ### Database Schema
 ${DATABASE_SCHEMA}
 
@@ -495,9 +533,18 @@ Your task is to analyze these messages and update the context providers with any
 - Identify the current progress of the project/feature/product, use the most recent messages about the project/feature/product to infer this
 - Identify links to any related resources, such as documentation, repositories, or other relevant links. These will most likely be found in the messages about the project/feature/product. If in doubt, include the link. Include all links found in the messages.
 
+6. Community Events:
+- Identify any events, meetups, AMAs, hackathons, quiz nights, office hours, etc. that are mentioned in the messages
+- Give a short description of what the event involves or is about
+- Identify the type of event (meetup, ama, hackathon, quiz, office_hours, workshop, project_showcase, community_call, partner_announcement, or other)
+- Identify the regularity of the event (one-time, weekly, monthly, etc.)
+- Identify the schedule of the event (e.g., "Every Wednesday at 7-8pm UK time")
+- Identify any reward conditions for participating in the event
+
 ## IMPORTANT FORMATTING GUIDELINES
 - For Community Projects, the "type" field should be one of: "project", "product", or "feature" (case insensitive)
 - For Community Projects, the "status" field should be one of: "planning", "in_development", "beta_testing", "launched", or "deprecated" (case insensitive)
+- For Community Events, the "event_type" field should be one of: "meetup", "ama", "hackathon", "quiz", "office_hours", "workshop", "project_showcase", "community_call", "partner_announcement", or "other"
 - Always use lowercase for these enum values to ensure compatibility
 
 ## IMPORTANT INSTRUCTIONS
@@ -519,6 +566,7 @@ You MUST use the appropriate tools to update the context providers:
 - For token updates, use the update_token or remove_token tools
 - For example rewards, use the add_good_example_reward, add_bad_example_reward, remove_good_example_reward, or remove_bad_example_reward tools
 - For community projects, use the update_community_project, remove_community_project, or update_project_progress tools
+- For community events, use the update_community_event, remove_community_event, or update_event_status tools
 
 Please analyze the messages and update the context providers as needed.`;
 

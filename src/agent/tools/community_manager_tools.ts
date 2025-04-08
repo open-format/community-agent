@@ -6,7 +6,8 @@ import {
   goodExampleRewards, 
   badExampleRewards,
   communityQuestions,
-  communityProjects
+  communityProjects,
+  communityEvents
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { createTool } from '@mastra/core';
@@ -575,6 +576,161 @@ export const updateProjectProgressTool = createTool({
     } catch (error) {
       console.error('Error updating project progress:', error);
       return { success: false, message: `Error updating project progress: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+});
+
+/**
+ * Tool to add or update a community event
+ */
+export const updateCommunityEventTool = createTool({
+  id: "update_community_event",
+  description: "Add a new community event or update an existing one",
+  inputSchema: z.object({
+    communityId: z.string(),
+    data: z.object({
+      name: z.string(),
+      description: z.string(),
+      regularity: z.string(),
+      schedule: z.string(),
+      rewards_description: z.string().optional(),
+      event_type: z.enum([
+        "meetup",
+        "ama",
+        "hackathon",
+        "quiz",
+        "office_hours",
+        "workshop",
+        "project_showcase",
+        "community_call",
+        "partner_announcement",
+        "other"
+      ]),
+      is_active: z.boolean().optional(),
+    }),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Check if event already exists
+      const existingEvent = await db.query.communityEvents.findFirst({
+        where: eq(communityEvents.community_id, context.communityId) && eq(communityEvents.name, context.data.name),
+      });
+
+      if (existingEvent) {
+        // Update existing event
+        await db.update(communityEvents)
+          .set({
+            description: context.data.description,
+            regularity: context.data.regularity,
+            schedule: context.data.schedule,
+            rewards_description: context.data.rewards_description,
+            event_type: context.data.event_type,
+            is_active: context.data.is_active ?? true,
+            updated_at: new Date(),
+          })
+          .where(eq(communityEvents.id, existingEvent.id));
+        
+        return { success: true, message: 'Event updated successfully' };
+      } else {
+        // Add new event
+        await db.insert(communityEvents).values({
+          community_id: context.communityId,
+          name: context.data.name,
+          description: context.data.description,
+          regularity: context.data.regularity,
+          schedule: context.data.schedule,
+          rewards_description: context.data.rewards_description,
+          event_type: context.data.event_type,
+          is_active: context.data.is_active ?? true,
+        });
+        
+        return { success: true, message: 'Event added successfully' };
+      }
+    } catch (error) {
+      console.error('Error adding/updating event:', error);
+      return { success: false, message: `Error adding/updating event: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+});
+
+/**
+ * Tool to remove a community event
+ */
+export const removeCommunityEventTool = createTool({
+  id: "remove_community_event",
+  description: "Remove an event from the database",
+  inputSchema: z.object({
+    communityId: z.string(),
+    eventName: z.string(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find the event
+      const event = await db.query.communityEvents.findFirst({
+        where: eq(communityEvents.community_id, context.communityId) && eq(communityEvents.name, context.eventName),
+      });
+
+      if (!event) {
+        return { success: false, message: 'Event not found' };
+      }
+
+      // Delete the event
+      await db.delete(communityEvents).where(eq(communityEvents.id, event.id));
+      
+      return { success: true, message: 'Event removed successfully' };
+    } catch (error) {
+      console.error('Error removing event:', error);
+      return { success: false, message: `Error removing event: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+});
+
+/**
+ * Tool to update event status
+ */
+export const updateEventStatusTool = createTool({
+  id: "update_event_status",
+  description: "Update the active status of a community event",
+  inputSchema: z.object({
+    communityId: z.string(),
+    eventName: z.string(),
+    isActive: z.boolean(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find the event
+      const event = await db.query.communityEvents.findFirst({
+        where: eq(communityEvents.community_id, context.communityId) && eq(communityEvents.name, context.eventName),
+      });
+
+      if (!event) {
+        return { success: false, message: 'Event not found' };
+      }
+
+      // Update the event status
+      await db.update(communityEvents)
+        .set({
+          is_active: context.isActive,
+          updated_at: new Date(),
+        })
+        .where(eq(communityEvents.id, event.id));
+      
+      return { success: true, message: `Event ${context.isActive ? 'activated' : 'deactivated'} successfully` };
+    } catch (error) {
+      console.error('Error updating event status:', error);
+      return { success: false, message: `Error updating event status: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
   },
 }); 

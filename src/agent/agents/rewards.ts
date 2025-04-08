@@ -6,6 +6,8 @@ import { getCommunityContext } from '../context-providers/community';
 import { getExampleRewardsContext } from '../context-providers/example_rewards';
 import { getRewardIdsContext } from '../context-providers/reward_ids';
 import { getCommunityProjectsContext } from '../context-providers/community_projects';
+import { getCommunityEventsContext } from '../context-providers/community_events';
+
 export const rewardsAgent = new Agent({
   name: "community-rewards",
   instructions: `You are a community rewards analyzer that identifies valuable contributions and suggests appropriate rewards.
@@ -36,6 +38,8 @@ export async function identifyRewards(transcript: string, communityId: string) {
   const exampleRewardsContext = await getExampleRewardsContext(communityId);
   const rewardIdsContext = await getRewardIdsContext();
   const communityProjectsContext = await getCommunityProjectsContext(communityId);
+  const communityEventsContext = await getCommunityEventsContext(communityId);
+
   const prompt = `Analyze this chat transcript and identify valuable community contributions that deserve recognition and rewards.
 
 Identify any and all meaningful contributions, and if there are none, return an empty array.
@@ -56,6 +60,8 @@ ${exampleRewardsContext}
 ${rewardIdsContext}
 
 ${communityProjectsContext}
+
+${communityEventsContext}
 
 For each meaningful contribution, provide:
 1. Who made the contribution

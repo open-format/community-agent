@@ -208,6 +208,35 @@ export const communityProjects = pgTable("community_projects", {
   index("community_projects_community_idx").on(table.community_id),
 ]);
 
+export const communityEvents = pgTable("community_events", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  regularity: text("regularity").notNull(), // e.g., "one-time", "weekly", "monthly"
+  schedule: text("schedule").notNull(), // e.g., "Every Wednesday at 7-8pm UK time"
+  rewards_description: text("rewards_description"), // Description of when and how users should be rewarded
+  event_type: text("event_type", { enum: [
+    "meetup",
+    "ama",
+    "hackathon",
+    "quiz",
+    "office_hours",
+    "workshop",
+    "partner_announcement",
+    "project_showcase",
+    "community_call",
+    "other"
+  ] }).notNull(),
+  is_active: boolean("is_active").default(true),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("community_events_community_idx").on(table.community_id),
+]);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
@@ -288,6 +317,13 @@ export const communityQuestionsRelations = relations(communityQuestions, ({ one 
 export const communityProjectsRelations = relations(communityProjects, ({ one }) => ({
   community: one(communities, {
     fields: [communityProjects.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const communityEventsRelations = relations(communityEvents, ({ one }) => ({
+  community: one(communities, {
+    fields: [communityEvents.community_id],
     references: [communities.id],
   }),
 }));
