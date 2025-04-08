@@ -71,6 +71,20 @@
       "when": 1743996123451,
       "tag": "0009_lame_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1744075755402,
+      "tag": "0010_loving_leech",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1744077754350,
+      "tag": "0011_fast_colossus",
+      "breakpoints": true
     }
   ]
 }

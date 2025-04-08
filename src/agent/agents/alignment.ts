@@ -7,7 +7,8 @@ import {
   tokenDetails, 
   goodExampleRewards, 
   badExampleRewards,
-  communityQuestions
+  communityQuestions,
+  communityProjects
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import {
@@ -20,7 +21,10 @@ import {
   addBadExampleRewardTool,
   removeGoodExampleRewardTool,
   removeBadExampleRewardTool,
-  markQuestionsAsAskedTool
+  markQuestionsAsAskedTool,
+  updateCommunityProjectTool,
+  removeCommunityProjectTool,
+  updateProjectProgressTool
 } from '../tools/community_manager_tools';
 import { Memory } from "@mastra/memory";
 import dayjs from "dayjs";
@@ -89,6 +93,20 @@ The bad_example_rewards table stores examples of contributions that should not b
 - why_not_reward (text): Explanation of why this contribution should not be rewarded
 - created_at (timestamp): When the example was created
 - updated_at (timestamp): When the example was last updated
+
+## COMMUNITY PROJECTS TABLE
+The community_projects table stores information about projects, features, and products within the community:
+- id (uuid, primary key): Unique identifier for the project
+- community_id (text): ID of the community this project belongs to
+- name (text): Name of the project/feature/product
+- description (text): Description of what the project does and why it matters
+- type (text): Type of the item (project, product, or feature)
+- status (text): Current status of the project (planning, in_development, beta_testing, launched, deprecated)
+- key_contributors (jsonb): Array of discord names of people actively building or maintaining the feature
+- current_progress (text): Current status or progress of the project
+- related_resources (jsonb): Array of links to documentation, repositories, or other relevant resources
+- created_at (timestamp): When the project was created
+- updated_at (timestamp): When the project was last updated
 `;
 
 // Create a memory instance for storing conversation history
@@ -132,6 +150,9 @@ export const alignmentAgent = new Agent({
     remove_good_example_reward: removeGoodExampleRewardTool,
     remove_bad_example_reward: removeBadExampleRewardTool,
     mark_questions_asked: markQuestionsAsAskedTool,
+    update_community_project: updateCommunityProjectTool,
+    remove_community_project: removeCommunityProjectTool,
+    update_project_progress: updateProjectProgressTool,
   },
   memory, // Use the memory instance for conversation history
   instructions: `
@@ -143,19 +164,16 @@ export const alignmentAgent = new Agent({
     3. Token Details Context - Information about tokens
     4. Good Example Rewards Context - Examples of good contributions
     5. Bad Example Rewards Context - Examples of bad contributions
+    6. Community Projects Context - Information about projects, features, and products within the community
     
     When helping community managers, you should:
     1. Understand their needs
     2. Help them update the data for the context providers
     3. Provide guidance on best practices
     
-    You should also provide guidance on best practices for each type of data:
-    1. Community Information - Keep it concise and clear
-    2. Team Members - Include all necessary information
-    3. Tokens - Provide accurate token addresses and reward conditions
-    4. Good Example Rewards - Include detailed evidence and impact
-    5. Bad Example Rewards - Explain why the contribution was not rewarded
-    
+    For Community Projects, remember:
+    - The "type" field should be one of: "project", "product", or "feature" (case insensitive)
+    - The "status" field should be one of: "planning", "in_development", "beta_testing", "launched", or "deprecated" (case insensitive)
     Remember to always validate data before using the tools and provide clear feedback to community managers.
     
     ## IMPORTANT: CONVERSATIONAL STYLE
@@ -244,6 +262,10 @@ export async function getCurrentContextData(communityId: string) {
       where: eq(badExampleRewards.community_id, communityId),
     });
     
+    const communityProjectsData = await db.query.communityProjects.findMany({
+      where: eq(communityProjects.community_id, communityId),
+    });
+    
     // Get unasked questions
     const unaskedQuestionsData = await getUnaskedQuestions(communityId);
 
@@ -268,6 +290,7 @@ export async function getCurrentContextData(communityId: string) {
         goodExamples: goodExampleRewardsData,
         badExamples: badExampleRewardsData
       }),
+      communityProjectsContext: formatData(communityProjectsData),
       unaskedQuestionsContext: formatData(unaskedQuestionsData),
     };
   } catch (error) {
@@ -277,6 +300,7 @@ export async function getCurrentContextData(communityId: string) {
       teamContext: "Error retrieving team member data.",
       tokenContext: "Error retrieving token data.",
       exampleRewardsContext: "Error retrieving example rewards data.",
+      communityProjectsContext: "Error retrieving community projects data.",
       unaskedQuestionsContext: "Error retrieving unasked questions data.",
     };
   }
@@ -304,17 +328,20 @@ ${contextData.tokenContext}
 ### EXAMPLE REWARDS
 ${contextData.exampleRewardsContext}
 
+### COMMUNITY PROJECTS
+${contextData.communityProjectsContext}
+
 ### UNASKED QUESTIONS
 ${contextData.unaskedQuestionsContext}
 
 ## DATABASE SCHEMA
 ${DATABASE_SCHEMA}
 
-## YOUR ROLE
-Your role is to help the community manager provide better information for the context providers. You should:
+## YOUR TASK
+Your task is to help the community manager update the context providers with accurate and complete information. You should:
 
 1. If the context is empty or incomplete, ask questions to gather the necessary information
-2. If the user provides information, evaluate it and then go and update the context providers
+2. If the user provides information, evaluate it and then update the context providers
 3. Guide the user on what information is needed
 4. When appropriate, ask questions from the unasked questions list
 5. After asking a question, mark it as asked using the mark_questions_asked tool
@@ -324,6 +351,7 @@ Your role is to help the community manager provide better information for the co
 - For empty team information, ask about team members, their roles, and whether they should be rewarded
 - For empty token information, ask about tokens used for rewards, their addresses, and reward conditions
 - For empty example rewards, ask for examples of good and bad contributions
+- For empty community projects, ask about projects, features, and products within the community, their type (project, product, or feature), status, and key contributors
 - When appropriate, ask questions from the unasked questions list to gather more information about the community
 
 ## AVAILABLE TOOLS
@@ -339,6 +367,9 @@ You have access to the following tools to update the database:
 8. remove_good_example_reward - Remove a good example reward
 9. remove_bad_example_reward - Remove a bad example reward
 10. mark_questions_asked - Mark a question as asked
+11. update_community_project - Add a new community project or update an existing one
+12. remove_community_project - Remove a project from the database
+13. update_project_progress - Update the progress of a community project
 
 Use these tools when appropriate to update the database based on the information provided by the community manager.
 
@@ -416,6 +447,9 @@ ${contextData.tokenContext}
 ### EXAMPLE REWARDS
 ${contextData.exampleRewardsContext}
 
+### COMMUNITY PROJECTS
+${contextData.communityProjectsContext}
+
 ### Database Schema
 ${DATABASE_SCHEMA}
 
@@ -430,10 +464,41 @@ ${JSON.stringify(stats, null, 2)}
 ## YOUR TASK
 Your task is to analyze these messages and update the context providers with any relevant information you can extract. Focus on:
 
-1. Community Information: Identify the communities name, description, goals, the type of community, the stage the community is at
-2. Team Members: Identify team members, their roles, and whether they should be rewarded
-3. Token Details: Identify tokens used for rewards, their addresses, and reward conditions
-4. Example Rewards: Identify examples of good and bad contributions
+1. Community Information: 
+- Identify the communities name and a short description of what the community seems to do. Use the whole transcript to identify this, it may require some inference.
+- Identify any goals the community seems to have
+- Identify the type of community it seems to be
+- Identify the stage the community is at e.g. just starting, growing, stable, declining, etc.
+
+
+2. Team Members: 
+- Identify any discord members who seem to be team members and are working on projects in the community
+- Identify what their roles seem to be
+- Identify whether they should be rewarded
+
+3. Token Details: 
+- Identify any tokens that the community seems to have
+- If it is shared directly than identify this tokens addresses 
+- Only if directly mentioned than identify the situations in which this token should be used for rewards
+
+4. Example Rewards: 
+- Identify examples of good contributions within the community, times where someone has commented on how useful a contribution was
+- Identify examples of contributions that were not at all useful, spammy, offensive, or otherwise not useful to the community
+
+5. Community Projects: 
+- Identify projects, features, and products that seem to be actively happening within the community.
+- Give a short description of what the project/feature/product involves or is about
+- Identify the type i.e. whether it is a project, feature, or product, you should be able to identify this from the context of the messages.
+- If features fit within a product and project then both the features and project/product should be included
+- Identify the projects status, you may have to infer this from the context of any messages about the project/feature/product
+- Identify the key contributors to the project/feature/product, the discord names of anyone who has discussed of being mentioned in reference to the project/feature/product
+- Identify the current progress of the project/feature/product, use the most recent messages about the project/feature/product to infer this
+- Identify links to any related resources, such as documentation, repositories, or other relevant links. These will most likely be found in the messages about the project/feature/product. If in doubt, include the link. Include all links found in the messages.
+
+## IMPORTANT FORMATTING GUIDELINES
+- For Community Projects, the "type" field should be one of: "project", "product", or "feature" (case insensitive)
+- For Community Projects, the "status" field should be one of: "planning", "in_development", "beta_testing", "launched", or "deprecated" (case insensitive)
+- Always use lowercase for these enum values to ensure compatibility
 
 ## IMPORTANT INSTRUCTIONS
 - Only update the context providers if you find clear, explicit information in the messages
@@ -453,6 +518,7 @@ You MUST use the appropriate tools to update the context providers:
 - For team member updates, use the add_team_member or remove_team_member tools
 - For token updates, use the update_token or remove_token tools
 - For example rewards, use the add_good_example_reward, add_bad_example_reward, remove_good_example_reward, or remove_bad_example_reward tools
+- For community projects, use the update_community_project, remove_community_project, or update_project_progress tools
 
 Please analyze the messages and update the context providers as needed.`;
 

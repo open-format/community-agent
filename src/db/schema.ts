@@ -190,6 +190,24 @@ export const badExampleRewards = pgTable("bad_example_rewards", {
   index("bad_example_rewards_community_idx").on(table.community_id),
 ]);
 
+export const communityProjects = pgTable("community_projects", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  community_id: text("community_id")
+    .notNull()
+    .references(() => communities.id),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  type: text("type", { enum: ["project", "product", "feature"] }).notNull(),
+  status: text("status", { enum: ["planning", "in_development", "beta_testing", "launched", "deprecated"] }).notNull(),
+  key_contributors: jsonb("key_contributors").$type<string[]>().default([]),
+  current_progress: text("current_progress"),
+  related_resources: jsonb("related_resources").$type<string[]>().default([]),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+}, (table) => [
+  index("community_projects_community_idx").on(table.community_id),
+]);
+
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
@@ -197,6 +215,7 @@ export const communitiesRelations = relations(communities, ({ many }) => ({
   tokenDetails: many(tokenDetails),
   goodExampleRewards: many(goodExampleRewards),
   badExampleRewards: many(badExampleRewards),
+  communityProjects: many(communityProjects),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
@@ -262,6 +281,13 @@ export const communityQuestions = pgTable("community_questions", {
 export const communityQuestionsRelations = relations(communityQuestions, ({ one }) => ({
   community: one(communities, {
     fields: [communityQuestions.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const communityProjectsRelations = relations(communityProjects, ({ one }) => ({
+  community: one(communities, {
+    fields: [communityProjects.community_id],
     references: [communities.id],
   }),
 }));

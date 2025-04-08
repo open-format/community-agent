@@ -5,7 +5,8 @@ import {
   tokenDetails, 
   goodExampleRewards, 
   badExampleRewards,
-  communityQuestions
+  communityQuestions,
+  communityProjects
 } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { createTool } from '@mastra/core';
@@ -430,6 +431,150 @@ export const markQuestionsAsAskedTool = createTool({
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       };
+    }
+  },
+});
+
+/**
+ * Tool to add or update a community project
+ */
+export const updateCommunityProjectTool = createTool({
+  id: "update_community_project",
+  description: "Add a new community project/feature or update an existing one",
+  inputSchema: z.object({
+    communityId: z.string(),
+    data: z.object({
+      name: z.string(),
+      description: z.string(),
+      type: z.string().transform(val => val.toLowerCase() as "project" | "product" | "feature"),
+      status: z.string().transform(val => val.toLowerCase() as "planning" | "in_development" | "beta_testing" | "launched" | "deprecated"),
+      key_contributors: z.array(z.string()).optional(),
+      current_progress: z.string().optional(),
+      related_resources: z.array(z.string()).optional(),
+    }),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Check if project already exists
+      const existingProject = await db.query.communityProjects.findFirst({
+        where: eq(communityProjects.community_id, context.communityId) && eq(communityProjects.name, context.data.name),
+      });
+
+      if (existingProject) {
+        // Update existing project
+        await db.update(communityProjects)
+          .set({
+            description: context.data.description,
+            type: context.data.type,
+            status: context.data.status,
+            key_contributors: context.data.key_contributors || [],
+            current_progress: context.data.current_progress,
+            related_resources: context.data.related_resources || [],
+            updated_at: new Date(),
+          })
+          .where(eq(communityProjects.id, existingProject.id));
+        
+        return { success: true, message: 'Project updated successfully' };
+      } else {
+        // Add new project
+        await db.insert(communityProjects).values({
+          community_id: context.communityId,
+          name: context.data.name,
+          description: context.data.description,
+          type: context.data.type,
+          status: context.data.status,
+          key_contributors: context.data.key_contributors || [],
+          current_progress: context.data.current_progress,
+          related_resources: context.data.related_resources || [],
+        });
+        
+        return { success: true, message: 'Project added successfully' };
+      }
+    } catch (error) {
+      console.error('Error adding/updating project:', error);
+      return { success: false, message: `Error adding/updating project: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+});
+
+/**
+ * Tool to remove a community project
+ */
+export const removeCommunityProjectTool = createTool({
+  id: "remove_community_project",
+  description: "Remove a project from the database",
+  inputSchema: z.object({
+    communityId: z.string(),
+    projectName: z.string(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find the project
+      const project = await db.query.communityProjects.findFirst({
+        where: eq(communityProjects.community_id, context.communityId) && eq(communityProjects.name, context.projectName),
+      });
+
+      if (!project) {
+        return { success: false, message: 'Project not found' };
+      }
+
+      // Delete the project
+      await db.delete(communityProjects).where(eq(communityProjects.id, project.id));
+      
+      return { success: true, message: 'Project removed successfully' };
+    } catch (error) {
+      console.error('Error removing project:', error);
+      return { success: false, message: `Error removing project: ${error instanceof Error ? error.message : 'Unknown error'}` };
+    }
+  },
+});
+
+/**
+ * Tool to update project progress
+ */
+export const updateProjectProgressTool = createTool({
+  id: "update_project_progress",
+  description: "Update the progress of a community project",
+  inputSchema: z.object({
+    communityId: z.string(),
+    projectName: z.string(),
+    currentProgress: z.string(),
+  }),
+  outputSchema: z.object({
+    success: z.boolean(),
+    message: z.string(),
+  }),
+  execute: async ({ context }) => {
+    try {
+      // Find the project
+      const project = await db.query.communityProjects.findFirst({
+        where: eq(communityProjects.community_id, context.communityId) && eq(communityProjects.name, context.projectName),
+      });
+
+      if (!project) {
+        return { success: false, message: 'Project not found' };
+      }
+
+      // Update the project progress
+      await db.update(communityProjects)
+        .set({
+          current_progress: context.currentProgress,
+          updated_at: new Date(),
+        })
+        .where(eq(communityProjects.id, project.id));
+      
+      return { success: true, message: 'Project progress updated successfully' };
+    } catch (error) {
+      console.error('Error updating project progress:', error);
+      return { success: false, message: `Error updating project progress: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
   },
 }); 
