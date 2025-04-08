@@ -8,6 +8,7 @@ import { rewardsWorkflow } from "./workflows/rewards";
 import { summaryWorkflow } from "./workflows/summary";
 import { alignmentAgent } from "./agents/alignment";
 import { questionsWorkflow } from "./workflows/questions";
+import { contextUpdateWorkflow } from "./workflows/contextUpdate";
 
 export const ragAgent = new Agent({
   name: "RAG Agent One",
@@ -28,6 +29,7 @@ export const mastra = new Mastra({
     impactReportWorkflow,
     rewardsWorkflow,
     questionsWorkflow,
+    contextUpdateWorkflow,
   },
   vectors: { pgVector: vectorStore },
 });

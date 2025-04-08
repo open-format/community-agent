@@ -131,4 +131,102 @@ export const getQuestionsStatus = createRoute({
       description: "An error occurred while checking the questions generation status",
     },
   },
+});
+
+export const postPastMessages = createRoute({
+  method: "post",
+  path: "/past-messages",
+  tags: ["Alignment"],
+  summary: "Update context providers based on community messages",
+  description: "Analyzes community messages and updates context providers with extracted information",
+  request: {
+    headers: z.object({
+      "X-Community-ID": z.string(),
+    }),
+    body: { 
+      content: {
+        "application/json": {
+          schema: z.object({
+            platform_id: z.string(),
+            start_date: z
+              .string()
+              .datetime({ message: "must be a valid ISO 8601 date format" }),
+            end_date: z
+              .string()
+              .datetime({ message: "must be a valid ISO 8601 date format" }),
+            channel_id: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Context update started successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            job_id: z.string().uuid(),
+            status: z.enum(["pending", "processing", "completed", "failed"]),
+            timeframe: z.object({
+              start_date: z.string().datetime(),
+              end_date: z.string().datetime(),
+            }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Bad request - missing required parameters",
+    },
+    404: {
+      description: "Community not found",
+    },
+    500: {
+      description: "An error occurred while starting the context update",
+    },
+  },
+});
+
+export const getPastMessagesStatus = createRoute({
+  method: "get",
+  path: "/past-messages/status/:job_id",
+  tags: ["Alignment"],
+  summary: "Check status of context update based on past messages",
+  description: "Check the status of an ongoing context update request based on past messages",
+  request: {
+    params: z.object({
+      job_id: z.string().uuid(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Context update status retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            job_id: z.string().uuid(),
+            status: z.enum(["pending", "processing", "completed", "failed"]),
+            updates: z.object({
+              community: z.boolean(),
+              team: z.boolean(),
+              tokens: z.boolean(),
+              examples: z.boolean(),
+            }),
+            timeframe: z.object({
+              start_date: z.string().datetime(),
+              end_date: z.string().datetime(),
+            }),
+            error: z.string().optional(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Job not found",
+    },
+    500: {
+      description: "An error occurred while checking the context update status",
+    },
+  },
 }); 

@@ -23,6 +23,7 @@ import {
   markQuestionsAsAskedTool
 } from '../tools/community_manager_tools';
 import { Memory } from "@mastra/memory";
+import dayjs from "dayjs";
 
 // Database schema information to help the agent understand data structures
 const DATABASE_SCHEMA = `
@@ -113,6 +114,8 @@ export const memory = new Memory({
  * 2. Explain the data structure
  * 3. Help them formulate the correct data format
  * 4. Provide guidance on best practices
+ * 
+ * The agent can also analyze community messages to extract information and update context providers.
  */
 export const alignmentAgent = new Agent({
   name: 'Alignment Agent',
@@ -169,9 +172,9 @@ export const alignmentAgent = new Agent({
     - Avoid technical jargon unless necessary
     - Make the interaction feel like talking to a helpful assistant, not a system
     
-    ## HANDLING COMMUNITY QUESTIONS
-    - When appropriate, ask the community manager questions from the unasked questions list
-    - After asking a question, mark it as asked using the mark_questions_asked tool. Do not wait for the user to confirm, just mark it as asked.
+    ## HANDLING COMMUNITY QUESTIONS (CONVERSATIONAL MODE ONLY)
+    - When in conversational mode with a community manager, ask questions from the unasked questions list
+    - After asking a question, mark it as asked using the mark_questions_asked tool
     - Don't tell the user you are marking a question as asked, just do it
     - Choose questions that are relevant to the current conversation
     - Space out your questions naturally within the conversation
@@ -179,6 +182,20 @@ export const alignmentAgent = new Agent({
     - Dont mention that you are asking a question from a list
     - You don't need to ask the question verbatim, just ask it in a conversational way
     - Feel free to ask follow up questions based on the answer
+    
+    ## CONTEXT UPDATE MODE
+    When you're in context update mode (analyzing community messages), you should:
+    - Focus on extracting factual information about the community from the messages
+    - Your goal is to update the context providers with the most accurate and complete information about the community
+    - Only update the context providers if you find clear information
+    - Do not make assumptions or inferences without strong evidence
+    - If you find information that contradicts existing data, update it
+    - If you find new information not in the existing data, add it
+    - If you don't find enough information to make a confident update, leave the existing data as is
+    - If there is no existing context, that's even more reason to add information when you find it
+    - DO NOT ask questions or mark questions as asked in context update mode
+    - DO NOT engage in conversation with the community manager in context update mode
+    - ONLY use the context update tools to update the database based on information found in messages
   `,
 });
 
@@ -367,6 +384,84 @@ Please respond in a helpful, conversational manner. If they've provided informat
     }
   });
 
+  
+  return response.text;
+}
+
+// Function to generate a prompt for context update based on community messages
+export async function generateContextUpdatePrompt(
+  communityId: string, 
+  transcript: string, 
+  stats: any, 
+  startDate: number, 
+  endDate: number
+) {
+  const contextData = await getCurrentContextData(communityId);
+  
+  // Create a prompt for the alignment agent to analyze the transcript and update context providers
+  const prompt = `You are an AI assistant tasked with analyzing community messages and updating the context providers for community ID: ${communityId}.
+
+## CURRENT CONTEXT DATA
+Here is the current data for each context provider:
+
+### COMMUNITY INFORMATION
+${contextData.communityContext}
+
+### TEAM MEMBER DETAILS
+${contextData.teamContext}
+
+### TOKEN DETAILS
+${contextData.tokenContext}
+
+### EXAMPLE REWARDS
+${contextData.exampleRewardsContext}
+
+### Database Schema
+${DATABASE_SCHEMA}
+
+## COMMUNITY MESSAGES
+Below is a transcript of community messages from ${dayjs(startDate).format('YYYY-MM-DD')} to ${dayjs(endDate).format('YYYY-MM-DD')}:
+
+${transcript}
+
+## MESSAGE STATISTICS
+${JSON.stringify(stats, null, 2)}
+
+## YOUR TASK
+Your task is to analyze these messages and update the context providers with any relevant information you can extract. Focus on:
+
+1. Community Information: Identify the communities name, description, goals, the type of community, the stage the community is at
+2. Team Members: Identify team members, their roles, and whether they should be rewarded
+3. Token Details: Identify tokens used for rewards, their addresses, and reward conditions
+4. Example Rewards: Identify examples of good and bad contributions
+
+## IMPORTANT INSTRUCTIONS
+- Only update the context providers if you find clear, explicit information in the messages
+- Do not make assumptions or inferences without strong evidence
+- If you find information that contradicts existing data, update it
+- If you find new information not in the existing data, add it
+- If you don't find enough information to make a confident update, leave the existing data as is
+- If the current context is empty, that's even more reason to add information when you find it
+- Focus on factual information rather than opinions or subjective assessments
+- DO NOT ask questions or mark questions as asked in this mode
+- DO NOT engage in conversation with the community manager in this mode
+- ONLY use the context update tools to update the database based on information found in messages
+
+## CRITICAL: USING TOOLS IN CONTEXT UPDATE MODE
+You MUST use the appropriate tools to update the context providers:
+- For community information updates, use the update_community_info tool
+- For team member updates, use the add_team_member or remove_team_member tools
+- For token updates, use the update_token or remove_token tools
+- For example rewards, use the add_good_example_reward, add_bad_example_reward, remove_good_example_reward, or remove_bad_example_reward tools
+
+Please analyze the messages and update the context providers as needed.`;
+
+  // Process the query with the agent
+  const response = await alignmentAgent.generate(prompt, {
+    resourceId: communityId,
+    threadId: `context_update_${communityId}_${Date.now()}`,
+    maxSteps: 30, // Allow more steps for complex updates
+  });
   
   return response.text;
 } 

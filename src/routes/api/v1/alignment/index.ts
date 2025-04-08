@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { mastra } from "@/agent";
 import { ReportStatus, createReportJob, getReportJob, getReportResult, storeReportResult, updateReportJobStatus } from "@/lib/redis";
-import { postAlignmentChat, postGenerateQuestions, getQuestionsStatus } from "./routes";
+import { postAlignmentChat, postGenerateQuestions, getQuestionsStatus, postPastMessages, getPastMessagesStatus } from "./routes";
 import { generateContextPrompt } from "@/agent/agents/alignment";
 import dayjs from "dayjs";
 import { db } from "@/db";
@@ -179,6 +179,153 @@ alignmentRoute.openapi(getQuestionsStatus, async (c) => {
     return c.json({
       job_id: c.req.param("job_id"),
       status: "failed" as const,
+      timeframe: {
+        start_date: new Date().toISOString(),
+        end_date: new Date().toISOString(),
+      },
+      error: String(error),
+    });
+  }
+});
+
+// Function to run the context update workflow in the background
+async function updateContextInBackground(job_id: string, community_id: string, platform_id: string, start_date: number, end_date: number, channel_id?: string) {
+  try {
+    // Get the workflow from mastra
+    const workflow = mastra.getWorkflow("contextUpdateWorkflow");
+    const { start } = workflow.createRun();
+
+    const result = await start({
+      triggerData: {
+        communityId: community_id,
+        platformId: platform_id,
+        startDate: dayjs(start_date).valueOf(),
+        endDate: dayjs(end_date).valueOf(),
+        channelId: channel_id,
+      },
+    });
+
+    // Check if the workflow completed successfully
+    if (result.results.updateContext?.status === "success") {
+      // Store the updates from the result
+      await storeReportResult(job_id, result.results.updateContext.output);
+      
+      // Update the job status to completed
+      await updateReportJobStatus(job_id, ReportStatus.COMPLETED);
+    } else {
+      // Update the job status to failed
+      await updateReportJobStatus(job_id, ReportStatus.FAILED, {
+        error: "Failed to update context providers"
+      });
+    }
+  } catch (error) {
+    console.error("Error updating context providers:", error);
+    await updateReportJobStatus(job_id, ReportStatus.FAILED, {
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+}
+
+// Context update endpoint
+alignmentRoute.openapi(postPastMessages, async (c) => {
+  try {
+    const { platform_id, start_date, end_date, channel_id } = await c.req.json();
+    const community_id = c.req.header("X-Community-ID");
+    
+    if (!community_id) {
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 400);
+    }
+    
+    const job_id = crypto.randomUUID();
+    const start_timestamp = dayjs(start_date).valueOf();
+    const end_timestamp = dayjs(end_date).valueOf();
+
+    // Create a report job in Redis
+    await createReportJob(job_id, platform_id, start_timestamp, end_timestamp);
+
+    // Start the background process
+    updateContextInBackground(job_id, community_id, platform_id, start_timestamp, end_timestamp, channel_id);
+
+    return c.json({
+      job_id,
+      status: ReportStatus.PENDING,
+      timeframe: {
+        start_date,
+        end_date,
+      },
+    });
+  } catch (error) {
+    console.error("Error starting context update:", error);
+    return c.json({ 
+      message: "Failed to start context update", 
+      error: error instanceof Error ? error.message : String(error)
+    }, 500);
+  }
+});
+
+// Context update status endpoint
+alignmentRoute.openapi(getPastMessagesStatus, async (c) => {
+  try {
+    const { job_id } = c.req.param();
+
+    // Get the job from Redis
+    const job = await getReportJob(job_id);
+
+    if (!job) {
+      return c.json({
+        job_id,
+        status: "failed" as const,
+        updates: {
+          community: false,
+          team: false,
+          tokens: false,
+          examples: false,
+        },
+        timeframe: {
+          start_date: new Date().toISOString(),
+          end_date: new Date().toISOString(),
+        },
+        error: "Past messages job not found",
+      });
+    }
+    
+    // If the job is completed, get the updates
+    let updates = {
+      community: false,
+      team: false,
+      tokens: false,
+      examples: false,
+    };
+    
+    if (job.status === ReportStatus.COMPLETED) {
+      // Get the updates from the job result
+      const result = await getReportResult(job_id);
+      if (result && typeof result === 'object' && 'updates' in result) {
+        updates = result.updates as typeof updates;
+      }
+    }
+    
+    return c.json({
+      job_id,
+      status: job.status,
+      updates,
+      timeframe: {
+        start_date: dayjs(job.startDate).toISOString(),
+        end_date: dayjs(job.endDate).toISOString(),
+      },
+      ...(job.error ? { error: job.error } : {}),
+    });
+  } catch (error) {
+    console.error("Error checking past messages status:", error);
+    return c.json({
+      job_id: c.req.param("job_id"),
+      status: "failed" as const,
+      updates: {
+        community: false,
+        team: false,
+        tokens: false,
+        examples: false,
+      },
       timeframe: {
         start_date: new Date().toISOString(),
         end_date: new Date().toISOString(),
