@@ -2,7 +2,6 @@ import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core";
 import { embed } from "ai";
-import dayjs from "dayjs";
 import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import { z } from "zod";
 
@@ -25,7 +24,6 @@ export const fetchHistoricalMessagesTool = createTool({
   }),
   execute: async ({ context }) => {
     console.log(`Starting historical message fetch for platform: ${context.platformId}`);
-    console.log(`Date range: ${dayjs(context.startDate).toISOString()} to ${dayjs(context.endDate).toISOString()}`);
 
     // Initialize Discord client with required permissions
     const client = new Client({
@@ -65,9 +63,10 @@ export const fetchHistoricalMessagesTool = createTool({
             if (messages.size === 0) break;
 
             // Filter for messages within date range
-            const messagesInRange = messages.filter((msg) => 
-              msg.createdTimestamp >= context.startDate && 
-              msg.createdTimestamp <= context.endDate
+            const messagesInRange = messages.filter(
+              (msg) =>
+                msg.createdTimestamp >= context.startDate &&
+                msg.createdTimestamp <= context.endDate,
             );
 
             // Process each message in the batch
@@ -100,6 +99,7 @@ export const fetchHistoricalMessagesTool = createTool({
                   text: msg.content,
                   isReaction: false,
                   isBotQuery: msg.author.bot,
+                  checkedForReward: false,
                 },
               });
 
@@ -121,10 +121,13 @@ export const fetchHistoricalMessagesTool = createTool({
 
             // Break if we've reached messages older than start date
             // or if we've reached messages newer than end date
-            if ([...messages.values()].some((m) => 
-              m.createdTimestamp < context.startDate || 
-              m.createdTimestamp > context.endDate
-            )) break;
+            if (
+              [...messages.values()].some(
+                (m) =>
+                  m.createdTimestamp < context.startDate || m.createdTimestamp > context.endDate,
+              )
+            )
+              break;
             lastMessageId = messages.last()?.id;
           } catch (err) {
             console.error(`Error fetching messages from ${channel.name}:`, err);

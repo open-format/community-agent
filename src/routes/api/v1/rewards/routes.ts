@@ -8,19 +8,15 @@ export const postRewardsAnalysis = createRoute({
   description: "Starts the analysis of community messages to identify and suggest rewards",
   request: {
     headers: z.object({
-      "X-Community-ID": z.string(),
+      "X-Community-ID": z.string().uuid(),
     }),
-    body: { 
+    body: {
       content: {
         "application/json": {
           schema: z.object({
             platform_id: z.string(),
-            start_date: z
-              .string()
-              .datetime({ message: "must be a valid ISO 8601 date format" }),
-            end_date: z
-              .string()
-              .datetime({ message: "must be a valid ISO 8601 date format" }),
+            start_date: z.string().datetime({ message: "must be a valid ISO 8601 date format" }),
+            end_date: z.string().datetime({ message: "must be a valid ISO 8601 date format" }),
           }),
         },
       },
@@ -73,20 +69,24 @@ export const getRewardsAnalysisStatus = createRoute({
           schema: z.object({
             job_id: z.string().uuid(),
             status: z.enum(["pending", "processing", "completed", "failed"]),
-            rewards: z.array(z.object({
-              contributor: z.string(),
-              wallet_address: z.string().nullable(),
-              reward_id: z.string(),
-              points: z.number(),
-              summary: z.string(),
-              description: z.string(),
-              community_id: z.string(),
-              platform: z.string(),
-              impact: z.string(),
-              evidence: z.array(z.string()),
-              reasoning: z.string(),
-              error: z.string().optional(),
-            })).optional(),
+            rewards: z
+              .array(
+                z.object({
+                  contributor: z.string(),
+                  wallet_address: z.string().nullable(),
+                  reward_id: z.string(),
+                  points: z.number(),
+                  summary: z.string(),
+                  description: z.string(),
+                  community_id: z.string(),
+                  platform: z.string(),
+                  impact: z.string(),
+                  evidence: z.array(z.string()),
+                  reasoning: z.string(),
+                  error: z.string().optional(),
+                }),
+              )
+              .optional(),
             timeframe: z.object({
               start_date: z.string().datetime(),
               end_date: z.string().datetime(),
@@ -117,8 +117,18 @@ export const getPendingRewards = createRoute({
     }),
     query: z.object({
       status: z.enum(["pending", "processed", "failed"]).optional(),
-      limit: z.string().transform(val => Number(val)).pipe(z.number().min(1).max(100)).optional().default("50"),
-      offset: z.string().transform(val => Number(val)).pipe(z.number().min(0)).optional().default("0"),
+      limit: z
+        .string()
+        .transform((val) => Number(val))
+        .pipe(z.number().min(1).max(100))
+        .optional()
+        .default("50"),
+      offset: z
+        .string()
+        .transform((val) => Number(val))
+        .pipe(z.number().min(0))
+        .optional()
+        .default("0"),
     }),
   },
   responses: {
@@ -127,22 +137,24 @@ export const getPendingRewards = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            rewards: z.array(z.object({
-              id: z.string(),
-              contributor_name: z.string(),
-              wallet_address: z.string(),
-              platform: z.enum(["discord", "github", "telegram"]),
-              reward_id: z.string(),
-              points: z.number(),
-              summary: z.string().nullable(),
-              description: z.string().nullable(),
-              community_id: z.string(),
-              impact: z.string().nullable(),
-              evidence: z.array(z.string()),
-              reasoning: z.string().nullable(),
-              metadata_uri: z.string(),
-              created_at: z.string().datetime(),
-            })),
+            rewards: z.array(
+              z.object({
+                id: z.string(),
+                contributor_name: z.string(),
+                wallet_address: z.string(),
+                platform: z.enum(["discord", "github", "telegram"]),
+                reward_id: z.string(),
+                points: z.number(),
+                summary: z.string().nullable(),
+                description: z.string().nullable(),
+                community_id: z.string(),
+                impact: z.string().nullable(),
+                evidence: z.array(z.string()),
+                reasoning: z.string().nullable(),
+                metadata_uri: z.string(),
+                created_at: z.string().datetime(),
+              }),
+            ),
             total: z.number(),
             limit: z.number(),
             offset: z.number(),
@@ -166,9 +178,6 @@ export const deletePendingReward = createRoute({
   summary: "Delete a pending reward recommendation",
   description: "Deletes a specific pending reward recommendation by ID",
   request: {
-    query: z.object({
-      community_id: z.string(),
-    }),
     params: z.object({
       id: z.string().uuid(),
     }),

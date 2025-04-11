@@ -37,6 +37,7 @@ declare global {
     text: string;
     isReaction?: boolean;
     isBotQuery?: boolean;
+    checkedForReward?: boolean;
   }
 
   // Define interface for the summary metadata
