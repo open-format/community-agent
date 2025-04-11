@@ -48,9 +48,6 @@ export const platformConnections = pgTable(
     platformName: text("platform_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-    recomendationsUpdatedAt: timestamp("recomendations_updated_at", {
-      withTimezone: true,
-    }).defaultNow(),
   },
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
 );
