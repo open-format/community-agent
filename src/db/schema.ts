@@ -1,15 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import {
-  boolean,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-  vector,
-} from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Define ENUMs for event and reward types
 export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
@@ -19,7 +9,7 @@ export const REWARD_TYPES = ["token", "badge"] as const;
 export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
 
 export const communities = pgTable("communities", {
-  id: text("id").primaryKey().notNull(),
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   name: text("name"),
   description: text("description"),
   roles: jsonb("roles").default([]),
@@ -27,6 +17,7 @@ export const communities = pgTable("communities", {
   platforms: jsonb("platforms").default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  communityContractAddress: text("community_contract_address"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
 });
@@ -44,38 +35,11 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const communityMembers = pgTable("community_members", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id),
-  roles: jsonb("roles").default([]),
-  joinedAt: timestamp("joined_at").defaultNow(),
-});
-
-export const automations = pgTable("automations", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id),
-  eventType: text("event_type", { enum: EVENT_TYPES }).notNull(),
-  rewardType: text("reward_type", { enum: REWARD_TYPES }).notNull(),
-  rewardAmount: text("reward_amount"), // Optional for badge rewards, required for tokens
-  rewardTokenAddress: text("reward_token_address"), // Optional, only used for token rewards
-  requirements: jsonb("requirements").default([]),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
-
 export const platformConnections = pgTable(
   "platform_connections",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id").references(() => communities.id, {
+    communityId: uuid("community_id").references(() => communities.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
@@ -84,6 +48,9 @@ export const platformConnections = pgTable(
     platformName: text("platform_name"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    recomendationsUpdatedAt: timestamp("recomendations_updated_at", {
+      withTimezone: true,
+    }).defaultNow(),
   },
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
 );
@@ -92,7 +59,7 @@ export const pendingRewards = pgTable(
   "pending_rewards",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    community_id: text("community_id")
+    community_id: uuid("community_id")
       .notNull()
       .references(() => communities.id),
     contributor_name: text("contributor_name").notNull(),
@@ -115,7 +82,7 @@ export const pendingRewards = pgTable(
   (table) => [
     index("pending_rewards_community_idx").on(table.community_id),
     index("pending_rewards_status_idx").on(table.status),
-  ]
+  ],
 );
 
 // Then define the relations
@@ -136,5 +103,3 @@ export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
     references: [communities.id],
   }),
 }));
-
-export type Automation = typeof automations.$inferSelect;

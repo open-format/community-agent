@@ -1,6 +1,6 @@
 {
-  "id": "46eb3f4b-f654-4bdd-993b-e6b460299a89",
-  "prevId": "cb3dfd2e-357c-4f83-9704-b0e5d1fc593f",
+  "id": "4b9c5a47-ec4f-4479-a77b-9940ae5f567e",
+  "prevId": "46eb3f4b-f654-4bdd-993b-e6b460299a89",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -80,8 +80,12 @@
           "name": "automations_community_id_communities_id_fk",
           "tableFrom": "automations",
           "tableTo": "communities",
-          "columnsFrom": ["community_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "community_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -149,6 +153,12 @@
           "notNull": false,
           "default": "now()"
         },
+        "community_contract_address": {
+          "name": "community_contract_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "community_wallet_id": {
           "name": "community_wallet_id",
           "type": "text",
@@ -214,8 +224,12 @@
           "name": "community_members_user_id_users_id_fk",
           "tableFrom": "community_members",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -223,8 +237,12 @@
           "name": "community_members_community_id_communities_id_fk",
           "tableFrom": "community_members",
           "tableTo": "communities",
-          "columnsFrom": ["community_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "community_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -389,8 +407,12 @@
           "name": "pending_rewards_community_id_communities_id_fk",
           "tableFrom": "pending_rewards",
           "tableTo": "communities",
-          "columnsFrom": ["community_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "community_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -486,8 +508,12 @@
           "name": "platform_connections_community_id_communities_id_fk",
           "tableFrom": "platform_connections",
           "tableTo": "communities",
-          "columnsFrom": ["community_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "community_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "cascade"
         }

@@ -1,0 +1,1 @@
+ALTER TABLE "platform_connections" DROP COLUMN "recomendations_updated_at";
