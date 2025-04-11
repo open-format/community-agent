@@ -2,12 +2,14 @@ import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { db } from "@/db";
-import { platformConnections } from "@/db/schema";
+import { communities, platformConnections } from "@/db/schema";
+import { createUnixTimestamp } from "@/utils/time";
 import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
+import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { handleReportCommand } from "./commands/report";
 
 const discordClient = new Client({
@@ -31,6 +33,8 @@ discordClient.on("guildMemberUpdate", async (oldMember, newMember) => {
       await fetchHistoricalMessagesTool.execute({
         context: {
           platformId: newMember.guild.id,
+          startDate: createUnixTimestamp(undefined, 30),
+          endDate: createUnixTimestamp(dayjs().toISOString()),
         },
       });
     }
@@ -44,8 +48,6 @@ discordClient.on("guildCreate", async (guild) => {
     console.warn(`Missing required permissions in ${guild.name}`);
   }
 
-  const guildId = guild.id;
-
   if (!fetchHistoricalMessagesTool.execute) {
     throw new Error("Historical messages tool not initialized");
   }
@@ -53,18 +55,101 @@ discordClient.on("guildCreate", async (guild) => {
   await fetchHistoricalMessagesTool.execute({
     context: {
       platformId: guild.id,
+      startDate: createUnixTimestamp(undefined, 30),
+      endDate: createUnixTimestamp(dayjs().toISOString()),
     },
   });
 
+  // Check if platform connection already exists
+  const existingConnection = await db.query.platformConnections.findFirst({
+    where: (connections, { eq }) =>
+      and(eq(connections.platformId, guild.id), eq(connections.platformType, "discord")),
+  });
+
   try {
-    await db.insert(platformConnections).values({
-      communityId: null,
-      platformId: guildId,
-      platformType: "discord",
-    });
-    console.log(`Added new guild ${guild.name} to platform connections`);
+    if (existingConnection) {
+      // Update if the connection exists and name is different or null/undefined
+      if (existingConnection.platformName !== guild.name || !existingConnection.platformName) {
+        await db
+          .update(platformConnections)
+          .set({ platformName: guild.name })
+          .where(eq(platformConnections.platformId, guild.id));
+        console.log(`Updated guild name for ${guild.name}`);
+      }
+
+      // Create community if none exists
+      if (!existingConnection.communityId) {
+        const [newCommunity] = await db
+          .insert(communities)
+          .values({
+            name: guild.name,
+          })
+          .returning();
+
+        await db
+          .update(platformConnections)
+          .set({ communityId: newCommunity.id })
+          .where(eq(platformConnections.platformId, guild.id));
+
+        console.log(
+          `Created new community for ${guild.name} and linked it to the platform connection`,
+        );
+      }
+    } else {
+      // Create new community
+      const [newCommunity] = await db
+        .insert(communities)
+        .values({
+          name: guild.name,
+        })
+        .returning();
+
+      // Create new platform connection linked to the community
+      await db.insert(platformConnections).values({
+        communityId: newCommunity.id, // Link to community immediately
+        platformId: guild.id,
+        platformType: "discord",
+        platformName: guild.name,
+      });
+
+      console.log(`Created new platform connection and community for ${guild.name}`);
+    }
   } catch (error) {
-    console.error(error);
+    console.error(`Failed to setup guild ${guild.name}:`, error);
+  }
+});
+
+discordClient.on("guildDelete", async (guild) => {
+  console.log(`Bot left server: ${guild.name} (${guild.id})`);
+
+  // First, get the platform connection to find the communityId
+  const platformConnection = await db.query.platformConnections.findFirst({
+    where: (connections, { eq }) =>
+      and(eq(connections.platformId, guild.id), eq(connections.platformType, "discord")),
+  });
+
+  if (platformConnection) {
+    // First delete the platform connection
+    await db.delete(platformConnections).where(eq(platformConnections.platformId, guild.id));
+
+    // Then if there's an associated community, delete it
+    if (platformConnection.communityId) {
+      await db.delete(communities).where(eq(communities.id, platformConnection.communityId));
+    }
+  }
+
+  // find all messages in the database and delete them
+  const exists = await vectorStore.query({
+    indexName: "community_messages",
+    queryVector: new Array(1536).fill(0),
+    topK: 10000,
+    filter: {
+      platformId: guild.id,
+    },
+  });
+
+  for (const msg of exists) {
+    await vectorStore.deleteIndexById("community_messages", msg.id);
   }
 });
 
@@ -74,39 +159,8 @@ discordClient.on("ready", async () => {
   // Log all servers the bot is in
   console.log(`Bot is in ${discordClient.guilds.cache.size} servers:`);
 
-  // Get all existing platform connections
-  const existingConnections = await db.query.platformConnections.findMany({
-    where: (connections, { eq }) => eq(connections.platformType, "discord"),
-  });
-
   for (const guild of discordClient.guilds.cache.values()) {
     console.log(`- ${guild.name} (ID: ${guild.id}) with ${guild.memberCount} members`);
-
-    const existingConnection = existingConnections.find((conn) => conn.platformId === guild.id);
-
-    try {
-      if (existingConnection) {
-        // Update if the connection exists and either name is different or null/undefined
-        if (existingConnection.platformName !== guild.name || !existingConnection.platformName) {
-          await db
-            .update(platformConnections)
-            .set({ platformName: guild.name })
-            .where(eq(platformConnections.platformId, guild.id));
-          console.log(`Updated guild name for ${guild.name}`);
-        }
-      } else {
-        // Insert new guild if it doesn't exist
-        await db.insert(platformConnections).values({
-          communityId: null,
-          platformId: guild.id,
-          platformType: "discord",
-          platformName: guild.name,
-        });
-        console.log(`Added new guild ${guild.name} to platform connections`);
-      }
-    } catch (error) {
-      console.error(`Failed to upsert guild ${guild.name}:`, error);
-    }
   }
 });
 
