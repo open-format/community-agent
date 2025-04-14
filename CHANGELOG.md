@@ -1,3 +1,17 @@
+# [0.25.0](https://github.com/open-format/community-agent/compare/v0.24.0...v0.25.0) (2025-04-14)
+
+
+### Bug Fixes
+
+* updated the default start date for the impact report to be 2 weeks ago rather than 1 day ([2e0f922](https://github.com/open-format/community-agent/commit/2e0f92200b76502be3c576100b78ec8fbc69c99b))
+
+
+### Features
+
+* **discord:** enhance guild management by adding community creation and deletion logic, and improve historical message fetching ([00a2066](https://github.com/open-format/community-agent/commit/00a2066dfba8d867f7fade11fb071dc2eaf4e4a6))
+* enhance historical messages tool to support custom date ranges ([b6cb236](https://github.com/open-format/community-agent/commit/b6cb236c474a491cfd784657137e823dcb423068))
+* **recommendations:** add cron job for daily reward recommendations generation ([1accd86](https://github.com/open-format/community-agent/commit/1accd86221c98b055ee8be2ebd87ef190cc05520))
+
 # [0.24.0](https://github.com/open-format/community-agent/compare/v0.23.0...v0.24.0) (2025-04-14)
 
 
