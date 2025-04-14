@@ -1,3 +1,20 @@
+# [0.24.0](https://github.com/open-format/community-agent/compare/v0.23.0...v0.24.0) (2025-04-14)
+
+
+### Bug Fixes
+
+* **communities:** update community creation logic to handle existing communities and adjust schema for optional fields ([fdb67c4](https://github.com/open-format/community-agent/commit/fdb67c49294acf3d6a01c20638db66a48cc95e98))
+
+
+### Features
+
+* **agent:** add summaryAgent for generating summaries and integrate it into the Mastra agent ([0ec7035](https://github.com/open-format/community-agent/commit/0ec7035a9f2cf50aa8a79a7190028a5af5125587))
+* Discord community summarisations via Discord bot ([af2f39e](https://github.com/open-format/community-agent/commit/af2f39e9f0f23768b4aa6a73a27d4618a616fa70))
+* **discord:** add script to import Discord conversations into the community_messages vector store ([7132be3](https://github.com/open-format/community-agent/commit/7132be3dd13442725c25d7d4f07d3953ea2a7a65))
+* **discord:** enhance guild connection handling by updating existing connections and adding new ones if absent ([e9b4e5a](https://github.com/open-format/community-agent/commit/e9b4e5a611ffc33db5bb19ebbd09f6dca2178781))
+* **discord:** implement report generation command and enhance message handling for community insights ([40b5eab](https://github.com/open-format/community-agent/commit/40b5eab4fc201f1efb602a07b1dfa38bab647caa))
+* **prompts:** integrate dayjs for date handling and add summaryAgentPrompt for community managers ([11f8693](https://github.com/open-format/community-agent/commit/11f869341ed7b63951023c5466407f5935b62d4d))
+
 # [0.23.0](https://github.com/open-format/community-agent/compare/v0.22.0...v0.23.0) (2025-04-01)
 
 

@@ -1,8 +1,10 @@
 import v1 from "@/routes/api/v1";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { showRoutes } from "hono/dev";
-if (!process.env.GITHUB_WEBHOOK_SECRET) {
-  throw new Error("GITHUB_WEBHOOK_SECRET must be set");
+
+// Only require GITHUB_WEBHOOK_SECRET in production
+if (process.env.NODE_ENV === "production" && !process.env.GITHUB_WEBHOOK_SECRET) {
+  throw new Error("GITHUB_WEBHOOK_SECRET must be set in production environment");
 }
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CHANNEL_ID) {
