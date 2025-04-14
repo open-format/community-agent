@@ -33,9 +33,10 @@ declare global {
     authorUsername: string;
     threadId: string; // Common across platforms but implemented differently
     channelId?: string; // Discord/Telegram specific
-    timestamp: number;
+    timestamp: number; // Unix timestamp
     text: string;
     isReaction?: boolean;
+    isBotQuery?: boolean;
   }
 
   // Define interface for the summary metadata
@@ -99,9 +100,9 @@ declare global {
   // Impact Report Types
   interface ImpactReportMetadata {
     platformId: string;
-    timestamp: number; 
-    startDate: number; 
-    endDate: number; 
+    timestamp: number;
+    startDate: number;
+    endDate: number;
     messageCount: number;
     uniqueUserCount: number;
     overview: ImpactReportOverview;

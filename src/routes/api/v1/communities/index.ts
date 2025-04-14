@@ -36,14 +36,14 @@ communitiesRoute.openapi(createCommunity, async (c) => {
   const body = await c.req.json();
 
   // Check if community exists
-  const community = await db
+  const [community] = await db
     .select()
     .from(communities)
-    .where(eq(communities.id, body.communityId))
+    .where(eq(communities.id, body.id))
     .limit(1);
 
-  if (!community.length) {
-    return c.json({ message: "Community not found" }, 404);
+  if (community) {
+    return c.json({ message: "Community already exists" }, 409);
   }
 
   const [result] = await db.insert(communities).values(body).returning();
@@ -76,7 +76,7 @@ communitiesRoute.openapi(generateCode, async (c) => {
     const { community_id } = body;
 
     // Check if community exists
-    let [community] = await db
+    const [community] = await db
       .select()
       .from(communities)
       .where(eq(communities.id, community_id))
@@ -84,16 +84,7 @@ communitiesRoute.openapi(generateCode, async (c) => {
 
     // If community doesn't exist, create it
     if (!community) {
-      const [newCommunity] = await db
-        .insert(communities)
-        .values({
-          id: community_id,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-
-      community = newCommunity;
+      return c.json({ message: "Community not found" }, 404);
     }
 
     const code = generateVerificationCode();
