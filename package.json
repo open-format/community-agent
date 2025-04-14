@@ -49,5 +49,5 @@
     "@types/bun": "latest",
     "semantic-release": "^24.2.2"
   },
-  "version": "0.23.0"
+  "version": "0.24.0"
 }
