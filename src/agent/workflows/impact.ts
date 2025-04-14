@@ -380,8 +380,6 @@ const saveReportStep = new Step({
         report,
         startDate: context.triggerData.startDate,
         endDate: context.triggerData.endDate,
-        messageCount: messagesStats.messageCount,
-        uniqueUserCount: messagesStats.uniqueUserCount,
         platformId: context.triggerData.platformId,
         summaryId: context.steps.saveSummary.output.summaryId
       }

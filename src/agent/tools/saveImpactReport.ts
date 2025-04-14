@@ -1,82 +1,94 @@
-import { createTool } from "@mastra/core/tools";
-import { z } from "zod";
-import { vectorStore } from '@/agent/stores';
+import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
+import { createTool } from "@mastra/core/tools";
 import { embed } from "ai";
+import { z } from "zod";
 
 export const saveImpactReportTool = createTool({
   id: "save-impact-report",
   description: "Save an impact report to the database with vector embeddings",
   inputSchema: z.object({
     report: z.object({
+      startDate: z.number(),
+      endDate: z.number(),
+      platformId: z.string(),
+      summaryId: z.string().optional(),
       overview: z.object({
         totalMessages: z.number(),
         uniqueUsers: z.number(),
-        activeChannels: z.number()
+        activeChannels: z.number(),
       }),
-      dailyActivity: z.array(z.object({
-        date: z.string(),
-        messageCount: z.number(),
-        uniqueUsers: z.number()
-      })),
-      topContributors: z.array(z.object({
-        username: z.string(),
-        messageCount: z.number()
-      })),
-      channelBreakdown: z.array(z.object({
-        channelName: z.string(),
-        messageCount: z.number(),
-        uniqueUsers: z.number()
-      })),
-      keyTopics: z.array(z.object({
-        topic: z.string(),
-        messageCount: z.number(),
-        description: z.string(),
-        examples: z.array(z.string())
-      })),
+      dailyActivity: z.array(
+        z.object({
+          date: z.string(),
+          messageCount: z.number(),
+          uniqueUsers: z.number(),
+        }),
+      ),
+      topContributors: z.array(
+        z.object({
+          username: z.string(),
+          messageCount: z.number(),
+        }),
+      ),
+      channelBreakdown: z.array(
+        z.object({
+          channelName: z.string(),
+          messageCount: z.number(),
+          uniqueUsers: z.number(),
+        }),
+      ),
+      keyTopics: z.array(
+        z.object({
+          topic: z.string(),
+          messageCount: z.number(),
+          description: z.string(),
+          evidence: z.array(z.string()),
+        }),
+      ),
       userSentiment: z.object({
-        excitement: z.array(z.object({
-          title: z.string(),
-          description: z.string(),
-          users: z.array(z.string()),
-          examples: z.array(z.string())
-        })),
-        frustrations: z.array(z.object({
-          title: z.string(),
-          description: z.string(),
-          users: z.array(z.string()),
-          examples: z.array(z.string())
-        }))
-      })
+        excitement: z.array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            users: z.array(z.string()),
+            evidence: z.array(z.string()),
+          }),
+        ),
+        frustrations: z.array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            users: z.array(z.string()),
+            evidence: z.array(z.string()),
+          }),
+        ),
+      }),
     }),
-    startDate: z.number(),
-    endDate: z.number(),
-    messageCount: z.number(),
-    uniqueUserCount: z.number(),
-    platformId: z.string(),
-    summaryId: z.string().optional(),
   }),
   outputSchema: z.object({
     success: z.boolean(),
     reportId: z.string().uuid().optional(),
     error: z.string().optional(),
   }),
-  execute: async ({ context }: { context: {
-    report: {
-      overview: ImpactReportOverview;
-      dailyActivity: DailyActivity[];
-      topContributors: TopContributor[];
-      channelBreakdown: ChannelBreakdown[];
-      keyTopics: KeyTopic[];
-      userSentiment: UserSentiment;
+  execute: async ({
+    context,
+  }: {
+    context: {
+      report: {
+        overview: ImpactReportOverview;
+        dailyActivity: DailyActivity[];
+        topContributors: TopContributor[];
+        channelBreakdown: ChannelBreakdown[];
+        keyTopics: KeyTopic[];
+        userSentiment: UserSentiment;
+      };
+      startDate: number;
+      endDate: number;
+      platformId: string;
+      summaryId?: string;
     };
-    startDate: number;
-    endDate: number;
-    messageCount: number;
-    uniqueUserCount: number;
-    platformId: string;
-    summaryId?: string;
-  } }) => {
+  }) => {
     try {
       const reportId = crypto.randomUUID();
       const reportText = JSON.stringify(context.report);
@@ -91,8 +103,6 @@ export const saveImpactReportTool = createTool({
         timestamp: Date.now(),
         startDate: context.startDate,
         endDate: context.endDate,
-        messageCount: context.messageCount,
-        uniqueUserCount: context.uniqueUserCount,
         overview: context.report.overview,
         dailyActivity: context.report.dailyActivity,
         topContributors: context.report.topContributors,
@@ -120,4 +130,4 @@ export const saveImpactReportTool = createTool({
       };
     }
   },
-}); 
+});

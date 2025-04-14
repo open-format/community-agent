@@ -2,7 +2,6 @@ import { vectorStore } from "@/agent/stores";
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core";
 import { embed } from "ai";
-import dayjs from "dayjs";
 import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import { z } from "zod";
 
@@ -12,9 +11,11 @@ const RATE_LIMIT_DELAY = 200; // milliseconds
 
 export const fetchHistoricalMessagesTool = createTool({
   id: "fetch-historical-messages",
-  description: "Fetch and store the last 2 weeks of Discord messages for a guild",
+  description: "Fetch and store Discord messages for a guild within a specified date range",
   inputSchema: z.object({
     platformId: z.string().nonempty(),
+    startDate: z.number(),
+    endDate: z.number(),
   }),
   outputSchema: z.object({
     success: z.boolean(),
@@ -36,7 +37,6 @@ export const fetchHistoricalMessagesTool = createTool({
     try {
       // Setup and initialization
       await client.login(process.env.DISCORD_TOKEN);
-      const twoWeeksAgo = dayjs().subtract(14, "day").valueOf();
       let newMessagesAdded = 0;
 
       // Fetch guild and channel information
@@ -52,7 +52,7 @@ export const fetchHistoricalMessagesTool = createTool({
         let lastMessageId: string | undefined;
         let messageBatch: { content: string; metadata: MessageMetadata }[] = [];
 
-        // Fetch messages in batches until we reach messages older than 2 weeks
+        // Fetch messages in batches until we reach messages older than start date
         while (true) {
           const options: { limit: number; before?: string } = { limit: 100 }; // 100 messages is the maximum that can be fetched at once
           if (lastMessageId) options.before = lastMessageId;
@@ -62,11 +62,15 @@ export const fetchHistoricalMessagesTool = createTool({
             const messages = await channel.messages.fetch(options);
             if (messages.size === 0) break;
 
-            // Filter for recent messages only
-            const recentMessages = messages.filter((msg) => msg.createdTimestamp >= twoWeeksAgo);
+            // Filter for messages within date range
+            const messagesInRange = messages.filter(
+              (msg) =>
+                msg.createdTimestamp >= context.startDate &&
+                msg.createdTimestamp <= context.endDate,
+            );
 
             // Process each message in the batch
-            for (const msg of recentMessages.values()) {
+            for (const msg of messagesInRange.values()) {
               // Skip empty content
               if (!msg.content || msg.content.trim() === "") continue;
 
@@ -95,6 +99,7 @@ export const fetchHistoricalMessagesTool = createTool({
                   text: msg.content,
                   isReaction: false,
                   isBotQuery: msg.author.bot,
+                  checkedForReward: false,
                 },
               });
 
@@ -114,8 +119,15 @@ export const fetchHistoricalMessagesTool = createTool({
               newMessagesAdded += messageBatch.length;
             }
 
-            // Break if we've reached messages older than 2 weeks
-            if ([...messages.values()].some((m) => m.createdTimestamp < twoWeeksAgo)) break;
+            // Break if we've reached messages older than start date
+            // or if we've reached messages newer than end date
+            if (
+              [...messages.values()].some(
+                (m) =>
+                  m.createdTimestamp < context.startDate || m.createdTimestamp > context.endDate,
+              )
+            )
+              break;
             lastMessageId = messages.last()?.id;
           } catch (err) {
             console.error(`Error fetching messages from ${channel.name}:`, err);

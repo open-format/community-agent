@@ -29,6 +29,34 @@
       "when": 1743497658196,
       "tag": "0003_tan_impossible_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1744365461692,
+      "tag": "0004_mature_quentin_quire",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1744369672976,
+      "tag": "0005_broad_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1744370485617,
+      "tag": "0006_tiny_black_widow",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1744387315514,
+      "tag": "0007_spicy_brood",
+      "breakpoints": true
     }
   ]
 }

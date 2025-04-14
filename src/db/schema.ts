@@ -1,15 +1,5 @@
 import { relations, sql } from "drizzle-orm";
-import {
-  boolean,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-  vector,
-} from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Define ENUMs for event and reward types
 export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
@@ -19,7 +9,7 @@ export const REWARD_TYPES = ["token", "badge"] as const;
 export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
 
 export const communities = pgTable("communities", {
-  id: text("id").primaryKey().notNull(),
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   name: text("name"),
   description: text("description"),
   roles: jsonb("roles").default([]),
@@ -27,6 +17,7 @@ export const communities = pgTable("communities", {
   platforms: jsonb("platforms").default([]),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  communityContractAddress: text("community_contract_address"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
 });
@@ -44,38 +35,11 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const communityMembers = pgTable("community_members", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id),
-  roles: jsonb("roles").default([]),
-  joinedAt: timestamp("joined_at").defaultNow(),
-});
-
-export const automations = pgTable("automations", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  communityId: text("community_id")
-    .notNull()
-    .references(() => communities.id),
-  eventType: text("event_type", { enum: EVENT_TYPES }).notNull(),
-  rewardType: text("reward_type", { enum: REWARD_TYPES }).notNull(),
-  rewardAmount: text("reward_amount"), // Optional for badge rewards, required for tokens
-  rewardTokenAddress: text("reward_token_address"), // Optional, only used for token rewards
-  requirements: jsonb("requirements").default([]),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-});
-
 export const platformConnections = pgTable(
   "platform_connections",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id").references(() => communities.id, {
+    communityId: uuid("community_id").references(() => communities.id, {
       onDelete: "set null",
       onUpdate: "cascade",
     }),
@@ -92,30 +56,30 @@ export const pendingRewards = pgTable(
   "pending_rewards",
   {
     id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-    communityId: text("community_id")
+    community_id: uuid("community_id")
       .notNull()
       .references(() => communities.id),
-    contributorName: text("contributor_name").notNull(),
-    walletAddress: text("wallet_address").notNull(),
+    contributor_name: text("contributor_name").notNull(),
+    wallet_address: text("wallet_address").notNull(),
     platform: text("platform", { enum: PLATFORM_TYPES }).notNull(),
-    rewardId: text("reward_id").notNull(),
+    reward_id: text("reward_id").notNull(),
     points: integer("points").notNull(),
     summary: text("summary"),
     description: text("description"),
     impact: text("impact"),
     evidence: text("evidence").array(),
     reasoning: text("reasoning"),
-    metadataUri: text("metadata_uri").notNull(),
+    metadata_uri: text("metadata_uri").notNull(),
     status: text("status", { enum: ["pending", "processed", "failed"] }).default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-    processedAt: timestamp("processed_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    processed_at: timestamp("processed_at", { withTimezone: true }),
     error: text("error"),
   },
   (table) => [
-    index("pending_rewards_community_idx").on(table.communityId),
+    index("pending_rewards_community_idx").on(table.community_id),
     index("pending_rewards_status_idx").on(table.status),
-  ]
+  ],
 );
 
 // Then define the relations
@@ -132,9 +96,7 @@ export const platformConnectionsRelations = relations(platformConnections, ({ on
 
 export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
   community: one(communities, {
-    fields: [pendingRewards.communityId],
+    fields: [pendingRewards.community_id],
     references: [communities.id],
   }),
 }));
-
-export type Automation = typeof automations.$inferSelect;

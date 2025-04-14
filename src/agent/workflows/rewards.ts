@@ -1,63 +1,66 @@
-import { Workflow, Step } from '@mastra/core/workflows';
-import { z } from 'zod';
-import { identifyRewards } from '../agents';
-import { getMessagesTool, getWalletAddressTool, savePendingRewardTool, createPrivyWalletTool } from '../tools';
+import { WorkflowContext } from "@mastra/core/dist/workflows";
+import { Step, Workflow } from "@mastra/core/workflows";
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
+import dayjs from "dayjs";
+import { z } from "zod";
+import { identifyRewards } from "../agents";
+import { vectorStore } from "../stores";
+import {
+  createPrivyWalletTool,
+  getMessagesTool,
+  getWalletAddressTool,
+  savePendingRewardTool,
+} from "../tools";
 
 // Step 1: Fetch messages
 const fetchMessagesStep = new Step({
-  id: 'fetchMessages',
+  id: "fetchMessages",
   outputSchema: z.object({
     transcript: z.string(),
+    messages: z.array(z.string()),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
     if (!getMessagesTool.execute) {
-      throw new Error('Fetch messages tool not initialized');
+      throw new Error("Fetch messages tool not initialized");
     }
-
-    // Convert to milliseconds if in seconds
-    const startDate = context.triggerData.startDate.toString().length === 10 
-      ? context.triggerData.startDate * 1000 
-      : context.triggerData.startDate;
-    
-    const endDate = context.triggerData.endDate.toString().length === 10
-      ? context.triggerData.endDate * 1000
-      : context.triggerData.endDate;
 
     const result = await getMessagesTool.execute({
       context: {
-        startDate,
-        endDate,
-        platformId: context.triggerData.platformId,
+        startDate: context.triggerData.start_date,
+        endDate: context.triggerData.end_date,
+        platformId: context.triggerData.platform_id,
         includeStats: false,
-        includeMessageId: true
-      }
+        includeMessageId: true,
+        checkedForReward: false,
+      },
     });
 
-    return { transcript: result.transcript };
+    return { transcript: result.transcript, messages: result.messages };
   },
 });
 
 // Step 2: Identify rewards using the rewards agent
 const identifyRewardsStep = new Step({
-  id: 'identifyRewards',
+  id: "identifyRewards",
   outputSchema: z.object({
-    contributions: z.array(z.object({
-      contributor: z.string(),
-      short_summary: z.string(),
-      comprehensive_description: z.string(),
-      impact: z.string(),
-      evidence: z.array(z.string()),
-      rewardId: z.string(),
-      suggested_reward: z.object({
-        points: z.number(),
-        reasoning: z.string(),
+    contributions: z.array(
+      z.object({
+        contributor: z.string(),
+        short_summary: z.string(),
+        comprehensive_description: z.string(),
+        impact: z.string(),
+        evidence: z.array(z.string()),
+        rewardId: z.string(),
+        suggested_reward: z.object({
+          points: z.number(),
+          reasoning: z.string(),
+        }),
       }),
-    })),
+    ),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
-    if (context.steps.fetchMessages.status !== 'success') {
-      throw new Error('Failed to fetch messages');
+    if (context.steps.fetchMessages.status !== "success") {
+      throw new Error("Failed to fetch messages");
     }
 
     const transcript = context.steps.fetchMessages.output.transcript;
@@ -65,14 +68,17 @@ const identifyRewardsStep = new Step({
 
     // Add Discord message URLs to each piece of evidence
     const enhancedRewards = {
-      contributions: rewards.contributions.map((contribution: {
-        evidence: Array<{ channelId: string; messageId: string }>;
-      }) => ({
-        ...contribution,
-        evidence: contribution.evidence.map((evidence: { channelId: string; messageId: string }) => 
-          `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
-        )
-      }))
+      contributions: rewards.contributions.map(
+        (contribution: {
+          evidence: Array<{ channelId: string; messageId: string }>;
+        }) => ({
+          ...contribution,
+          evidence: contribution.evidence.map(
+            (evidence: { channelId: string; messageId: string }) =>
+              `https://discord.com/channels/${context.triggerData.platform_id}/${evidence.channelId}/${evidence.messageId}`,
+          ),
+        }),
+      ),
     };
 
     return enhancedRewards;
@@ -81,63 +87,59 @@ const identifyRewardsStep = new Step({
 
 // Step 3: Get wallet addresses for contributors
 const getWalletAddressesStep = new Step({
-  id: 'getWalletAddresses',
+  id: "getWalletAddresses",
   outputSchema: z.object({
-    rewards: z.array(z.object({
-      ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
-      walletAddress: z.string().nullable(),
-      isPregenerated: z.boolean().optional(),
-      error: z.string().optional(),
-    })),
+    rewards: z.array(
+      z.object({
+        ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
+        walletAddress: z.string().nullable(),
+        isPregenerated: z.boolean().optional(),
+        error: z.string().optional(),
+      }),
+    ),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
-    if (context.steps.identifyRewards.status !== 'success') {
-      throw new Error('Failed to identify rewards');
+    if (context.steps.identifyRewards.status !== "success") {
+      throw new Error("Failed to identify rewards");
     }
 
     if (!getWalletAddressTool.execute) {
-      throw new Error('Get wallet address tool not initialized');
+      throw new Error("Get wallet address tool not initialized");
     }
 
     const contributions = context.steps.identifyRewards.output.contributions;
-    console.log(`Processing ${contributions.length} contributions for wallet addresses`);
 
-    const rewards = await Promise.all(
+    const rewards = (await Promise.all(
       contributions.map(async (contribution) => {
-        console.log(`Processing wallet for contributor: ${contribution.contributor}`);
-        
         // First try to get existing wallet
         const walletInfo = await getWalletAddressTool.execute({
           context: {
             username: contribution.contributor,
-            platform: 'discord'
-          }
+            platform: "discord",
+          },
         });
 
         // If no wallet exists or user needs to create one, try to create one
         if (!walletInfo.walletAddress) {
-          console.log(`No existing wallet found for ${contribution.contributor}, attempting to create one`);
           try {
             const privyWalletInfo = await createPrivyWalletTool.execute({
               context: {
                 username: contribution.contributor,
-                platform: 'discord'
-              }
+                platform: "discord",
+              },
             });
 
             if (privyWalletInfo.walletAddress) {
-              console.log(`Successfully created new wallet for ${contribution.contributor}: ${privyWalletInfo.walletAddress}`);
               return {
                 ...contribution,
                 walletAddress: privyWalletInfo.walletAddress,
-                isPregenerated: true
+                isPregenerated: true,
               };
             } else {
-              console.error(`Failed to create wallet for ${contribution.contributor}: No wallet address returned`);
               return {
                 ...contribution,
                 walletAddress: null,
-                error: `Failed to create wallet: No wallet address returned`
+                error: `Failed to create wallet: No wallet address returned`,
               };
             }
           } catch (error) {
@@ -145,17 +147,16 @@ const getWalletAddressesStep = new Step({
             return {
               ...contribution,
               walletAddress: null,
-              error: `Failed to create wallet: ${error instanceof Error ? error.message : 'Unknown error'}`
+              error: `Failed to create wallet: ${error instanceof Error ? error.message : "Unknown error"}`,
             };
           }
         }
 
         // If we have a wallet address, return it
         if (walletInfo.walletAddress) {
-          console.log(`Found existing wallet for ${contribution.contributor}: ${walletInfo.walletAddress}`);
           return {
             ...contribution,
-            walletAddress: walletInfo.walletAddress
+            walletAddress: walletInfo.walletAddress,
           };
         }
 
@@ -164,14 +165,10 @@ const getWalletAddressesStep = new Step({
         return {
           ...contribution,
           walletAddress: null,
-          error: walletInfo.error || 'Unknown error getting wallet'
+          error: walletInfo.error || "Unknown error getting wallet",
         };
-      })
-    ) as Array<any>;
-
-    const successCount = rewards.filter(r => r.walletAddress).length;
-    const errorCount = rewards.filter(r => r.error).length;
-    console.log(`Wallet processing complete. Success: ${successCount}, Errors: ${errorCount}`);
+      }),
+    )) as Array<any>;
 
     return { rewards };
   },
@@ -179,29 +176,31 @@ const getWalletAddressesStep = new Step({
 
 // Add new step for IPFS upload
 const uploadMetadataStep = new Step({
-  id: 'uploadMetadata',
+  id: "uploadMetadata",
   outputSchema: z.object({
-    rewards: z.array(z.object({
-      ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
-      walletAddress: z.string().nullable(),
-      error: z.string().optional(),
-      metadataUri: z.string().optional(),
-    })),
+    rewards: z.array(
+      z.object({
+        ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
+        walletAddress: z.string().nullable(),
+        error: z.string().optional(),
+        metadataUri: z.string().optional(),
+      }),
+    ),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
-    if (context.steps.getWalletAddresses.status !== 'success') {
-      throw new Error('Failed to get wallet addresses');
+    if (context.steps.getWalletAddresses.status !== "success") {
+      throw new Error("Failed to get wallet addresses");
     }
 
     const storage = new ThirdwebStorage({
       secretKey: process.env.THIRDWEB_SECRET,
-      gatewayUrls: ['https://storage.thirdweb.com/ipfs/upload'],
+      gatewayUrls: ["https://storage.thirdweb.com/ipfs/upload"],
     });
 
     const rewards = await Promise.all(
       context.steps.getWalletAddresses.output.rewards.map(async (reward) => {
         const metadata = {
-          platform: 'discord',
+          platform: "discord",
           description: reward.comprehensive_description,
           impact: reward.impact,
           evidence: reward.evidence,
@@ -218,7 +217,6 @@ const uploadMetadataStep = new Step({
             const ipfsHash = await storage.upload(metadata, {
               uploadWithoutDirectory: true,
             });
-            console.log(`Successfully uploaded metadata for ${reward.contributor}: ${ipfsHash}`);
             return {
               ...reward,
               metadataUri: ipfsHash,
@@ -226,15 +224,17 @@ const uploadMetadataStep = new Step({
           } catch (error) {
             lastError = error as Error;
             retries++;
-            
+
             if (retries < maxRetries) {
-              console.log(`Retry ${retries}/${maxRetries} for ${reward.contributor} after error:`, error);
-              await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+              await new Promise((resolve) => setTimeout(resolve, 1000 * retries));
             } else {
-              console.error(`Failed to upload metadata for ${reward.contributor} after ${maxRetries} attempts:`, error);
+              console.error(
+                `Failed to upload metadata for ${reward.contributor} after ${maxRetries} attempts:`,
+                error,
+              );
               return {
                 ...reward,
-                error: `Failed to upload metadata after ${maxRetries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`
+                error: `Failed to upload metadata after ${maxRetries} attempts: ${error instanceof Error ? error.message : "Unknown error"}`,
               };
             }
           }
@@ -242,9 +242,9 @@ const uploadMetadataStep = new Step({
 
         return {
           ...reward,
-          error: `Failed to upload metadata: ${lastError?.message || 'Unknown error'}`
+          error: `Failed to upload metadata: ${lastError?.message || "Unknown error"}`,
         };
-      })
+      }),
     );
 
     return { rewards };
@@ -253,23 +253,25 @@ const uploadMetadataStep = new Step({
 
 // Update save to database step
 const savePendingRewardsStep = new Step({
-  id: 'savePendingRewards',
+  id: "savePendingRewards",
   outputSchema: z.object({
-    savedRewards: z.array(z.object({
-      id: z.string(),
-      ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
-      walletAddress: z.string().nullable(),
-      metadataUri: z.string(),
-      error: z.string().optional(),
-    })),
+    savedRewards: z.array(
+      z.object({
+        id: z.string(),
+        ...identifyRewardsStep.outputSchema.shape.contributions.element.shape,
+        walletAddress: z.string().nullable(),
+        metadataUri: z.string(),
+        error: z.string().optional(),
+      }),
+    ),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
-    if (context.steps.uploadMetadata.status !== 'success') {
-      throw new Error('Failed to upload metadata');
+    if (context.steps.uploadMetadata.status !== "success") {
+      throw new Error("Failed to upload metadata");
     }
 
     if (!savePendingRewardTool?.execute) {
-      throw new Error('Save pending reward tool not initialized');
+      throw new Error("Save pending reward tool not initialized");
     }
 
     const rewards = context.steps.uploadMetadata.output.rewards as Array<{
@@ -295,17 +297,17 @@ const savePendingRewardsStep = new Step({
         if (!reward.walletAddress) {
           return {
             ...reward,
-            id: '',
-            error: 'No wallet address available'
+            id: "",
+            error: "No wallet address available",
           };
         }
 
-        const result = await (savePendingRewardTool.execute!({
+        const result = await savePendingRewardTool.execute!({
           context: {
-            communityId: context.triggerData.communityId,
+            communityId: context.triggerData.community_id,
             contributor: reward.contributor,
             walletAddress: reward.walletAddress,
-            platform: 'discord',
+            platform: "discord",
             rewardId: reward.rewardId,
             points: reward.suggested_reward.points,
             summary: reward.short_summary,
@@ -313,41 +315,64 @@ const savePendingRewardsStep = new Step({
             impact: reward.impact,
             evidence: reward.evidence,
             reasoning: reward.suggested_reward.reasoning,
-            metadataUri: reward.metadataUri || '',
-          }
-        }));
+            metadataUri: reward.metadataUri || "",
+          },
+        });
 
         if (result.error) {
           return {
             ...reward,
-            id: '',
-            error: result.error
+            id: "",
+            error: result.error,
           };
         }
 
         return {
           ...reward,
-          id: result.id
+          id: result.id,
         };
-      })
+      }),
     );
 
     return { savedRewards };
   },
 });
 
+// Update checked for reward step
+const updateCheckedForRewardStep = new Step({
+  id: "updateCheckedForReward",
+  outputSchema: z.boolean(),
+  execute: async ({ context }: { context: WorkflowContext }) => {
+    if (context.steps.fetchMessages.output.messages.length === 0) {
+      throw new Error("No messages found");
+    }
+
+    for (const message of context.steps.fetchMessages.output.messages) {
+      await vectorStore.updateIndexById("community_messages", message.id, {
+        metadata: { ...message.metadata, checkedForReward: true },
+      });
+    }
+
+    return true;
+  },
+});
+
 interface WorkflowContext {
   triggerData: {
-    communityId: string;
-    platformId: string;
-    startDate: number;
-    endDate: number;
+    community_id: string;
+    platform_id: string;
+    start_date: number;
+    end_date: number;
   };
   steps: {
     fetchMessages: {
       status: string;
       output: {
         transcript: string;
+        messages: {
+          id: string;
+          metadata: MessageMetadata;
+        }[];
       };
     };
     identifyRewards: {
@@ -419,20 +444,18 @@ interface WorkflowContext {
 }
 
 export const rewardsWorkflow = new Workflow({
-  name: 'community-rewards',
+  name: "community-rewards",
   triggerSchema: z.object({
-    communityId: z.string(),
-    platformId: z.string(),
-    startDate: z.number()
-      .refine(val => {
-        const digits = Math.floor(Math.log10(val)) + 1;
-        return digits === 10 || digits === 13;
-      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
-    endDate: z.number()
-      .refine(val => {
-        const digits = Math.floor(Math.log10(val)) + 1;
-        return digits === 10 || digits === 13;
-      }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
+    community_id: z.string(),
+    platform_id: z.string(),
+    start_date: z
+      .string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform((val) => dayjs(val).valueOf()),
+    end_date: z
+      .string()
+      .datetime({ message: "must be a valid ISO 8601 date format" })
+      .transform((val) => dayjs(val).valueOf()),
   }),
 });
 
@@ -443,4 +466,5 @@ rewardsWorkflow
   .then(getWalletAddressesStep)
   .then(uploadMetadataStep)
   .then(savePendingRewardsStep)
+  .then(updateCheckedForRewardStep)
   .commit();
