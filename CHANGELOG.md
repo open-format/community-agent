@@ -1,3 +1,10 @@
+# [0.26.0](https://github.com/open-format/community-agent/compare/v0.25.0...v0.26.0) (2025-04-15)
+
+
+### Features
+
+* **discord-bot:** enhance impact report generation with vector queries and improved UX ([06818dd](https://github.com/open-format/community-agent/commit/06818dd7a6425dc800851630f1282505ad2421b6))
+
 # [0.25.0](https://github.com/open-format/community-agent/compare/v0.24.0...v0.25.0) (2025-04-14)
 
 
