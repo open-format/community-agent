@@ -30,24 +30,24 @@ export interface Sentiment {
 }
 
 export interface ReportData {
-  report: {
-    overview: {
-      totalMessages: number;
-      uniqueUsers: number;
-      activeChannels: number;
-    };
-    topContributors: TopContributor[];
-    channelBreakdown: ChannelBreakdown[];
-    keyTopics: KeyTopic[];
-    dailyActivity: DailyActivity[];
-    userSentiment: {
-      excitement: Sentiment[];
-      frustrations: Sentiment[];
-    };
+  summaryId: string;
+  timestamp: number;
+  overview: {
+    totalMessages: number;
+    uniqueUsers: number;
+    activeChannels: number;
+  };
+  topContributors: TopContributor[];
+  channelBreakdown: ChannelBreakdown[];
+  keyTopics: KeyTopic[];
+  dailyActivity: DailyActivity[];
+  userSentiment: {
+    excitement: Sentiment[];
+    frustrations: Sentiment[];
   };
 }
 
-export function createReportEmbeds(report: ReportData["report"]) {
+export function createReportEmbeds(report: ReportData) {
   const overview = report.overview;
 
   const mainEmbed = new EmbedBuilder()

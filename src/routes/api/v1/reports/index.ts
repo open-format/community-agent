@@ -108,12 +108,14 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
 reportsRoute.openapi(getImpactReports, async (c) => {
   try {
-    const { platformId } = c.req.query();
+    const { platformId, limit } = c.req.query();
+
+    const topK = limit ? Number.parseInt(limit as string) : 10;
 
     const results = await vectorStore.query({
       indexName: "impact_reports",
       queryVector: new Array(1536).fill(0),
-      topK: 1000,
+      topK,
       includeMetadata: true,
       filter: {
         platformId,
