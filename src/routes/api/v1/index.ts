@@ -1,3 +1,4 @@
+import { generateImpactReports } from "@/jobs/generate-impact-report";
 import { generateRewardRecommendations } from "@/jobs/generate-reward-recommendations";
 import { githubWebhookMiddleware } from "@/middleware/github-webhook";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -35,9 +36,14 @@ app.route("/summaries", summariesRoute);
 app.route("/reports", reportsRoute);
 app.route("/rewards", rewardsRoute);
 
-// add cron job to generate reward recommendations every day at 12:00 AM UTC.
+// Cron job to generate reward recommendations every day at 12:00 AM UTC.
 cron.schedule("0 0 * * *", async () => {
   await generateRewardRecommendations();
+});
+
+// Cron job to generate impact reports every week Monday at 12:00 AM UTC.
+cron.schedule("0 0 * * 1", async () => {
+  await generateImpactReports();
 });
 
 export default app;

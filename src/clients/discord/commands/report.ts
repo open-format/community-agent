@@ -30,7 +30,7 @@ export async function handleReportCommand(msg: Message) {
             .addFields({
               name: "Next Report",
               value:
-                "Impact reports are generated every 2 weeks. The next report will be available soon.",
+                "Impact reports are generated every week. The next report will be available soon.",
             }),
         ],
       });
@@ -38,7 +38,7 @@ export async function handleReportCommand(msg: Message) {
     }
 
     const report = results[0].metadata;
-    const nextReportDate = dayjs(report.timestamp).add(14, "days");
+    const nextReportDate = dayjs(report.timestamp).add(7, "days");
 
     const embed = new EmbedBuilder()
       .setColor(0x00ff00)
