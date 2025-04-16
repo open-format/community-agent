@@ -1,3 +1,10 @@
+# [0.27.0](https://github.com/open-format/community-agent/compare/v0.26.0...v0.27.0) (2025-04-16)
+
+
+### Features
+
+* implement impact report generation job and update cron scheduling ([a5312f8](https://github.com/open-format/community-agent/commit/a5312f8f809156dd5fb918952090778d4728ebea))
+
 # [0.26.0](https://github.com/open-format/community-agent/compare/v0.25.0...v0.26.0) (2025-04-15)
 
 
