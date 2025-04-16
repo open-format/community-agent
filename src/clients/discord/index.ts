@@ -279,6 +279,7 @@ Please search through the conversation history to find relevant information.
     text: msg.content,
     isBotQuery: msg.author.bot,
     isReaction: false,
+    checkedForReward: false,
   };
 
   // If this is a reply to another message, get the parent message's ID
@@ -315,6 +316,7 @@ discordClient.on("messageReactionAdd", async (reaction, user) => {
     text: reaction.emoji.name ?? "",
     isBotQuery: message.author.bot,
     isReaction: true,
+    checkedForReward: false,
   };
 
   // Generate embeddings for message content

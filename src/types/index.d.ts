@@ -32,12 +32,12 @@ declare global {
     authorId: string;
     authorUsername: string;
     threadId: string; // Common across platforms but implemented differently
-    channelId?: string; // Discord/Telegram specific
+    channelId: string; // Discord/Telegram specific
     timestamp: number; // Unix timestamp
     text: string;
-    isReaction?: boolean;
-    isBotQuery?: boolean;
-    checkedForReward?: boolean;
+    isReaction: boolean;
+    isBotQuery: boolean;
+    checkedForReward: boolean;
   }
 
   // Define interface for the summary metadata
