@@ -1,3 +1,10 @@
+## [0.27.1](https://github.com/open-format/community-agent/compare/v0.27.0...v0.27.1) (2025-04-17)
+
+
+### Bug Fixes
+
+* **discord:** correct mention check for bot queries in message handling ([1f18f24](https://github.com/open-format/community-agent/commit/1f18f24beb5998fcbc583d7d0f8f44a033aa8039))
+
 # [0.27.0](https://github.com/open-format/community-agent/compare/v0.26.0...v0.27.0) (2025-04-16)
 
 
