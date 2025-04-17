@@ -3,14 +3,19 @@ import { communities, platformConnections } from "@/db/schema";
 import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
+import { isAddress } from "viem";
 import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
   const id = c.req.param("id");
 
-  // First get the community
-  const [community] = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
+  // First get the community by id or communityContractAddress
+  const [community] = await db
+    .select()
+    .from(communities)
+    .where(isAddress(id) ? eq(communities.communityContractAddress, id) : eq(communities.id, id))
+    .limit(1);
 
   // If no community found, return 404
   if (!community) {
@@ -21,7 +26,7 @@ communitiesRoute.openapi(getCommunity, async (c) => {
   const connections = await db
     .select()
     .from(platformConnections)
-    .where(eq(platformConnections.communityId, id));
+    .where(eq(platformConnections.communityId, community.id));
 
   // Combine the results
   const result = {
