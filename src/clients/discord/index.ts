@@ -185,7 +185,7 @@ discordClient.on("messageCreate", async (msg) => {
 
   // Skip messages from bots and ensure we're in a guild
   if (msg.author.bot || !msg.guild) return;
-  const isBotQuery = msg.mentions.has(discordClient.user?.id ?? "");
+  const isBotQuery = msg.mentions.users.has(discordClient.user?.id ?? "");
 
   // Check for report generation command
   if (isBotQuery && cleanContent.toLowerCase().startsWith("!report")) {
