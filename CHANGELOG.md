@@ -1,3 +1,10 @@
+## [0.27.3](https://github.com/open-format/community-agent/compare/v0.27.2...v0.27.3) (2025-04-22)
+
+
+### Bug Fixes
+
+* **discord:** increase topK parameter in report command to return more results ([4e75ec6](https://github.com/open-format/community-agent/commit/4e75ec62c9cf1c91663ea8fabcd4421f52d7ce03))
+
 ## [0.27.2](https://github.com/open-format/community-agent/compare/v0.27.1...v0.27.2) (2025-04-22)
 
 
