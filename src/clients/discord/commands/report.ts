@@ -37,7 +37,7 @@ export async function handleReportCommand(msg: Message) {
       return;
     }
 
-    const report = results[0].metadata;
+    const report = results.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp)[0].metadata;
     const nextReportDate = dayjs(report.timestamp).add(7, "days");
 
     const embed = new EmbedBuilder()
