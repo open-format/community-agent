@@ -1,3 +1,10 @@
+## [0.27.2](https://github.com/open-format/community-agent/compare/v0.27.1...v0.27.2) (2025-04-22)
+
+
+### Bug Fixes
+
+* **discord:** update report command to return the most recent report based on timestamp ([7850ed4](https://github.com/open-format/community-agent/commit/7850ed4a0c590879fd847a1297b30c27bd06de54))
+
 ## [0.27.1](https://github.com/open-format/community-agent/compare/v0.27.0...v0.27.1) (2025-04-17)
 
 
