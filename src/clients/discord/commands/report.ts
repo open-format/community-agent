@@ -13,7 +13,7 @@ export async function handleReportCommand(msg: Message) {
     const results: { metadata: ReportData; score: number }[] = await vectorStore.query({
       indexName: "impact_reports",
       queryVector: new Array(1536).fill(0),
-      topK: 1,
+      topK: 100,
       includeMetadata: true,
       filter: {
         platformId: msg.guild.id,
