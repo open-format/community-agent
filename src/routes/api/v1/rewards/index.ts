@@ -1,6 +1,6 @@
 import { mastra } from "@/agent";
 import { db } from "@/db";
-import { pendingRewards } from "@/db/schema";
+import { communities, pendingRewards } from "@/db/schema";
 import {
   ReportStatus,
   createReportJob,
@@ -12,6 +12,7 @@ import {
 import { OpenAPIHono } from "@hono/zod-openapi";
 import dayjs from "dayjs";
 import { and, eq, sql } from "drizzle-orm";
+import { isAddress } from "viem";
 import {
   deletePendingReward,
   getPendingRewards,
@@ -164,8 +165,23 @@ rewardsRoute.openapi(getPendingRewards, async (c) => {
       return c.json({ message: "Community ID is required" }, 400);
     }
 
-    // Build the query conditions
-    const conditions = [eq(pendingRewards.community_id, community_id)];
+    // First get the community by id or communityContractAddress
+    const [community] = await db
+      .select()
+      .from(communities)
+      .where(
+        isAddress(community_id)
+          ? eq(communities.communityContractAddress, community_id)
+          : eq(communities.id, community_id),
+      )
+      .limit(1);
+
+    if (!community) {
+      return c.json({ message: "Community not found" }, 404);
+    }
+
+    const conditions = [eq(pendingRewards.community_id, community.id)];
+
     if (status) {
       conditions.push(eq(pendingRewards.status, status as "pending" | "processed" | "failed"));
     }
