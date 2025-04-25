@@ -46,3 +46,15 @@ export async function getCommunityWallet(communityId: string) {
     privy,
   });
 }
+
+export function publicClientByChainName(chainName: string) {
+  switch (chainName) {
+    case "arbitrum-sepolia":
+      return createPublicClient({
+        chain: arbitrumSepolia,
+        transport: http(),
+      });
+    default:
+      throw new Error(`Unsupported chain: ${chainName}`);
+  }
+}

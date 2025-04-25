@@ -4,7 +4,7 @@ if (!process.env.PRIVY_APP_ID || !process.env.PRIVY_APP_SECRET) {
   throw new Error("Privy app ID or secret is not set");
 }
 
-const privyClient = new PrivyClient(process.env.PRIVY_APP_ID, process.env.PRIVY_APP_SECRET);
+export const privyClient = new PrivyClient(process.env.PRIVY_APP_ID, process.env.PRIVY_APP_SECRET);
 
 export async function findUserByHandle(handle: string): Promise<{
   discord?: {

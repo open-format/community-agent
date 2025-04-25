@@ -10,6 +10,8 @@ import { embed } from "ai";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
 import { and, eq } from "drizzle-orm";
+import { registerCommandsForGuild } from "./commands";
+import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
 
 const discordClient = new Client({
@@ -51,6 +53,8 @@ discordClient.on("guildCreate", async (guild) => {
   if (!fetchHistoricalMessagesTool.execute) {
     throw new Error("Historical messages tool not initialized");
   }
+
+  await registerCommandsForGuild(guild.id, guild.name, discordClient);
 
   await fetchHistoricalMessagesTool.execute({
     context: {
@@ -155,12 +159,45 @@ discordClient.on("guildDelete", async (guild) => {
 
 discordClient.on("ready", async () => {
   console.log(`Logged in as ${discordClient.user?.username}`);
-
-  // Log all servers the bot is in
   console.log(`Bot is in ${discordClient.guilds.cache.size} servers:`);
 
+  // Register commands for each guild
   for (const guild of discordClient.guilds.cache.values()) {
     console.log(`- ${guild.name} (ID: ${guild.id}) with ${guild.memberCount} members`);
+    await registerCommandsForGuild(guild.id, guild.name, discordClient);
+  }
+});
+
+// Add interactionCreate event handler for slash commands
+discordClient.on("interactionCreate", async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    await handleAutocomplete(interaction);
+    return;
+  }
+
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = discordClient.commands?.get(interaction.commandName);
+
+  if (!command) {
+    console.error(`No command matching ${interaction.commandName} was found.`);
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(`Error executing ${interaction.commandName}:`, error);
+    const reply = {
+      content: "There was an error while executing this command!",
+      ephemeral: true,
+    };
+
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(reply);
+    } else {
+      await interaction.reply(reply);
+    }
   }
 });
 

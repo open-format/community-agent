@@ -18,6 +18,7 @@ export const communities = pgTable("communities", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   communityContractAddress: text("community_contract_address"),
+  communityContractChain: text("community_contract_chain"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
 });
@@ -50,6 +51,36 @@ export const platformConnections = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },
   (table) => [index("platform_idx").on(table.platformId, table.platformType)],
+);
+
+export const platformPermissions = pgTable(
+  "platform_permissions",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    platformConnectionId: uuid("platform_connection_id")
+      .notNull()
+      .references(() => platformConnections.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    roleId: text("role_id").notNull(), // Discord role ID
+    roleName: text("role_name").notNull(), // Discord role name
+    command: text("command").notNull(),
+    // Token permission fields
+    tokenAddress: text("token_address").notNull(), // The address of the ERC20 token
+    maxAmount: text("max_amount"), // Maximum amount this role can send (null means unlimited)
+    dailyLimit: text("daily_limit"), // Daily limit for this role
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    // Index for quick lookups by platform connection, role, and token
+    index("platform_permissions_lookup_idx").on(
+      table.platformConnectionId,
+      table.roleId,
+      table.tokenAddress,
+    ),
+  ],
 );
 
 export const pendingRewards = pgTable(
@@ -87,10 +118,18 @@ export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
 }));
 
-export const platformConnectionsRelations = relations(platformConnections, ({ one }) => ({
+export const platformConnectionsRelations = relations(platformConnections, ({ one, many }) => ({
   community: one(communities, {
     fields: [platformConnections.communityId],
     references: [communities.id],
+  }),
+  permissions: many(platformPermissions),
+}));
+
+export const platformPermissionsRelations = relations(platformPermissions, ({ one }) => ({
+  platformConnection: one(platformConnections, {
+    fields: [platformPermissions.platformConnectionId],
+    references: [platformConnections.id],
   }),
 }));
 

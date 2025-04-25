@@ -86,9 +86,9 @@ export const updateCommunity = createRoute({
   method: "put",
   path: "/{id}",
   request: {
-    params: z.object({
-      id: addressSchema,
-    }),
+    // params: z.object({
+    //   id: addressSchema,
+    // }),
     body: {
       content: {
         "application/json": {

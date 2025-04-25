@@ -1,8 +1,9 @@
-import { type Client, REST, Routes } from "discord.js";
-import { verifyCommand } from "./verify";
+import { type AutocompleteInteraction, type Client, Collection, REST, Routes } from "discord.js";
+import { recommendationsCommand } from "./recommendations";
+import { sendCommand } from "./send";
 
 // Create proper command objects with both data and execute properties
-const commands = [verifyCommand];
+const commands = [sendCommand, recommendationsCommand];
 
 // Add new function to register commands for a single guild
 export async function registerCommandsForGuild(
@@ -10,6 +11,11 @@ export async function registerCommandsForGuild(
   guildName: string,
   discordClient: Client,
 ) {
+  // Initialize the commands collection if it doesn't exist
+  if (!discordClient.commands) {
+    discordClient.commands = new Collection();
+  }
+
   const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN as string);
 
   try {
@@ -26,5 +32,12 @@ export async function registerCommandsForGuild(
     console.log(`Slash commands registered successfully for guild: ${guildName}`);
   } catch (error) {
     console.error(`Error registering slash commands for guild ${guildName}:`, error);
+  }
+}
+
+// Add this to handle autocomplete
+export async function handleAutocomplete(interaction: AutocompleteInteraction) {
+  if (interaction.commandName === "send" && interaction.options.getFocused(true).name === "token") {
+    await sendCommand.autocomplete(interaction);
   }
 }
