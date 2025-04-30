@@ -165,6 +165,7 @@ rewardsRoute.openapi(getPendingRewards, async (c) => {
       return c.json({ message: "Community ID is required" }, 400);
     }
 
+    // First get the community by id or communityContractAddress
     const [community] = await db
       .select()
       .from(communities)
@@ -179,7 +180,6 @@ rewardsRoute.openapi(getPendingRewards, async (c) => {
       return c.json({ message: "Community not found" }, 404);
     }
 
-    // Build the query conditions
     const conditions = [eq(pendingRewards.community_id, community.id)];
 
     if (status) {
