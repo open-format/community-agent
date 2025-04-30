@@ -1,9 +1,10 @@
+import { ChainName, openFormatChain, turboChain } from "@/constants/chains";
 import { PrivyClient } from "@privy-io/server-auth";
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import { eq } from "drizzle-orm";
-import { createPublicClient, createWalletClient, http, type Address } from "viem";
+import { Account, type Address, createPublicClient, createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { arbitrumSepolia } from "viem/chains";
+import { arbitrumSepolia, aurora, base, matchain } from "viem/chains";
 import { db } from "../db";
 import { communities } from "../db/schema";
 
@@ -47,14 +48,45 @@ export async function getCommunityWallet(communityId: string) {
   });
 }
 
-export function publicClientByChainName(chainName: string) {
-  switch (chainName) {
-    case "arbitrum-sepolia":
-      return createPublicClient({
-        chain: arbitrumSepolia,
-        transport: http(),
-      });
-    default:
-      throw new Error(`Unsupported chain: ${chainName}`);
+export function getPublicClientByChainName(chainName: string) {
+  const chainMap = {
+    [ChainName.ARBITRUM_SEPOLIA]: arbitrumSepolia,
+    [ChainName.AURORA]: aurora,
+    [ChainName.BASE]: base,
+    [ChainName.TURBO]: turboChain,
+    [ChainName.MATCHAIN]: matchain,
+    [ChainName.OPENFORMAT]: openFormatChain,
+  };
+
+  const chain = chainMap[chainName as ChainName];
+  if (!chain) {
+    throw new Error(`Unsupported chain: ${chainName}`);
   }
+
+  return createPublicClient({
+    chain,
+    transport: http(),
+  });
+}
+
+export function getWalletClientByChainName(chainName: string, account: Account) {
+  const chainMap = {
+    [ChainName.ARBITRUM_SEPOLIA]: arbitrumSepolia,
+    [ChainName.AURORA]: aurora,
+    [ChainName.BASE]: base,
+    [ChainName.TURBO]: turboChain,
+    [ChainName.MATCHAIN]: matchain,
+    [ChainName.OPENFORMAT]: openFormatChain,
+  };
+
+  const chain = chainMap[chainName as ChainName];
+  if (!chain) {
+    throw new Error(`Unsupported chain: ${chainName}`);
+  }
+
+  return createWalletClient({
+    chain,
+    account,
+    transport: http(),
+  });
 }
