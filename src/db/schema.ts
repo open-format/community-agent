@@ -21,6 +21,7 @@ export const communities = pgTable("communities", {
   communityContractChain: text("community_contract_chain"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
+  slug: text("slug").default(""),
 });
 
 export const users = pgTable("users", {
@@ -64,7 +65,6 @@ export const platformPermissions = pgTable(
         onUpdate: "cascade",
       }),
     roleId: text("role_id").notNull(), // Discord role ID
-    roleName: text("role_name").notNull(), // Discord role name
     command: text("command").notNull(),
     // Token permission fields
     tokenAddress: text("token_address").notNull(), // The address of the ERC20 token
