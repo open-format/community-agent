@@ -8,7 +8,7 @@ import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
 import dayjs from "dayjs";
-import { Client, GatewayIntentBits, type Message, Partials } from "discord.js";
+import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
 import { and, eq } from "drizzle-orm";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
@@ -190,13 +190,12 @@ discordClient.on("interactionCreate", async (interaction) => {
     console.error(`Error executing ${interaction.commandName}:`, error);
     const reply = {
       content: "There was an error while executing this command!",
-      ephemeral: true,
     };
 
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply);
+      await interaction.followUp({ content: reply.content, flags: MessageFlags.Ephemeral });
     } else {
-      await interaction.reply(reply);
+      await interaction.reply({ content: reply.content, flags: MessageFlags.Ephemeral });
     }
   }
 });
