@@ -5,6 +5,7 @@ import { createUnixTimestamp } from '@/utils/time';
 import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import { createPlatformConnection, deletePlatformConnection } from '@/db/commons/platform';
+import { VerificationResult, verifyCommunity } from '@/lib/verification';
 
 const telegramOptions = {
   telegram: {
@@ -12,6 +13,10 @@ const telegramOptions = {
   },
 };
 const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!, telegramOptions);
+
+// TODO: Change texts
+telegramClient.start((ctx) => {ctx.reply('Hello.')});
+telegramClient.help((ctx) => ctx.reply('I am OPENFORMAT telegram bot. I only work in group chats.'))
 
 telegramClient.on(message('new_chat_members'), async (ctx) => {
   try {
@@ -38,6 +43,63 @@ telegramClient.on('my_chat_member', async (ctx) => {
     console.log(`Telegram Bot removed from Chat: ${ctx.chat.id}`);
 
     await deletePlatformConnection(chat.id.toString(), "telegram");
+  }
+});
+
+telegramClient.command('link_community', async (ctx) => {
+  const chat = ctx.chat;
+  const messageText = ctx.message.text;
+  const args = messageText.split(' ').slice(1); // Extract arguments after the command
+  const platformId = chat.id.toString();
+
+  // Ensure the command is executed in a group
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) {
+    return ctx.reply('Command /link_community can only be used in a group.');
+  }
+
+  // Check if the user is an administrator
+  const userId = ctx.from.id;
+  try {
+    const administrators = await ctx.telegram.getChatAdministrators(chat.id);
+    const isAdmin = administrators.some((admin) => admin.user.id === userId);
+
+    if (!isAdmin) {
+      return ctx.reply('Command /link_community can only be executed by the group Administrators.');
+    }
+  } catch (error) {
+    console.error('Error fetching group administrators:', error);
+    return ctx.reply('An error occurred while verifying administrator privileges. Please try again later.');
+  }
+
+  if (args.length === 0) {
+    return ctx.reply('Please provide a verification code. Usage: /link_community <verification_code>');
+  }
+
+  const code = args[0];
+
+  try {
+    const verificationResult = await verifyCommunity(code, platformId);
+
+    try {
+      // Just try to delete message with the code
+      await ctx.deleteMessage();
+    } catch (err) {
+      // No problem, we do not have permissions for that in this group.
+    }
+
+    if ( VerificationResult.FAILED === verificationResult ) {
+      return ctx.reply("Invalid or expired verification code.");
+    }
+    
+    if (VerificationResult.USED === verificationResult ) {
+      return ctx.reply("This verification code has already been used.");
+    }
+
+    return ctx.reply("✅ Server verified successfully! Your server is now linked to the community.");
+    
+  } catch (error) {
+    console.error('Error linking community:', error);
+    ctx.reply('An error occurred while linking the community. Please try again later.');
   }
 });
 
@@ -69,6 +131,7 @@ telegramClient.on('message', async (ctx) => {
     if (!messageText) {
       return; // No message to store
     }
+
     // userID
     const userId = ctx.from.id.toString();
     // Get user name
@@ -125,13 +188,6 @@ telegramClient.on('message', async (ctx) => {
       }
     }
   }
-});
-
-telegramClient.launch({ dropPendingUpdates: true }).then(async () => {
-  console.log('Telegram bot launched');
-  const botInfo = await telegramClient.telegram.getMe();
-  console.log(`Telgram Bot username: @${botInfo.username}`);
-
 });
 
 telegramClient.catch((err, ctx) => {

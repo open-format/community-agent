@@ -20,6 +20,10 @@ export function ensureClients() {
         console.log('Discord client configured');
     }
     if (CLIENTS.telegram) {
+        telegramClient.launch({ dropPendingUpdates: true });
+        telegramClient.telegram.setMyCommands([
+            { command: 'link_community', description: 'Link a community with a verification code' },
+        ]);    
         console.log('Telegram client configured');
     }
 }
