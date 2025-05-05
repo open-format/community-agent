@@ -1,8 +1,9 @@
 import { vectorStore } from "@/agent/stores";
 import { createTool } from "@mastra/core";
 import dayjs from "dayjs";
-import { Client, GatewayIntentBits } from "discord.js";
 import { z } from "zod";
+import { buildChannelNameMap } from "./clients/discord";
+import { buildChannelNameMap as buildChannelNameMapTelegram } from "./clients/telegram";
 
 export const getMessagesTool = createTool({
   id: "get-messages",
@@ -124,7 +125,12 @@ export const getMessagesTool = createTool({
       const sortedMessages = queryResults.sort(
         (a, b) => b.metadata.timestamp - a.metadata.timestamp,
       );
+      const platform = sortedMessages[0].metadata.platform;
 
+      if (platform !== "discord" && platform !== "telegram") {
+        throw new Error(`Unsopported platform: ${platform}`);
+      }
+      
       // Generate transcript
       const transcript = await formatMessagesByChannel(
         sortedMessages,
@@ -181,9 +187,18 @@ export const getMessagesTool = createTool({
             }
           }
         }
-
         // Get channel names
-        const channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
+        let channelNameMap = null;
+        switch (platform) {
+          case "discord":
+            channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
+            break;
+          case "telegram":
+            channelNameMap = await buildChannelNameMapTelegram([...channelCountMap.keys()]);
+            break;            
+          default:
+            throw new Error(`Platform not supported: ${platform}`)
+        }
 
         return {
           transcript,
@@ -264,7 +279,7 @@ function formatMessagesChronologically(
     const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
     const channelMessages = msgs
       .map((msg) => {
-        const messageIdPart = includeMessageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : "";
+        const messageIdPart = includeMessageId ? ` [MESSAGE_ID=${msg.messageId}]` : "";
         return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
       })
       .join("\n");
@@ -281,44 +296,4 @@ async function formatMessagesByChannel(
   includeMessageId?: boolean,
 ): Promise<string> {
   return formatMessagesChronologically(messages, platformId, includeMessageId);
-}
-
-async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
-  const channelMap = new Map<string, string>();
-
-  try {
-    const client = new Client({ intents: [GatewayIntentBits.Guilds] });
-    await client.login(process.env.DISCORD_TOKEN);
-    await new Promise((resolve) => client.once("ready", resolve));
-
-    try {
-      // Filter out "unknown-channel" before making API calls
-      const validChannelIds = channelIds.filter((id) => id !== "unknown-channel");
-
-      await Promise.all(
-        validChannelIds.map(async (channelId) => {
-          try {
-            const channel = await client.channels.fetch(channelId);
-            if (channel && "name" in channel && channel.name) {
-              channelMap.set(channelId, channel.name);
-            } else {
-              channelMap.set(channelId, "unknown");
-            }
-          } catch (error) {
-            console.error(`Failed to fetch channel name for ${channelId}:`, error);
-            channelMap.set(channelId, "unknown");
-          }
-        }),
-      );
-
-      // Set unknown-channel explicitly
-      channelMap.set("unknown-channel", "Unknown Channel");
-    } finally {
-      client.destroy();
-    }
-  } catch (error) {
-    console.error("Failed to initialize Discord client:", error);
-  }
-
-  return channelMap;
 }

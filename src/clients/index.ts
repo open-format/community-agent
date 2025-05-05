@@ -23,6 +23,7 @@ export function ensureClients() {
         telegramClient.launch({ dropPendingUpdates: true });
         telegramClient.telegram.setMyCommands([
             { command: 'link_community', description: 'Link a community with a verification code' },
+            { command: 'report', description: 'Show latest report for this community' },
         ]);    
         console.log('Telegram client configured');
     }
