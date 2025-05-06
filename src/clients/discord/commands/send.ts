@@ -11,6 +11,7 @@ import type {
   AutocompleteInteraction,
   ChatInputCommandInteraction,
   GuildMemberRoleManager,
+  TextChannel,
 } from "discord.js";
 import { MessageFlags, SlashCommandBuilder } from "discord.js";
 import { and, eq } from "drizzle-orm";
@@ -112,11 +113,13 @@ export const sendCommand = {
   },
 
   async execute(interaction: ChatInputCommandInteraction) {
+    // Defer the reply immediately to prevent timeout
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     try {
       if (!interaction.guildId) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "This command can only be used in a server.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -127,9 +130,8 @@ export const sendCommand = {
       const tag = interaction.options.getString("tag", true);
 
       if (receiver.bot) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "Cannot send tokens to bot users.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -152,9 +154,8 @@ export const sendCommand = {
           });
 
           if (!privyUser?.wallet?.address) {
-            return interaction.reply({
+            return interaction.editReply({
               content: "Failed to create wallet for user. Please try again later.",
-              flags: MessageFlags.Ephemeral,
             });
           }
 
@@ -163,9 +164,8 @@ export const sendCommand = {
           };
         } catch (error) {
           console.error("Error creating user wallet:", error);
-          return interaction.reply({
+          return interaction.editReply({
             content: "Failed to create user wallet. Please try again later.",
-            flags: MessageFlags.Ephemeral,
           });
         }
       }
@@ -180,9 +180,8 @@ export const sendCommand = {
       });
 
       if (!platformConnection) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "This server is not properly configured.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -190,18 +189,16 @@ export const sendCommand = {
         !platformConnection.community?.communityContractChain ||
         !platformConnection.community?.communityContractAddress
       ) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "Community configuration is missing.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
       const chain = getChain(platformConnection.community.communityContractChain as ChainName);
 
       if (!chain) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "Invalid chain configuration.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -210,9 +207,8 @@ export const sendCommand = {
       const communityWalletAddress = platformConnection.community.communityWalletAddress;
 
       if (!communityWalletId || !communityWalletAddress) {
-        return interaction.reply({
+        return interaction.editReply({
           content: "Community wallet configuration is missing.",
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -239,9 +235,8 @@ export const sendCommand = {
       const maxAllowed = Number(userPermission?.maxAmount) ?? 100;
 
       if (amount > maxAllowed) {
-        return interaction.reply({
+        return interaction.editReply({
           content: `You cannot send more than ${maxAllowed} tokens.`,
-          flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -266,7 +261,7 @@ export const sendCommand = {
           transactionHash = await walletClient.writeContract(request);
         } catch (err) {
           const error = handleViemError(err, "execution");
-          return interaction.reply(formatViemErrorForDiscord(error));
+          return interaction.editReply(formatViemErrorForDiscord(error));
         }
 
         const blockExplorerUrl = chain?.BLOCK_EXPLORER_URL;
@@ -274,59 +269,67 @@ export const sendCommand = {
         const communityUrl = `${process.env.PLATFORM_URL}/${communitySlug}`;
         const transactionUrl = `${blockExplorerUrl}/tx/${transactionHash}`;
 
-        return interaction.reply({
-          embeds: [
-            {
-              title: `🎉 ${tokenLabel} Sent!`,
-              color: 0x00ff00,
-              fields: [
+        if (interaction?.channel?.isTextBased()) {
+          if (interaction.channel.type === 0) {
+            const textChannel = interaction.channel as TextChannel;
+            await textChannel.send({
+              embeds: [
                 {
-                  name: "Recipient",
-                  value: `<@${receiver.id}>`,
-                  inline: true,
-                },
-                {
-                  name: "Reward",
-                  value: `${amount} ${tokenLabel}`,
-                  inline: true,
-                },
-                {
-                  name: "Reason",
-                  value: tag,
-                  inline: true,
-                },
-                {
-                  name: "Already connected your Discord?",
-                  value: "Your tokens are already in your connected wallet.",
-                  inline: false,
-                },
-                {
-                  name: "Haven't connected your Discord yet?",
-                  value: `A secure wallet has been created for you and your ${amount} ${tokenLabel} are waiting for you. Connect your Discord in the [Community Page](${communityUrl}) to claim the wallet.`,
-                  inline: false,
-                },
-                {
-                  name: "Links",
-                  value: `[View Transaction](${transactionUrl}) • [Community Page](${communityUrl})`,
-                  inline: false,
+                  title: `🎉 ${tokenLabel} Sent!`,
+                  color: 0x00ff00,
+                  fields: [
+                    {
+                      name: "Recipient",
+                      value: `<@${receiver.id}>`,
+                      inline: true,
+                    },
+                    {
+                      name: "Reward",
+                      value: `${amount} ${tokenLabel}`,
+                      inline: true,
+                    },
+                    {
+                      name: "Reason",
+                      value: tag,
+                      inline: true,
+                    },
+                    {
+                      name: "Already connected your Discord?",
+                      value: "Your tokens are already in your connected wallet.",
+                      inline: false,
+                    },
+                    {
+                      name: "Haven't connected your Discord yet?",
+                      value: `A secure wallet has been created for you and your ${amount} ${tokenLabel} are waiting for you. Connect your Discord in the [Community Page](${communityUrl}) to claim the wallet.`,
+                      inline: false,
+                    },
+                    {
+                      name: "Links",
+                      value: `[View Transaction](${transactionUrl}) • [Community Page](${communityUrl})`,
+                      inline: false,
+                    },
+                  ],
+                  footer: {
+                    text: "Powered by Open Format",
+                  },
+                  timestamp: new Date().toISOString(),
                 },
               ],
-              footer: {
-                text: "Powered by Open Format",
-              },
-              timestamp: new Date().toISOString(),
-            },
-          ],
+            });
+          }
+        }
+
+        return interaction.editReply({
+          content: "Tokens sent successfully!",
         });
       } catch (err) {
         const error = handleViemError(err, "simulation");
-        return interaction.reply(formatViemErrorForDiscord(error));
+        return interaction.editReply(formatViemErrorForDiscord(error));
       }
     } catch (error) {
       console.error("Command execution error:", error);
-      return interaction.reply({
+      return interaction.editReply({
         content: "An unexpected error occurred. Please try again.",
-        flags: MessageFlags.Ephemeral,
       });
     }
   },
