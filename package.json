@@ -24,7 +24,7 @@
     "@mastra/pg": "^0.2.1",
     "@mastra/rag": "^0.1.9",
     "@octokit/webhooks": "^13.6.0",
-    "@privy-io/server-auth": "^1.18.12",
+    "@privy-io/server-auth": "^1.21.1",
     "@thirdweb-dev/storage": "^2.0.15",
     "@types/pg": "^8.11.11",
     "ai": "^4.1.61",
