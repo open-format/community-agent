@@ -1,3 +1,10 @@
+## [0.28.1](https://github.com/open-format/community-agent/compare/v0.28.0...v0.28.1) (2025-05-08)
+
+
+### Bug Fixes
+
+* **impact:** update evidence array validation to require at least one entry ([bcaa9a5](https://github.com/open-format/community-agent/commit/bcaa9a56013d712fa7e6b60fc686fc5231bf95aa))
+
 # [0.28.0](https://github.com/open-format/community-agent/compare/v0.27.3...v0.28.0) (2025-05-06)
 
 
