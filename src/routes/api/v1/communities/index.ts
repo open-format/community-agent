@@ -1,10 +1,10 @@
 import { db } from "@/db";
 import { communities, platformConnections } from "@/db/schema";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { isAddress } from "viem";
 import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
+import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
