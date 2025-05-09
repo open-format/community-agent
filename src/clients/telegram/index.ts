@@ -6,6 +6,7 @@ import { openai } from '@ai-sdk/openai';
 import { embed } from 'ai';
 import { createPlatformConnection, deletePlatformConnection } from '@/db/commons/platform';
 import { VerificationResult, verifyCommunity } from '@/lib/verification';
+import { escapeMarkdownV2, getReport } from './commands/report';
 
 const telegramOptions = {
   telegram: {
@@ -103,6 +104,39 @@ telegramClient.command('link_community', async (ctx) => {
   }
 });
 
+telegramClient.command('report', async (ctx) => {
+  const chat = ctx.chat;
+
+  // Ensure the command is executed in a group
+  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) {
+    return ctx.reply('Command /report can only be used in a group.');
+  }
+
+  // Check if the user is an administrator
+  const userId = ctx.from.id;
+  try {
+    const administrators = await ctx.telegram.getChatAdministrators(chat.id);
+    const isAdmin = administrators.some((admin) => admin.user.id === userId);
+
+    if (!isAdmin) {
+      return ctx.reply('Command /report can only be executed by the group Administrators.');
+    }
+  } catch (error) {
+    console.error('Error fetching group administrators:', error);
+    return ctx.reply('An error occurred while verifying administrator privileges. Please try again later.');
+  }
+
+  try {
+    const report = await getReport(ctx.chat.id.toString());
+    ctx.reply(report, { parse_mode: 'MarkdownV2' });
+
+  } catch (error) {
+    console.error('Error showing report:', error);
+    ctx.reply('An error occurred while showing the report. Please try again later.');
+  }
+});
+
+
 telegramClient.on('message', async (ctx) => {
   try {  
     if (!ctx.chat?.id) {
@@ -157,7 +191,7 @@ telegramClient.on('message', async (ctx) => {
       authorUsername: userName,
       channelId: chatId,
       threadId: messageId,
-      timestamp: createUnixTimestamp((message.date*1000).toString()),
+      timestamp: message.date*1000,
       text: messageText,
       isBotQuery: message.from.is_bot,
       isReaction: false,
