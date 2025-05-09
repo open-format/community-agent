@@ -1,0 +1,393 @@
+{
+  "info": {
+    "_postman_id": "3a32cbad-f9c7-4787-9df2-cf3942d426bc",
+    "name": "Open Format - Agent API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "43680177"
+  },
+  "item": [
+    {
+      "name": "Communities",
+      "item": [
+        {
+          "name": "POST /api/v1/communities",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": {\n      \"type\": \"string\"\n    },\n    \"description\": {\n      \"type\": \"string\"\n    },\n    \"walletId\": {\n      \"type\": \"string\"\n    },\n    \"walletAddress\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"name\",\n    \"description\",\n    \"walletId\",\n    \"walletAddress\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/communities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "communities"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/communities/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/communities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "communities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/v1/communities/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"name\": {\n      \"type\": \"string\"\n    },\n    \"description\": {\n      \"type\": \"string\"\n    },\n    \"walletId\": {\n      \"type\": \"string\"\n    },\n    \"walletAddress\": {\n      \"type\": \"string\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/communities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "communities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/communities/verify/generate-code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"community_id\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"community_id\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/communities/verify/generate-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "communities", "verify", "generate-code"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Automations",
+      "item": [
+        {
+          "name": "GET /api/v1/automations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/automations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "automations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/automations",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"communityId\": {\n      \"type\": \"string\"\n    },\n    \"eventType\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"connect_account\",\n        \"voice_channel_join\"\n      ]\n    },\n    \"rewardType\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"token\",\n        \"badge\"\n      ]\n    },\n    \"rewardAmount\": {\n      \"type\": \"string\"\n    },\n    \"rewardTokenAddress\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"communityId\",\n    \"eventType\",\n    \"rewardType\",\n    \"rewardAmount\",\n    \"rewardTokenAddress\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/automations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "automations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/automations/trigger",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"communityId\": {\n      \"type\": \"string\"\n    },\n    \"eventType\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"connect_account\",\n        \"voice_channel_join\"\n      ]\n    },\n    \"userId\": {\n      \"type\": \"string\"\n    },\n    \"metadata\": {\n      \"type\": \"object\",\n      \"additionalProperties\": {\n        \"nullable\": true\n      }\n    }\n  },\n  \"required\": [\n    \"communityId\",\n    \"eventType\",\n    \"userId\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/automations/trigger",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "automations", "trigger"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/v1/automations/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/automations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "automations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/automations/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/automations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "automations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "POST /api/v1/reports/impact",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/impact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "impact"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/impact",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "impact"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact/status/:jobId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/impact/status/:jobId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "impact", "status", ":jobId"],
+              "variable": [
+                {
+                  "key": "jobId"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact/:summaryId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/impact/:summaryId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "impact", ":summaryId"],
+              "variable": [
+                {
+                  "key": "summaryId"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Summaries",
+      "item": [
+        {
+          "name": "GET /api/v1/summaries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/summaries",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "summaries"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/summaries/query",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"query\": {\n      \"type\": \"string\"\n    },\n    \"platform_id\": {\n      \"type\": \"string\"\n    },\n    \"start_date\": {\n      \"type\": \"string\",\n      \"format\": \"date-time\"\n    },\n    \"end_date\": {\n      \"type\": \"string\",\n      \"format\": \"date-time\"\n    }\n  },\n  \"required\": [\n    \"query\",\n    \"platform_id\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/summaries/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "summaries", "query"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/summaries/historical-messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/summaries/historical-messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "summaries", "historical-messages"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "POST /api/v1/webhooks/github",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"payload\": {\n      \"nullable\": true\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/github",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "github"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{API_KEY}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_KEY",
+      "value": "ADD_API_KEY_HERE",
+      "type": "string"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    }
+  ]
+}

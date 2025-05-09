@@ -60,16 +60,29 @@ communitiesRoute.openapi(updateCommunity, async (c) => {
   const body = await c.req.json();
   const communityId = c.req.param("id");
 
+  // First find the community by either UUID or contract address
+  const [existingCommunity] = await db
+    .select()
+    .from(communities)
+    .where(
+      isAddress(communityId)
+        ? eq(communities.communityContractAddress, communityId)
+        : eq(communities.id, communityId),
+    )
+    .limit(1);
+
+  if (!existingCommunity) {
+    return c.json({ message: "Community not found" }, 404);
+  }
+
+  // Update the community using its primary key (id)
   const [result] = await db
-    .insert(communities)
-    .values({ ...body, id: communityId })
-    .onConflictDoUpdate({
-      target: communities.id,
-      set: {
-        ...body,
-        updatedAt: new Date(),
-      },
+    .update(communities)
+    .set({
+      ...body,
+      updatedAt: new Date(),
     })
+    .where(eq(communities.id, existingCommunity.id))
     .returning();
 
   return c.json(result);

@@ -1,13 +1,13 @@
+import { type ChainName, getChain } from "@/constants/chains";
 import { gql, request } from "graphql-request";
 import type { Address } from "viem";
 
-export const chainIdToSubgraphUrl = {
-  "arbitrum-sepolia":
-    "https://subgraph.satsuma-prod.com/7238a0e24f3c/openformat--330570/open-format-arbitrum-sepolia/version/v0.1.1/api",
-};
+export async function getCommunity(communityId: Address, chainId: keyof typeof ChainName) {
+  const GRAPHQL_URL = getChain(chainId as ChainName)?.SUBGRAPH_URL;
 
-export async function getCommunity(communityId: Address, chainId: keyof typeof chainIdToSubgraphUrl) {
-  const GRAPHQL_URL = chainIdToSubgraphUrl[chainId];
+  if (!GRAPHQL_URL) {
+    throw new Error("No subgraph URL found for chain");
+  }
 
   const query = gql`
     query ($communityId: ID!) {
@@ -28,4 +28,29 @@ export async function getCommunity(communityId: Address, chainId: keyof typeof c
   });
 
   return response.app;
+}
+
+export async function getToken(tokenId: Address, chainId: keyof typeof ChainName) {
+  const GRAPHQL_URL = getChain(chainId as ChainName)?.SUBGRAPH_URL;
+
+  if (!GRAPHQL_URL) {
+    throw new Error("No subgraph URL found for chain");
+  }
+
+  const query = gql`
+   query ($tokenId: ID!) {
+  fungibleTokens(where: {id: $tokenId}) {
+    id
+    name
+      }
+    }
+  `;
+
+  const response = await request<{
+    fungibleTokens: { id: string; name: string }[];
+  }>(GRAPHQL_URL, query, {
+    tokenId: tokenId.toLocaleLowerCase(),
+  });
+
+  return response.fungibleTokens;
 }
