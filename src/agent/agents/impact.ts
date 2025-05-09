@@ -30,7 +30,7 @@ const impactReportSchema = z.object({
     evidence: z.array(z.object({
       channelId: z.string(),
       messageId: z.string()
-    })).min(2).max(5)
+    })).min(1).max(5)
   })),
   userSentiment: z.object({
     excitement: z.array(z.object({

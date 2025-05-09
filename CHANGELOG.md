@@ -1,3 +1,28 @@
+## [0.28.1](https://github.com/open-format/community-agent/compare/v0.28.0...v0.28.1) (2025-05-08)
+
+
+### Bug Fixes
+
+* **impact:** update evidence array validation to require at least one entry ([bcaa9a5](https://github.com/open-format/community-agent/commit/bcaa9a56013d712fa7e6b60fc686fc5231bf95aa))
+
+# [0.28.0](https://github.com/open-format/community-agent/compare/v0.27.3...v0.28.0) (2025-05-06)
+
+
+### Bug Fixes
+
+* **discord:** improve send command response handling and defer replies ([8bde065](https://github.com/open-format/community-agent/commit/8bde065ca94451003ff86cd350ec4f106b878e12))
+
+
+### Features
+
+* **chains:** add new chain constants and utility functions ([bf66baa](https://github.com/open-format/community-agent/commit/bf66baafb23e6ebfc444fefa82c18c60d72d3686))
+* **communities:** update community by UUID or contract address ([799c5a9](https://github.com/open-format/community-agent/commit/799c5a92181efc26aa5cb52d4917eaaa03a29215))
+* **database:** update communities and platform_permissions schema ([4e2b014](https://github.com/open-format/community-agent/commit/4e2b014c801b70dd4137cfe79175ff6a0953ac12))
+* **discord:** enhance command registration and autocomplete handling ([05ae58a](https://github.com/open-format/community-agent/commit/05ae58a6fdb1302e90c23307591f0a8dcbff01a3))
+* **discord:** enhance send command functionality and error handling ([bb8d644](https://github.com/open-format/community-agent/commit/bb8d644c5a9c18bba2f0d87eae5503708ca80bbc))
+* **errors:** add error handling utilities for Viem integration ([0d7cd4f](https://github.com/open-format/community-agent/commit/0d7cd4fea63d80dfe0f32a0c0df02fd14f30aae6))
+* **viem:** enhance public and wallet client creation by supporting multiple chains ([5df8bb3](https://github.com/open-format/community-agent/commit/5df8bb39bfc713b56e388cb7c0ad901fcdd398d0))
+
 ## [0.27.3](https://github.com/open-format/community-agent/compare/v0.27.2...v0.27.3) (2025-04-22)
 
 
