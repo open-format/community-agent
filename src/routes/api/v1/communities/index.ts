@@ -87,7 +87,7 @@ communitiesRoute.openapi(getCommunity, async (c) => {
     platformConnections: connections,
     recommendations: pendingRewards,
     onchainData: onchainData,
-    snapshot: sortedResults,
+    snapshot: sortedResults[0],
   };
 
   return c.json(result);
