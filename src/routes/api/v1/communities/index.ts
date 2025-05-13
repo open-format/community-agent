@@ -75,11 +75,15 @@ communitiesRoute.openapi(getCommunity, async (c) => {
 
   const sortedResults = snapshot.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);
 
-  // Get onchain data from subgraph
-  const onchainData = await getCommunitySubgraphData(
-    community.communityContractAddress as Address,
-    community.communityContractChain as ChainName,
-  );
+  let onchainData = null;
+
+  if (community.communityContractAddress && community.communityContractChain) {
+    // Get onchain data from subgraph
+    onchainData = await getCommunitySubgraphData(
+      community.communityContractAddress as Address,
+      community.communityContractChain as ChainName,
+    );
+  }
 
   // Combine the results
   const result = {
