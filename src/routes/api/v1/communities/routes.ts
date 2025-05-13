@@ -1,6 +1,4 @@
-import { addressSchema } from "@/utils/schema";
 import { createRoute, z } from "@hono/zod-openapi";
-import { isAddress } from "viem";
 import { community, communityUpdate } from "./schema";
 
 export const getCommunity = createRoute({
@@ -8,10 +6,7 @@ export const getCommunity = createRoute({
   path: "/{id}",
   request: {
     params: z.object({
-      id: z.union([z.string().uuid(), addressSchema]).refine((val) => isAddress(val), {
-        message:
-          "Invalid community ID format. Please provide either a valid UUID or Ethereum address",
-      }),
+      id: z.string().describe("Community ID or Platform ID"),
     }),
   },
   responses: {

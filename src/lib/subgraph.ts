@@ -2,7 +2,10 @@ import { type ChainName, getChain } from "@/constants/chains";
 import { gql, request } from "graphql-request";
 import type { Address } from "viem";
 
-export async function getCommunity(communityId: Address, chainId: keyof typeof ChainName) {
+export async function getCommunitySubgraphData(
+  communityId: Address,
+  chainId: keyof typeof ChainName,
+) {
   const GRAPHQL_URL = getChain(chainId as ChainName)?.SUBGRAPH_URL;
 
   if (!GRAPHQL_URL) {
@@ -10,21 +13,37 @@ export async function getCommunity(communityId: Address, chainId: keyof typeof C
   }
 
   const query = gql`
-    query ($communityId: ID!) {
-      app(id: $communityId) {
+    query ($app: ID!) {
+    app(id: $app) {
+    id
+    name
+    owner {
+      id
+    }
+    badges(orderBy: createdAt, orderDirection: desc) {
+      id
+      name
+      metadataURI
+      totalAwarded
+      }
+      tokens {
         id
-        name
-        owner {
+        token {
           id
+          tokenType
+          name
+          symbol
+          createdAt
         }
       }
     }
+  }
   `;
 
   const response = await request<{
     app: { name: string; owner: { id: string } };
   }>(GRAPHQL_URL, query, {
-    communityId,
+    app: communityId.toLowerCase(),
   });
 
   return response.app;
