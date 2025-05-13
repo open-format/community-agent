@@ -128,7 +128,7 @@ telegramClient.command('report', async (ctx) => {
 
   try {
     const report = await getReport(ctx.chat.id.toString());
-    ctx.reply(report, { parse_mode: 'MarkdownV2' });
+    ctx.replyWithMarkdownV2(report);
 
   } catch (error) {
     console.error('Error showing report:', error);

@@ -28,9 +28,11 @@ Impact reports are generated every week. The next report will be available soon
   const report = results.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp)[0].metadata;
   const nextReportDate = dayjs(report.timestamp).add(7, "days");
 
+
+  // REPORT:
   return `*Community Impact Report*
   
-Latest insights from your community's activity
+_Latest insights from your community's activity_
 
 *📊 Overview*
 
@@ -44,7 +46,7 @@ ${report.topContributors
   .slice(0, 3)
   .map(
     (contributor) =>
-      `• ${contributor.username}: ${contributor.messageCount.toLocaleString()} messages`,
+      `• ${escapeMarkdownV2(contributor.username)}: ${contributor.messageCount.toLocaleString()} messages`,
   )
   .join("\n")}
 
@@ -52,7 +54,7 @@ ${report.topContributors
 
 ${report.keyTopics
   .slice(0, 3)
-  .map((topic) => `• ${topic.topic}`)
+  .map((topic) => `• ${escapeMarkdownV2(topic.topic)}`)
   .join("\n")}
 
 *📅 Next Report*
@@ -63,8 +65,7 @@ The next impact report will be generated on ${nextReportDate.format("MMMM D, YYY
 
 [View detailed report](${process.env.PLATFORM_URL}/reports/${report.summaryId})
 
-
-Report generated on ${dayjs(report.timestamp).format("MMMM D, YYYY")}
+_Report generated on ${dayjs(report.timestamp).format("MMMM D, YYYY")}_
 `;
 }
 
