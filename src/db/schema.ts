@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {index, integer, jsonb, pgTable, text, timestamp, uuid, varchar} from "drizzle-orm/pg-core";
+import {community} from "@/routes/api/v1/communities/schema";
 
 // Define ENUMs for event and reward types
 export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
@@ -7,6 +8,18 @@ export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
 export const REWARD_TYPES = ["token", "badge"] as const;
 
 export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
+
+export const community_roles = pgTable("community_roles", {
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+  communityId: uuid("community_id").references(() => communities.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  name: varchar('name', { length: 100 }).notNull().unique(),
+  description: text('description'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow()
+}, (table) => [index("rol_community_idx").on(table.id, table.communityId)]);
 
 export const communities = pgTable("communities", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
@@ -25,7 +38,7 @@ export const communities = pgTable("communities", {
 });
 
 export const users = pgTable("users", {
-  id: text("id").primaryKey(),
+  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   nickname: text("nickname"),
   skills: jsonb("skills").default([]),
   interests: jsonb("interests").default([]),
@@ -33,9 +46,16 @@ export const users = pgTable("users", {
   availabilityHours: integer("availability_hours"),
   timezone: text("timezone"),
   preferredContributionTypes: jsonb("preferred_contribution_types").default([]), // e.g., ["coding", "design", "writing", "mentoring"]
+  communityId: uuid("community_id").references(() => communities.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  did: text("did").unique().notNull(), // Privy DID, unique identifier
+  role: text("role").notNull(), // Role
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [index("user_community_idx").on(table.id, table.communityId)]);
 
 export const platformConnections = pgTable(
   "platform_connections",
@@ -138,4 +158,8 @@ export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
     fields: [pendingRewards.community_id],
     references: [communities.id],
   }),
+}));
+
+export const communityRolesRelations = relations(communities, ({ many }) => ({
+  communityToRoles: many(community_roles),
 }));
