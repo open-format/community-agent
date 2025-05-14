@@ -40,12 +40,6 @@ export const communities = pgTable("communities", {
 export const users = pgTable("users", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   nickname: text("nickname"),
-  skills: jsonb("skills").default([]),
-  interests: jsonb("interests").default([]),
-  socialLinks: jsonb("social_links").default({}),
-  availabilityHours: integer("availability_hours"),
-  timezone: text("timezone"),
-  preferredContributionTypes: jsonb("preferred_contribution_types").default([]), // e.g., ["coding", "design", "writing", "mentoring"]
   communityId: uuid("community_id").references(() => communities.id, {
     onDelete: "set null",
     onUpdate: "cascade",
