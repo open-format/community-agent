@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, communities } from "@/db/schema";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { getUser, createUser, updateUser, deleteUser } from "./routes";
@@ -30,14 +30,25 @@ usersRoute.openapi(createUser, async (c) => {
   const body = await c.req.json();
 
   // Check if users exists using Privy DID
-  const [community] = await db
+  const [user] = await db
     .select()
     .from(users)
     .where(eq(users.did, body.did))
     .limit(1);
 
-  if (community) {
+  if (user) {
     return c.json({message: "User already exists"}, 409);
+  }
+
+  // Check if community exists
+  const [existingCommunity] = await db
+    .select()
+    .from(communities)
+    .where(eq(communities.id, body.communityId))
+    .limit(1);
+
+  if (!existingCommunity) {
+    return c.json({message: "Bad request"}, 400);
   }
 
   const [result] = await db.insert(users).values(body).returning();
@@ -59,6 +70,17 @@ usersRoute.openapi(updateUser, async (c) => {
 
   if (!existingUser) {
     return c.json({message: "User not found"}, 404);
+  }
+
+  // Check if community exists
+  const [existingCommunity] = await db
+    .select()
+    .from(communities)
+    .where(eq(communities.id, body.communityId))
+    .limit(1);
+
+  if (!existingCommunity) {
+    return c.json({message: "Bad request"}, 400);
   }
 
   // Update the user using its Privy DID
