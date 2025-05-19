@@ -3,6 +3,11 @@ import { Telegraf } from 'telegraf';
 export async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
   const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!);
   const channelMap = new Map<string, string>();
+
+  if (channelIds.length === 0) {
+    return channelMap;
+  }
+  
   try {
     // Filter out "unknown-channel" before making API calls
     const validChannelIds = channelIds.filter((id) => id !== "unknown-channel");
@@ -32,4 +37,16 @@ export async function buildChannelNameMap(channelIds: string[]): Promise<Map<str
   }
 
   return channelMap;
+}
+
+export function getMessageURL(platformId: string, channelId: string, messageId: string) {
+  try {
+    const channelNumber = Number.parseInt(channelId);
+    const cId = ( channelNumber >= -1997852516352 && channelNumber <= -1000000000001 ) ? 
+      Math.abs(channelNumber) - 1000000000000 : channelNumber;
+    return `https://t.me/c/${cId}/${messageId}`
+
+  } catch (err) {
+    return `error creating message URL, channel: ${channelId}, message: ${messageId}`
+  }
 }

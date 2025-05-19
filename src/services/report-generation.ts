@@ -8,10 +8,19 @@ export async function generateReportInBackground(
   jobId: string,
   startTimestamp: number,
   endTimestamp: number,
-  platformId: string,
+  platformId?: string,
+  communityId?: string,
 ) {
   try {
     await updateReportJobStatus(jobId, ReportStatus.PROCESSING);
+
+    if (!platformId && !communityId) {
+      console.error("Workflow failed: no community or platform");
+      await updateReportJobStatus(jobId, ReportStatus.FAILED, {
+        error: "No community or platform specified.",
+      });
+      return;
+    }
 
     const workflow = mastra.getWorkflow("impactReportWorkflow");
     const { start } = workflow.createRun();
@@ -21,6 +30,7 @@ export async function generateReportInBackground(
         startDate: startTimestamp,
         endDate: endTimestamp,
         platformId: platformId,
+        communityId: communityId,
       },
     });
 

@@ -2,6 +2,10 @@ import { Client, GatewayIntentBits } from "discord.js";
 
 export async function buildChannelNameMap(channelIds: string[]): Promise<Map<string, string>> {
     const channelMap = new Map<string, string>();
+
+    if (channelIds.length === 0) {
+      return channelMap;
+    }
   
     try {
       const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -38,5 +42,9 @@ export async function buildChannelNameMap(channelIds: string[]): Promise<Map<str
     }
   
     return channelMap;
-  }
+}
+
+export function getMessageURL(platformId: string, channelId: string, messageId: string) {
+  return `https://discord.com/channels/${platformId}/${channelId}/${messageId}`;
+}
   

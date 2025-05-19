@@ -85,7 +85,7 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
     const start_timestamp = dayjs(start_date).valueOf();
     const end_timestamp = dayjs(end_date).valueOf();
 
-    await createReportJob(job_id, platform_id, start_timestamp, end_timestamp);
+    await createReportJob(job_id, platform_id, undefined, start_timestamp, end_timestamp);
 
     generateRewardsInBackground(job_id, community_id, platform_id, start_timestamp, end_timestamp);
 
