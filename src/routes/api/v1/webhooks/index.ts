@@ -1,4 +1,3 @@
-import discordClient from "@/clients/discord";
 import {
   contributionRewardEmbed,
   missingRewardOpportunityEmbed,
@@ -10,6 +9,7 @@ import type { TextChannel } from "discord.js";
 import type { Address } from "viem";
 import { parseEther } from "viem";
 import { postGithubWebhook } from "./routes";
+import { CLIENTS } from "@/clients";
 
 const webhooksRoute = new OpenAPIHono();
 
@@ -34,7 +34,7 @@ webhooksRoute.openapi(postGithubWebhook, async (c) => {
         // Only send Discord notification for public repos
         if (!payload.repository?.private) {
           try {
-            const channel = discordClient.channels.cache.get(
+            const channel = CLIENTS.discord.channels.cache.get(
               process.env.DISCORD_CHANNEL_ID as string,
             ) as TextChannel;
 
@@ -64,7 +64,7 @@ webhooksRoute.openapi(postGithubWebhook, async (c) => {
       // Only send Discord notification for public repos
       if (!payload.repository?.private) {
         try {
-          const channel = discordClient.channels.cache.get(
+          const channel = CLIENTS.discord.channels.cache.get(
             process.env.DISCORD_CHANNEL_ID as string,
           ) as TextChannel;
           if (channel) {

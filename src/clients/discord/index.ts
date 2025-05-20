@@ -1,15 +1,13 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
-import { db } from "@/db";
-import { communities, community_roles, platformConnections } from "@/db/schema";
 import { createUnixTimestamp } from "@/utils/time";
 import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
-import { and, eq } from "drizzle-orm";
+import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
@@ -65,112 +63,14 @@ discordClient.on("guildCreate", async (guild) => {
   });
 
   // Check if platform connection already exists
-  const existingConnection = await db.query.platformConnections.findFirst({
-    where: (connections, { eq }) =>
-      and(eq(connections.platformId, guild.id), eq(connections.platformType, "discord")),
-  });
-
-  try {
-    if (existingConnection) {
-      // Update if the connection exists and name is different or null/undefined
-      if (existingConnection.platformName !== guild.name || !existingConnection.platformName) {
-        await db
-          .update(platformConnections)
-          .set({ platformName: guild.name })
-          .where(eq(platformConnections.platformId, guild.id));
-        console.log(`Updated guild name for ${guild.name}`);
-      }
-
-      // Create community if none exists
-      if (!existingConnection.communityId) {
-        const [newCommunity] = await db
-          .insert(communities)
-          .values({
-            name: guild.name,
-          })
-          .returning();
-
-        // Create default admin role
-        await db.insert(community_roles).values({
-          communityId: newCommunity.id,
-          name: "Admin",
-          description: "Default administrator role with full permissions",
-        });
-
-        await db
-          .update(platformConnections)
-          .set({ communityId: newCommunity.id })
-          .where(eq(platformConnections.platformId, guild.id));
-
-        console.log(
-          `Created new community for ${guild.name} with default admin role and linked it to the platform connection`,
-        );
-      }
-    } else {
-      // Create new community
-      const [newCommunity] = await db
-        .insert(communities)
-        .values({
-          name: guild.name,
-        })
-        .returning();
-
-      // Create default admin role
-      await db.insert(community_roles).values({
-        communityId: newCommunity.id,
-        name: "Admin",
-        description: "Default administrator role with full permissions",
-      });
-
-      // Create new platform connection linked to the community
-      await db.insert(platformConnections).values({
-        communityId: newCommunity.id, // Link to community immediately
-        platformId: guild.id,
-        platformType: "discord",
-        platformName: guild.name,
-      });
-
-      console.log(
-        `Created new platform connection and community for ${guild.name} with default admin role`,
-      );
-    }
-  } catch (error) {
-    console.error(`Failed to setup guild ${guild.name}:`, error);
-  }
+  await createPlatformConnection(guild.id, guild.name, "discord");
 });
 
 discordClient.on("guildDelete", async (guild) => {
   console.log(`Bot left server: ${guild.name} (${guild.id})`);
 
-  // First, get the platform connection to find the communityId
-  const platformConnection = await db.query.platformConnections.findFirst({
-    where: (connections, { eq }) =>
-      and(eq(connections.platformId, guild.id), eq(connections.platformType, "discord")),
-  });
-
-  if (platformConnection) {
-    // First delete the platform connection
-    await db.delete(platformConnections).where(eq(platformConnections.platformId, guild.id));
-
-    // Then if there's an associated community, delete it
-    if (platformConnection.communityId) {
-      await db.delete(communities).where(eq(communities.id, platformConnection.communityId));
-    }
-  }
-
-  // find all messages in the database and delete them
-  const exists = await vectorStore.query({
-    indexName: "community_messages",
-    queryVector: new Array(1536).fill(0),
-    topK: 10000,
-    filter: {
-      platformId: guild.id,
-    },
-  });
-
-  for (const msg of exists) {
-    await vectorStore.deleteIndexById("community_messages", msg.id);
-  }
+  // Delete platform connection
+  await deletePlatformConnection(guild.id, "discord");
 });
 
 discordClient.on("ready", async () => {

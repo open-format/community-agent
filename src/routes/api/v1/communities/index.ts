@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { communities, community_roles, platformConnections } from "@/db/schema";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
+import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { isAddress } from "viem";

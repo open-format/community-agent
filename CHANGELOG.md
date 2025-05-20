@@ -1,3 +1,10 @@
+# [0.29.0](https://github.com/open-format/community-agent/compare/v0.28.1...v0.29.0) (2025-05-15)
+
+
+### Features
+
+* Added community verification mechanism ([dbf4107](https://github.com/open-format/community-agent/commit/dbf41076dd6a5d7d8e435e31183e2a2820611a0d))
+
 ## [0.28.1](https://github.com/open-format/community-agent/compare/v0.28.0...v0.28.1) (2025-05-08)
 
 
