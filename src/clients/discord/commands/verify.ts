@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
-import { getVerificationData, markCodeAsUsed, storeGuildVerification } from "@/lib/redis";
+import { VerificationResult, verifyCommunity } from "@/lib/verification";
 import type { ChatInputCommandInteraction } from "discord.js";
 import { MessageFlags, PermissionsBitField, SlashCommandBuilder } from "discord.js";
 import { eq } from "drizzle-orm";
@@ -38,49 +38,19 @@ export const verifyCommand = {
     }
 
     // Verify the code
-    const data = await getVerificationData(code);
+    const verificationResult = await verifyCommunity(code, guildId);
 
-    if (!data) {
+    if ( VerificationResult.FAILED === verificationResult ) {
       return interaction.reply({
         content: "Invalid or expired verification code.",
         flags: MessageFlags.Ephemeral,
       });
     }
-
-    if (data.used) {
+    
+    if (VerificationResult.USED === verificationResult ) {
       return interaction.reply({
         content: "This verification code has already been used.",
         flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    // Mark code as used
-    await markCodeAsUsed(code, data);
-
-    // Store guild verification with community ID
-    await storeGuildVerification(guildId, data.communityId);
-
-    // Check if platform connection already exists
-    const existingConnection = await db
-      .select()
-      .from(platformConnections)
-      .where(eq(platformConnections.platformId, guildId))
-      .limit(1);
-
-    // Create or update the platform connection with the community ID
-    if (existingConnection.length > 0) {
-      await db
-        .update(platformConnections)
-        .set({
-          communityId: data.communityId,
-          updatedAt: new Date(),
-        })
-        .where(eq(platformConnections.platformId, guildId));
-    } else {
-      await db.insert(platformConnections).values({
-        platformId: guildId,
-        platformType: "discord",
-        communityId: data.communityId,
       });
     }
 

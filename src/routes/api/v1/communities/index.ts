@@ -6,8 +6,8 @@ import {
   platformConnections,
   tiers,
 } from "@/db/schema";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
 import { getCommunitySubgraphData } from "@/lib/subgraph";
+import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { createErrorResponse, createSuccessResponse } from "@/utils/api";
 import { withPagination } from "@/utils/pagination";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -21,6 +21,7 @@ import {
   getCommunity,
   updateCommunity,
 } from "./routes";
+
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
