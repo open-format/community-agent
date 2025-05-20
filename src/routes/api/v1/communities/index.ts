@@ -160,9 +160,17 @@ communitiesRoute.openapi(createCommunity, async (c) => {
     return c.json({ message: "Community already exists" }, 409);
   }
 
-  const [result] = await db.insert(communities).values(body).returning();
+  // Create the community
+  const [createdCommunity] = await db.insert(communities).values(body).returning();
 
-  return c.json(result);
+  // Create the default "Admin" role
+  await db.insert(community_roles).values({
+    communityId: createdCommunity.id,
+    name: "Admin",
+    description: "Community administrator",
+  });
+
+  return c.json(createdCommunity);
 });
 
 communitiesRoute.openapi(updateCommunity, async (c) => {
