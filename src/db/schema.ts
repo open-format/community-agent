@@ -1,6 +1,15 @@
 import { relations, sql } from "drizzle-orm";
-import {index, integer, jsonb, pgTable, text, timestamp, uuid, varchar} from "drizzle-orm/pg-core";
-import {community} from "@/routes/api/v1/communities/schema";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 // Define ENUMs for event and reward types
 export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
@@ -9,29 +18,32 @@ export const REWARD_TYPES = ["token", "badge"] as const;
 
 export const PLATFORM_TYPES = ["discord", "github", "telegram"] as const;
 
-export const community_roles = pgTable("community_roles", {
-  id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  communityId: uuid("community_id").references(() => communities.id, {
-    onDelete: "set null",
-    onUpdate: "cascade",
-  }),
-  name: varchar('name', { length: 100 }).notNull().unique(),
-  description: text('description'),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow()
-}, (table) => [index("rol_community_idx").on(table.id, table.communityId)]);
+export const community_roles = pgTable(
+  "community_roles",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    communityId: uuid("community_id").references(() => communities.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    name: varchar("name", { length: 100 }).notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [uniqueIndex("role_community_unique_idx").on(table.communityId, table.name)],
+);
 
 export const communities = pgTable("communities", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
   name: text("name"),
   description: text("description"),
-  roles: jsonb("roles").default([]),
   goals: jsonb("goals").default([]),
   platforms: jsonb("platforms").default([]),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   communityContractAddress: text("community_contract_address"),
-  communityContractChain: text("community_contract_chain"),
+  communityContractChainId: text("community_contract_chain_id"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
   slug: text("slug").default(""),
@@ -39,17 +51,54 @@ export const communities = pgTable("communities", {
 
 export const users = pgTable("users", {
   id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
-  nickname: text("nickname"),
-  communityId: uuid("community_id").references(() => communities.id, {
-    onDelete: "set null",
-    onUpdate: "cascade",
-  }),
   did: text("did").unique().notNull(), // Privy DID, unique identifier
-  role: text("role").notNull(), // Role
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-  joinedAt: timestamp("joined_at").defaultNow(),
-}, (table) => [index("user_community_idx").on(table.id, table.communityId)]);
+  nickname: text("nickname"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const user_communities = pgTable(
+  "user_communities",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    communityId: uuid("community_id").references(() => communities.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    joinedAt: timestamp("joined_at").defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [uniqueIndex("user_community_unique_idx").on(table.userId, table.communityId)],
+);
+
+export const user_community_roles = pgTable(
+  "user_community_roles",
+  {
+    id: uuid("id").default(sql`gen_random_uuid()`).primaryKey(),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    communityId: uuid("community_id").references(() => communities.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    roleId: uuid("role_id").references(() => community_roles.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("user_community_role_unique_idx").on(table.userId, table.communityId, table.roleId),
+  ],
+);
 
 export const platformConnections = pgTable(
   "platform_connections",
@@ -127,9 +176,18 @@ export const pendingRewards = pgTable(
   ],
 );
 
-// Then define the relations
+// Define the relation from communities to roles
 export const communitiesRelations = relations(communities, ({ many }) => ({
+  roles: many(community_roles),
   platformConnections: many(platformConnections),
+}));
+
+// Define the relation from roles to communities
+export const communityRolesRelations = relations(community_roles, ({ one }) => ({
+  community: one(communities, {
+    fields: [community_roles.communityId],
+    references: [communities.id],
+  }),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one, many }) => ({
@@ -154,6 +212,33 @@ export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
   }),
 }));
 
-export const communityRolesRelations = relations(communities, ({ many }) => ({
-  communityToRoles: many(community_roles),
+export const userRelations = relations(users, ({ many }) => ({
+  communities: many(user_communities),
+}));
+
+export const userCommunitiesRelations = relations(user_communities, ({ one, many }) => ({
+  user: one(users, {
+    fields: [user_communities.userId],
+    references: [users.id],
+  }),
+  community: one(communities, {
+    fields: [user_communities.communityId],
+    references: [communities.id],
+  }),
+  roles: many(user_community_roles),
+}));
+
+export const userCommunityRolesRelations = relations(user_community_roles, ({ one }) => ({
+  user: one(users, {
+    fields: [user_community_roles.userId],
+    references: [users.id],
+  }),
+  community: one(communities, {
+    fields: [user_community_roles.communityId],
+    references: [communities.id],
+  }),
+  role: one(community_roles, {
+    fields: [user_community_roles.roleId],
+    references: [community_roles.id],
+  }),
 }));
