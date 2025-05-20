@@ -87,6 +87,7 @@ discordClient.on("guildCreate", async (guild) => {
           .insert(communities)
           .values({
             name: guild.name,
+            slug: guild.name.toLowerCase().replace(/ /g, "-"),
           })
           .returning();
 
@@ -105,6 +106,7 @@ discordClient.on("guildCreate", async (guild) => {
         .insert(communities)
         .values({
           name: guild.name,
+          slug: guild.name.toLowerCase().replace(/ /g, "-"),
         })
         .returning();
 
