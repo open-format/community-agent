@@ -1,10 +1,22 @@
 import { db } from "@/db";
-import { communities, community_roles, platformConnections } from "@/db/schema";
+import {
+  communities,
+  community_roles,
+  platformConnections,
+  user_community_roles,
+  users,
+} from "@/db/schema";
 import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { isAddress } from "viem";
-import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
+import {
+  createCommunity,
+  generateCode,
+  getCommunities,
+  getCommunity,
+  updateCommunity,
+} from "./routes";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
@@ -128,6 +140,57 @@ communitiesRoute.openapi(generateCode, async (c) => {
     console.error(error);
     return c.json({ message: "Failed to generate code" }, 500);
   }
+});
+
+// Register getCommunities as the GET / route (with X-User-ID header)
+communitiesRoute.openapi(getCommunities, async (c) => {
+  const did = c.req.header("x-user-id");
+  if (!did) {
+    return c.json({ message: "User not found" }, 404);
+  }
+
+  // 1. Get the user by DID
+  const [user] = await db.select().from(users).where(eq(users.did, did)).limit(1);
+  if (!user) {
+    return c.json({ message: "User not found" }, 404);
+  }
+
+  // 2. Find all Admin roles
+  const adminRoles = await db
+    .select()
+    .from(community_roles)
+    .where(eq(community_roles.name, "Admin"));
+
+  const adminRoleIds = adminRoles.map((r) => r.id);
+  if (adminRoleIds.length === 0) {
+    return c.json([], 200); // No admin roles exist
+  }
+
+  // 3. Find all user_community_roles for this user and admin roles
+  const userAdminRoles = await db
+    .select()
+    .from(user_community_roles)
+    .where(
+      and(
+        eq(user_community_roles.userId, user.id),
+        inArray(user_community_roles.roleId, adminRoleIds),
+      ),
+    );
+  // Filter out nulls from communityIds
+  const communityIds = userAdminRoles
+    .map((ucr) => ucr.communityId)
+    .filter((id): id is string => !!id);
+  if (communityIds.length === 0) {
+    return c.json([], 200); // User is not admin in any community
+  }
+
+  // 4. Get the corresponding communities
+  const adminCommunities = await db
+    .select()
+    .from(communities)
+    .where(inArray(communities.id, communityIds));
+
+  return c.json(adminCommunities, 200);
 });
 
 export default communitiesRoute;

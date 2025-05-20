@@ -165,3 +165,33 @@ export const generateCode = createRoute({
     },
   },
 });
+
+export const getCommunities = createRoute({
+  method: "get",
+  path: "/",
+  request: {
+    headers: z.object({
+      "x-user-id": z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Communities where the user has the Admin role",
+      content: {
+        "application/json": {
+          schema: z.array(community),
+        },
+      },
+    },
+    404: {
+      description: "User not found",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
