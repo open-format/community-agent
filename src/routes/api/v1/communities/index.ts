@@ -1,10 +1,10 @@
 import { db } from "@/db";
-import { communities, platformConnections } from "@/db/schema";
+import { communities, community_roles, platformConnections } from "@/db/schema";
+import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
 import { isAddress } from "viem";
 import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
@@ -51,9 +51,17 @@ communitiesRoute.openapi(createCommunity, async (c) => {
     return c.json({ message: "Community already exists" }, 409);
   }
 
-  const [result] = await db.insert(communities).values(body).returning();
+  // Create the community
+  const [createdCommunity] = await db.insert(communities).values(body).returning();
 
-  return c.json(result);
+  // Create the default "Admin" role
+  await db.insert(community_roles).values({
+    communityId: createdCommunity.id,
+    name: "Admin",
+    description: "Community administrator",
+  });
+
+  return c.json(createdCommunity);
 });
 
 communitiesRoute.openapi(updateCommunity, async (c) => {
