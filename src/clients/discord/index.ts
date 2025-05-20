@@ -7,11 +7,10 @@ import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
-import { and, eq } from "drizzle-orm";
+import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
-import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 
 const discordClient = new Client({
   intents: [
@@ -65,12 +64,11 @@ discordClient.on("guildCreate", async (guild) => {
 
   // Check if platform connection already exists
   await createPlatformConnection(guild.id, guild.name, "discord");
-  
 });
 
 discordClient.on("guildDelete", async (guild) => {
   console.log(`Bot left server: ${guild.name} (${guild.id})`);
-  
+
   // Delete platform connection
   await deletePlatformConnection(guild.id, "discord");
 });

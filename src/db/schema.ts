@@ -1,5 +1,15 @@
 import { relations, sql } from "drizzle-orm";
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 // Define ENUMs for event and reward types
 export const EVENT_TYPES = ["connect_account", "voice_channel_join"] as const;
@@ -18,10 +28,31 @@ export const communities = pgTable("communities", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   communityContractAddress: text("community_contract_address"),
-  communityContractChain: text("community_contract_chain"),
+  communityContractChainId: integer("community_contract_chain_id"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
-  slug: text("slug").default(""),
+  slug: varchar("slug", { length: 255 }).default("").notNull().unique(),
+  accentColor: varchar("accent_color", { length: 7 }).notNull().default("#6366F1"),
+  tokenLabel: varchar("token_label", { length: 255 }).notNull().default("Points"),
+  userLabel: varchar("user_label", { length: 255 }).notNull().default("User"),
+  participantLabel: varchar("participant_label", { length: 255 }).notNull().default("Participant"),
+  darkMode: boolean("dark_mode").notNull().default(false),
+  bannerUrl: varchar("banner_url", { length: 255 }),
+  tokenToDisplay: varchar("token_to_display", { length: 42 }),
+  showSocialHandles: boolean("show_social_handles").notNull().default(false),
+  hiddenTokens: varchar("hidden_tokens", { length: 42 }).array().default([]),
+});
+
+export const tiers = pgTable("tiers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  communityId: uuid("community_id")
+    .notNull()
+    .references(() => communities.id),
+  name: varchar("name", { length: 255 }).notNull(),
+  pointsRequired: integer("points_required").notNull(),
+  color: varchar("color", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const users = pgTable("users", {
@@ -116,6 +147,7 @@ export const pendingRewards = pgTable(
 // Then define the relations
 export const communitiesRelations = relations(communities, ({ many }) => ({
   platformConnections: many(platformConnections),
+  tiers: many(tiers),
 }));
 
 export const platformConnectionsRelations = relations(platformConnections, ({ one, many }) => ({
@@ -136,6 +168,13 @@ export const platformPermissionsRelations = relations(platformPermissions, ({ on
 export const pendingRewardsRelations = relations(pendingRewards, ({ one }) => ({
   community: one(communities, {
     fields: [pendingRewards.community_id],
+    references: [communities.id],
+  }),
+}));
+
+export const tiersRelations = relations(tiers, ({ one }) => ({
+  community: one(communities, {
+    fields: [tiers.communityId],
     references: [communities.id],
   }),
 }));

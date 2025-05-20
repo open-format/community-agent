@@ -1,10 +1,10 @@
 import { rewardFacetAbi } from "@/abis/RewardFacet";
-import { type ChainName, getChain } from "@/constants/chains";
+import { getChainById } from "@/constants/chains";
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { findUserByHandle, privyClient } from "@/lib/privy";
 import { getToken } from "@/lib/subgraph";
-import { getPublicClientByChainName, getWalletClientByChainName } from "@/lib/viem";
+import { getPublicClientByChainId, getWalletClientByChainId } from "@/lib/viem";
 import { formatViemErrorForDiscord, handleViemError } from "@/utils/errors";
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import type {
@@ -72,7 +72,7 @@ export const sendCommand = {
         },
       });
 
-      if (!platformConnection || !platformConnection.community?.communityContractChain) {
+      if (!platformConnection || !platformConnection.community?.communityContractChainId) {
         return interaction.respond([]);
       }
 
@@ -92,7 +92,7 @@ export const sendCommand = {
       for (const permission of userPermissions) {
         const token = await getToken(
           permission.tokenAddress as Address,
-          platformConnection.community.communityContractChain,
+          platformConnection.community.communityContractChainId,
         );
         tokens.push(...token);
       }
@@ -186,7 +186,7 @@ export const sendCommand = {
       }
 
       if (
-        !platformConnection.community?.communityContractChain ||
+        !platformConnection.community?.communityContractChainId ||
         !platformConnection.community?.communityContractAddress
       ) {
         return interaction.editReply({
@@ -194,7 +194,7 @@ export const sendCommand = {
         });
       }
 
-      const chain = getChain(platformConnection.community.communityContractChain as ChainName);
+      const chain = getChainById(platformConnection.community.communityContractChainId);
 
       if (!chain) {
         return interaction.editReply({
@@ -218,11 +218,11 @@ export const sendCommand = {
         privy: privyClient,
       });
 
-      const publicClient = getPublicClientByChainName(
-        platformConnection.community.communityContractChain,
+      const publicClient = getPublicClientByChainId(
+        platformConnection.community.communityContractChainId,
       );
-      const walletClient = getWalletClientByChainName(
-        platformConnection.community.communityContractChain,
+      const walletClient = getWalletClientByChainId(
+        platformConnection.community.communityContractChainId,
         account,
       );
 
@@ -350,7 +350,7 @@ async function getTokenLabelByValue(tokenValue: string, interaction: ChatInputCo
   for (const permission of platformConnection.permissions) {
     const tokens = await getToken(
       permission.tokenAddress as Address,
-      platformConnection.community?.communityContractChain,
+      platformConnection.community?.communityContractChainId as number,
     );
     for (const token of tokens) {
       if (token.id === tokenValue) {
