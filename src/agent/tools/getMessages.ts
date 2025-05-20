@@ -9,7 +9,9 @@ export const getMessagesTool = createTool({
   id: "get-messages",
   description: "Fetch messages from vector store for a specific platform ID and date range",
   inputSchema: z.object({
-    platformId: z.string().nonempty(),
+    platformIds: z.array(
+      z.string().nonempty(),
+    ),
     includeStats: z.boolean().optional(),
     includeMessageId: z.boolean().optional(),
     startDate: z.number(),
@@ -65,7 +67,7 @@ export const getMessagesTool = createTool({
     context: {
       startDate: number;
       endDate: number;
-      platformId: string;
+      platformIds: string[];
       includeStats?: boolean;
       includeMessageId?: boolean;
       channelId?: string;
@@ -79,7 +81,7 @@ export const getMessagesTool = createTool({
 
       // Build filter object with optional channelId
       const filter = {
-        platformId: context.platformId,
+        platformId: context.platformIds,
         $and: [
           { timestamp: { $gte: context.startDate } },
           { timestamp: { $lte: context.endDate } },
@@ -106,7 +108,7 @@ export const getMessagesTool = createTool({
 
       if (queryResults.length === 0) {
         return {
-          transcript: `No messages found for platformId "${context.platformId}" in the date range ${context.startDate} to ${context.endDate}.`,
+          transcript: `No messages found for platformIds "${context.platformIds.toString()}" in the date range ${context.startDate} to ${context.endDate}.`,
           ...(context.includeStats
             ? {
                 stats: {
@@ -125,26 +127,26 @@ export const getMessagesTool = createTool({
       const sortedMessages = queryResults.sort(
         (a, b) => b.metadata.timestamp - a.metadata.timestamp,
       );
-      const platform = sortedMessages[0].metadata.platform;
-
-      if (platform !== "discord" && platform !== "telegram") {
-        throw new Error(`Unsopported platform: ${platform}`);
-      }
       
       // Generate transcript
-      const transcript = await formatMessagesByChannel(
+      const transcript = await formatMessages(
         sortedMessages,
-        context.platformId,
+        context.platformIds,
         context.includeMessageId,
       );
 
       // Only calculate stats if requested
       if (context.includeStats) {
+        // Get an Id for a platform
+        const getId = (platform: string, id: string) => platform + ':' + id 
+
         // Track unique users
         const userSet = new Set<string>();
         for (const message of queryResults) {
-          if (message.metadata.authorId) {
-            userSet.add(message.metadata.authorId);
+          if (message.metadata.authorId && message.metadata.platform) {
+            userSet.add(
+              getId(message.metadata.platform, message.metadata.authorId)
+            );
           }
         }
 
@@ -153,9 +155,9 @@ export const getMessagesTool = createTool({
         // Track unique users by date
         const dateUserMap = new Map<string, Set<string>>();
         // Calculate top contributors
-        const contributorCountMap = new Map<string, number>();
+        const contributorCountMap = new Map<string, {username: string, platform: string, count: number}>();
         // Calculate messages by channel
-        const channelCountMap = new Map<string, number>();
+        const channelCountMap = new Map<string, {channel: string, platform: string, count: number}>();
         // Add new map to track unique users per channel
         const channelUserMap = new Map<string, Set<string>>();
 
@@ -163,42 +165,59 @@ export const getMessagesTool = createTool({
           const dateString = dayjs(message.metadata.timestamp).format("YYYY-MM-DD");
           const username = message.metadata.authorUsername || "Unknown User";
           const channelId = message.metadata.channelId;
+          const platform = message.metadata.platform;
+
+          const platformUsername = getId(platform, username);
+          const platformChannel = getId(platform, channelId);
 
           // Update date stats
           dateCountMap.set(dateString, (dateCountMap.get(dateString) || 0) + 1);
           if (!dateUserMap.has(dateString)) {
             dateUserMap.set(dateString, new Set<string>());
           }
-          if (message.metadata.authorId) {
-            dateUserMap.get(dateString)?.add(message.metadata.authorId);
+          if (message.metadata.authorId && message.metadata.platform) {
+            dateUserMap.get(dateString)?.add(
+              getId(message.metadata.platform, message.metadata.authorId)
+            );
           }
 
           // Update contributor stats
-          contributorCountMap.set(username, (contributorCountMap.get(username) || 0) + 1);
+          contributorCountMap.set(platformUsername, {
+            platform,
+            username: username,
+            count: (contributorCountMap.get(platformUsername)?.count ?? 0) + 1,
+          });
 
           // Update channel stats
           if (channelId) {
-            channelCountMap.set(channelId, (channelCountMap.get(channelId) || 0) + 1);
-            if (!channelUserMap.has(channelId)) {
-              channelUserMap.set(channelId, new Set<string>());
+            channelCountMap.set(platformChannel, {
+              platform,
+              channel: channelId,
+              count: (channelCountMap.get(platformChannel)?.count ?? 0) + 1,
+            });
+
+            if (!channelUserMap.has(platformChannel)) {
+              channelUserMap.set(platformChannel, new Set<string>());
             }
             if (message.metadata.authorId) {
-              channelUserMap.get(channelId)?.add(message.metadata.authorId);
+              channelUserMap.get(platformChannel)?.add(message.metadata.authorId);
             }
           }
         }
-        // Get channel names
-        let channelNameMap = null;
-        switch (platform) {
-          case "discord":
-            channelNameMap = await buildChannelNameMap([...channelCountMap.keys()]);
-            break;
-          case "telegram":
-            channelNameMap = await buildChannelNameMapTelegram([...channelCountMap.keys()]);
-            break;            
-          default:
-            throw new Error(`Platform not supported: ${platform}`)
-        }
+
+        const platformChannelNameMap = new Map<string, Map<string, string>>();
+        platformChannelNameMap.set(
+          "discord",
+          await buildChannelNameMap( 
+            Array.from(channelCountMap.values().filter(v => v.platform == "discord").map( v => v.channel) )
+          )
+        );
+        platformChannelNameMap.set(
+          "telegram",
+          await buildChannelNameMapTelegram(
+            Array.from(channelCountMap.values().filter(v => v.platform == "telegram").map( v => v.channel) )
+          )
+        );
 
         return {
           transcript,
@@ -215,18 +234,19 @@ export const getMessagesTool = createTool({
               .sort((a, b) => a.date.localeCompare(b.date)),
 
             topContributors: Array.from(contributorCountMap.entries())
-              .map(([username, count]) => ({ username, count }))
+              .map(([k, entry]) => ({ username: entry.username, platform: entry.platform, count: entry.count }))
               .sort((a, b) => b.count - a.count)
               .slice(0, 5),
 
             messagesByChannel: Array.from(channelCountMap.entries())
-              .map(([channelId, count]) => ({
+              .map(([k, entry]) => ({
                 channel: {
-                  id: channelId,
-                  name: channelNameMap.get(channelId) || "unknown",
+                  id: entry.channel,
+                  platform: entry.platform,
+                  name: platformChannelNameMap.get(entry.platform)?.get(entry.channel) || "unknown",
                 },
-                count,
-                uniqueUsers: channelUserMap.get(channelId)?.size || 0,
+                count: entry.count,
+                uniqueUsers: channelUserMap.get(getId(entry.platform, entry.channel))?.size || 0,
               }))
               .sort((a, b) => b.count - a.count),
           },
@@ -246,11 +266,12 @@ export const getMessagesTool = createTool({
 // Update the formatting functions
 function formatMessagesChronologically(
   messages: VectorStoreResult[],
-  platformId: string,
   includeMessageId?: boolean,
 ): string {
-  const header = `The server ID is [${platformId}]\n\n`;
-
+  if (messages.length === 0) {
+    return "";
+  }
+  
   // Create a structured format that's easier to parse
   const formattedMessages = messages.map((message) => {
     return {
@@ -259,6 +280,8 @@ function formatMessagesChronologically(
       messageId: message.metadata.messageId,
       username: message.metadata.authorUsername || "Unknown User",
       content: message.metadata.text || "[No content]",
+      platformId: message.metadata.platformId,
+      platform: message.metadata.platform,
     };
   });
 
@@ -276,24 +299,32 @@ function formatMessagesChronologically(
 
   // Format each channel's messages
   const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
-    const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
+    const channelHeader = `=== Messages from Channel with: [Channel_ID=${channelId}][Platform=${msgs[0].platform}][Platform_ID=${msgs[0].platformId}] ===`;
     const channelMessages = msgs
       .map((msg) => {
         const messageIdPart = includeMessageId ? ` [MESSAGE_ID=${msg.messageId}]` : "";
         return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
       })
       .join("\n");
-    const channelFooter = `=== End of Messages from Channel with Channel ID: [${channelId}] ===\n`;
+    const channelFooter = `\n=== End of Messages from Channel with: [Channel_ID=${channelId}][Platform=${msgs[0].platform}][Platform_ID=${msgs[0].platformId}] ===\n`;
     return `${channelHeader}${channelMessages}${channelFooter}`;
   });
 
-  return header + sections.join("\n\n");
+  return sections.join("\n\n");
 }
 
-async function formatMessagesByChannel(
-  messages: VectorStoreResult[],
-  platformId: string,
+async function formatMessages(
+  allMessages: VectorStoreResult[],
+  platformIds: string[],
   includeMessageId?: boolean,
 ): Promise<string> {
-  return formatMessagesChronologically(messages, platformId, includeMessageId);
+
+  const transcripts = platformIds.map( platformId =>
+    formatMessagesChronologically(
+      allMessages.filter(  m => m.metadata.platformId == platformId ),
+      includeMessageId
+    )
+  ).join("\n\n");
+
+  return transcripts;
 }

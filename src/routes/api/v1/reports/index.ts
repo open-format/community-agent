@@ -38,7 +38,7 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
 
     const jobId = crypto.randomUUID();
 
-    await createReportJob(jobId, platformId as string, startTimestamp, endTimestamp);
+    await createReportJob(jobId, platformId as string, undefined, startTimestamp, endTimestamp);
 
     generateReportInBackground(jobId, startTimestamp, endTimestamp, platformId as string);
 
