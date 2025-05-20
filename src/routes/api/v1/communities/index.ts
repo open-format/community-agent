@@ -1,18 +1,26 @@
 import { vectorStore } from "@/agent/stores";
-import type { ChainName } from "@/constants/chains";
 import { db } from "@/db";
 import {
   communities,
   pendingRewards as pendingRewardsSchema,
   platformConnections,
+  tiers,
 } from "@/db/schema";
 import { generateVerificationCode, storeVerificationCode } from "@/lib/redis";
 import { getCommunitySubgraphData } from "@/lib/subgraph";
+import { createErrorResponse, createSuccessResponse } from "@/utils/api";
+import { withPagination } from "@/utils/pagination";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { and, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { validate as isUuid } from "uuid";
 import { type Address, isAddress } from "viem";
-import { createCommunity, generateCode, getCommunity, updateCommunity } from "./routes";
+import {
+  createCommunity,
+  generateCode,
+  getCommunities,
+  getCommunity,
+  updateCommunity,
+} from "./routes";
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
@@ -63,6 +71,13 @@ communitiesRoute.openapi(getCommunity, async (c) => {
       ),
     );
 
+  // Get all tiers for this community
+  const communityTiers = await db
+    .select()
+    .from(tiers)
+    .where(eq(tiers.communityId, community.id))
+    .orderBy(asc(tiers.pointsRequired));
+
   const snapshot = await vectorStore.query({
     indexName: "impact_reports",
     queryVector: new Array(1536).fill(0),
@@ -77,12 +92,22 @@ communitiesRoute.openapi(getCommunity, async (c) => {
 
   let onchainData = null;
 
-  if (community.communityContractAddress && community.communityContractChain) {
-    // Get onchain data from subgraph
-    onchainData = await getCommunitySubgraphData(
-      community.communityContractAddress as Address,
-      community.communityContractChain as ChainName,
-    );
+  if (community.communityContractAddress && community.communityContractChainId) {
+    try {
+      // Get onchain data from subgraph
+      onchainData = await getCommunitySubgraphData(
+        community.communityContractAddress as Address,
+        community.communityContractChainId,
+      );
+    } catch (error) {
+      // Pass through the subgraph error with a 500 status code
+      return c.json(
+        createErrorResponse(
+          error instanceof Error ? error.message : "Failed to fetch onchain data",
+          "500",
+        ),
+      );
+    }
   }
 
   // Combine the results
@@ -92,9 +117,32 @@ communitiesRoute.openapi(getCommunity, async (c) => {
     recommendations: pendingRewards,
     onchainData: onchainData,
     snapshot: sortedResults[0],
+    tiers: communityTiers,
   };
 
   return c.json(result);
+});
+
+communitiesRoute.openapi(getCommunities, async (c) => {
+  try {
+    const { page = 1, limit = 2 } = c.req.query();
+    const query = db.select().from(communities).orderBy(asc(communities.id));
+    const result = await withPagination(query, communities, {
+      page,
+      limit,
+    });
+
+    return c.json(
+      createSuccessResponse(result.data, {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      }),
+    );
+  } catch (error) {
+    return c.json(createErrorResponse((error as Error).message, "500"));
+  }
 });
 
 communitiesRoute.openapi(createCommunity, async (c) => {

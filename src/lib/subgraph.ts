@@ -1,12 +1,9 @@
-import { type ChainName, getChain } from "@/constants/chains";
+import { getChainById } from "@/constants/chains";
 import { gql, request } from "graphql-request";
 import type { Address } from "viem";
 
-export async function getCommunitySubgraphData(
-  communityId: Address,
-  chainId: keyof typeof ChainName,
-) {
-  const GRAPHQL_URL = getChain(chainId as ChainName)?.SUBGRAPH_URL;
+export async function getCommunitySubgraphData(communityId: Address, chainId: number) {
+  const GRAPHQL_URL = getChainById(chainId)?.SUBGRAPH_URL;
 
   if (!GRAPHQL_URL) {
     throw new Error("No subgraph URL found for chain");
@@ -40,17 +37,27 @@ export async function getCommunitySubgraphData(
   }
   `;
 
-  const response = await request<{
-    app: { name: string; owner: { id: string } };
-  }>(GRAPHQL_URL, query, {
-    app: communityId.toLowerCase(),
-  });
+  try {
+    const response = await request<{
+      app: { name: string; owner: { id: string } };
+    }>(GRAPHQL_URL, query, {
+      app: communityId.toLowerCase(),
+    });
 
-  return response.app;
+    if (!response.app) {
+      throw new Error(`No community found with ID ${communityId}`);
+    }
+
+    return response.app;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch community data: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
 }
 
-export async function getToken(tokenId: Address, chainId: keyof typeof ChainName) {
-  const GRAPHQL_URL = getChain(chainId as ChainName)?.SUBGRAPH_URL;
+export async function getToken(tokenId: Address, chainId: number) {
+  const GRAPHQL_URL = getChainById(chainId)?.SUBGRAPH_URL;
 
   if (!GRAPHQL_URL) {
     throw new Error("No subgraph URL found for chain");
@@ -65,11 +72,21 @@ export async function getToken(tokenId: Address, chainId: keyof typeof ChainName
     }
   `;
 
-  const response = await request<{
-    fungibleTokens: { id: string; name: string }[];
-  }>(GRAPHQL_URL, query, {
-    tokenId: tokenId.toLocaleLowerCase(),
-  });
+  try {
+    const response = await request<{
+      fungibleTokens: { id: string; name: string }[];
+    }>(GRAPHQL_URL, query, {
+      tokenId: tokenId.toLocaleLowerCase(),
+    });
 
-  return response.fungibleTokens;
+    if (!response.fungibleTokens || response.fungibleTokens.length === 0) {
+      throw new Error(`No token found with ID ${tokenId}`);
+    }
+
+    return response.fungibleTokens;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch token data: ${error instanceof Error ? error.message : "Unknown error"}`,
+    );
+  }
 }

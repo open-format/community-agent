@@ -43,6 +43,21 @@ export const getCommunity = createRoute({
   },
 });
 
+export const getCommunities = createRoute({
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      description: "The communities were retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.array(community),
+        },
+      },
+    },
+  },
+});
+
 export const createCommunity = createRoute({
   method: "post",
   path: "/",
