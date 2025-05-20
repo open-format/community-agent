@@ -25,7 +25,7 @@ export const getUser = createRoute({
     404: {
       description: "User not found",
     },
-  }
+  },
 });
 
 export const createUser = createRoute({
@@ -67,7 +67,7 @@ export const createUser = createRoute({
     500: {
       description: "Failed to create user",
     },
-  }
+  },
 });
 
 export const updateUser = createRoute({
@@ -104,7 +104,7 @@ export const updateUser = createRoute({
     500: {
       description: "Failed to update user",
     },
-  }
+  },
 });
 
 export const deleteUser = createRoute({
@@ -118,7 +118,7 @@ export const deleteUser = createRoute({
   },
   responses: {
     204: {
-      description: 'User deleted successfully',
+      description: "User deleted successfully",
     },
     400: {
       description: "Bad request",
@@ -132,6 +132,48 @@ export const deleteUser = createRoute({
     500: {
       description: "Failed to delete user",
     },
-  }
+  },
 });
 
+export const assignRole = createRoute({
+  method: "post",
+  path: "/assign-role",
+  description: "Assign a role to a user in a community",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            did: z.string(),
+            community_id: z.string().uuid(),
+            role_name: z.string(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "Role assigned successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            id: z.string().uuid(),
+            userCommunityId: z.string().uuid(),
+            roleId: z.string().uuid(),
+            createdAt: z.string().datetime(),
+            updatedAt: z.string().datetime(),
+          }),
+        },
+      },
+    },
+    400: {
+      description: "Bad request or user/role not found",
+      content: {
+        "application/json": {
+          schema: z.object({ message: z.string() }),
+        },
+      },
+    },
+  },
+});

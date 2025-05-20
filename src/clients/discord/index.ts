@@ -2,7 +2,7 @@ import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { db } from "@/db";
-import { communities, platformConnections } from "@/db/schema";
+import { communities, community_roles, platformConnections } from "@/db/schema";
 import { createUnixTimestamp } from "@/utils/time";
 import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
@@ -90,13 +90,20 @@ discordClient.on("guildCreate", async (guild) => {
           })
           .returning();
 
+        // Create default admin role
+        await db.insert(community_roles).values({
+          communityId: newCommunity.id,
+          name: "Admin",
+          description: "Default administrator role with full permissions",
+        });
+
         await db
           .update(platformConnections)
           .set({ communityId: newCommunity.id })
           .where(eq(platformConnections.platformId, guild.id));
 
         console.log(
-          `Created new community for ${guild.name} and linked it to the platform connection`,
+          `Created new community for ${guild.name} with default admin role and linked it to the platform connection`,
         );
       }
     } else {
@@ -108,6 +115,13 @@ discordClient.on("guildCreate", async (guild) => {
         })
         .returning();
 
+      // Create default admin role
+      await db.insert(community_roles).values({
+        communityId: newCommunity.id,
+        name: "Admin",
+        description: "Default administrator role with full permissions",
+      });
+
       // Create new platform connection linked to the community
       await db.insert(platformConnections).values({
         communityId: newCommunity.id, // Link to community immediately
@@ -116,7 +130,9 @@ discordClient.on("guildCreate", async (guild) => {
         platformName: guild.name,
       });
 
-      console.log(`Created new platform connection and community for ${guild.name}`);
+      console.log(
+        `Created new platform connection and community for ${guild.name} with default admin role`,
+      );
     }
   } catch (error) {
     console.error(`Failed to setup guild ${guild.name}:`, error);
