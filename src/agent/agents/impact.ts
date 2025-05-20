@@ -68,13 +68,13 @@ export const impactAgent = new Agent({
 
   For Message Examples as evidence:
   1. Extract the channel ID from the channel section header: === Messages from Channel with Channel ID: [channelId] ===
-  2. Extract the message ID from the message: [DISCORD_MESSAGE_ID=messageId]
+  2. Extract the message ID from the message: [MESSAGE_ID=messageId]
   3. Return them in the evidence array as objects with channelId and messageId
 
   Example:
   From transcript:
   === Messages from Channel with Channel ID: [987654321] ===
-  [2024-03-20] [DISCORD_MESSAGE_ID=111222333] username: content
+  [2024-03-20] [MESSAGE_ID=111222333] username: content
 
   Should become:
   evidence: [{ "channelId": "987654321", "messageId": "111222333" }]
