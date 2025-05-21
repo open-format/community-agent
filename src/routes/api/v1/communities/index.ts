@@ -1,19 +1,12 @@
 import { vectorStore } from "@/agent/stores";
 import { db } from "@/db";
-import {
-  communities,
-  pendingRewards as pendingRewardsSchema,
-  platformConnections,
-  tiers,
-} from "@/db/schema";
-import { getCommunitySubgraphData } from "@/lib/subgraph";
+import { communities, community_roles, platformConnections } from "@/db/schema";
 import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { createErrorResponse, createSuccessResponse } from "@/utils/api";
 import { withPagination } from "@/utils/pagination";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { and, asc, count, eq } from "drizzle-orm";
-import { validate as isUuid } from "uuid";
-import { type Address, isAddress } from "viem";
+import { asc, eq } from "drizzle-orm";
+import { isAddress } from "viem";
 import {
   createCommunity,
   generateCode,
@@ -21,7 +14,6 @@ import {
   getCommunity,
   updateCommunity,
 } from "./routes";
-
 const communitiesRoute = new OpenAPIHono();
 
 communitiesRoute.openapi(getCommunity, async (c) => {
