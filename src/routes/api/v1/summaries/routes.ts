@@ -103,23 +103,57 @@ export const getHistoricalMessages = createRoute({
   },
   responses: {
     200: {
-      description: "Historical messages were fetched and stored successfully",
+      description: "Historical message fetch job started successfully",
       content: {
         "application/json": {
           schema: z.object({
-            success: z.boolean(),
-            newMessagesAdded: z.number(),
-            error: z.string().optional(),
+            job_id: z.string().uuid(),
+            status: z.enum(["pending", "processing", "completed", "failed"]),
             timeframe: z.object({
-              startDate: z.string().datetime(),
-              endDate: z.string().datetime(),
+              start_date: z.string().datetime(),
+              end_date: z.string().datetime(),
             }),
           }),
         },
       },
     },
     500: {
-      description: "An error occurred while fetching messages",
+      description: "An error occurred while starting the historical message fetch",
+    },
+  },
+});
+
+export const getHistoricalMessagesStatus = createRoute({
+  method: "get",
+  path: "/historical-messages/status/:job_id",
+  request: {
+    params: z.object({
+      job_id: z.string().uuid(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Historical message fetch status retrieved successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            job_id: z.string().uuid(),
+            status: z.enum(["pending", "processing", "completed", "failed"]),
+            newMessagesAdded: z.number().optional(),
+            timeframe: z.object({
+              start_date: z.string().datetime(),
+              end_date: z.string().datetime(),
+            }),
+            error: z.string().optional(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Job not found",
+    },
+    500: {
+      description: "An error occurred while checking the historical message fetch status",
     },
   },
 });

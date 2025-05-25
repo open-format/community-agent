@@ -1,14 +1,19 @@
 import { mastra } from "@/agent";
-import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
-
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
+import { ReportStatus, createReportJob, getReportJob, getReportResult } from "@/lib/redis";
+import { fetchHistoricalMessagesInBackground } from "@/services/historical-messages";
 import { createUnixTimestamp } from "@/utils/time";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
-import { getAgentSummary, getHistoricalMessages, postAgentSummary } from "./routes";
+import {
+  getAgentSummary,
+  getHistoricalMessages,
+  getHistoricalMessagesStatus,
+  postAgentSummary,
+} from "./routes";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not found",
@@ -133,42 +138,89 @@ summariesRoute.openapi(getHistoricalMessages, async (c) => {
       return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
     }
 
-    if (!fetchHistoricalMessagesTool.execute) {
-      throw new Error("Historical messages tool not initialized");
-    }
-
     // Convert dates to timestamps, using defaults if not provided
     const endTimestamp = end_date ? dayjs(end_date as string).valueOf() : dayjs().valueOf();
     const startTimestamp = start_date
       ? dayjs(start_date as string).valueOf()
       : dayjs().subtract(14, "day").valueOf();
 
-    // Execute the historical messages tool
-    const result = await fetchHistoricalMessagesTool.execute({
-      context: {
-        platformId: platform_id as string,
-        startDate: startTimestamp,
-        endDate: endTimestamp,
-      },
-    });
+    const job_id = crypto.randomUUID();
+
+    await createReportJob(job_id, platform_id as string, startTimestamp, endTimestamp);
+
+    // Start the background job
+    fetchHistoricalMessagesInBackground(
+      job_id,
+      platform_id as string,
+      startTimestamp,
+      endTimestamp,
+    );
 
     return c.json({
-      ...result,
+      job_id,
+      status: ReportStatus.PENDING,
       timeframe: {
-        startDate: dayjs(startTimestamp).toISOString(),
-        endDate: dayjs(endTimestamp).toISOString(),
+        start_date: dayjs(startTimestamp).toISOString(),
+        end_date: dayjs(endTimestamp).toISOString(),
       },
     });
   } catch (error) {
-    console.error("Error fetching historical messages:", error);
+    console.error("Error starting historical message fetch:", error);
     return c.json(
       {
-        success: false,
-        newMessagesAdded: 0,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        message: "Failed to start historical message fetch",
+        error: error instanceof Error ? error.message : String(error),
       },
       500,
     );
+  }
+});
+
+// Add historical messages status endpoint
+summariesRoute.openapi(getHistoricalMessagesStatus, async (c) => {
+  try {
+    const { job_id } = c.req.param();
+
+    const job = await getReportJob(job_id);
+
+    if (!job) {
+      return c.json({
+        job_id,
+        status: "failed" as const,
+        timeframe: {
+          start_date: new Date().toISOString(),
+          end_date: new Date().toISOString(),
+        },
+        error: "Historical message fetch job not found",
+      });
+    }
+
+    let result: { newMessagesAdded: number } | null = null;
+    if (job.status === ReportStatus.COMPLETED) {
+      result = (await getReportResult(job_id)) as { newMessagesAdded: number } | null;
+    }
+
+    return c.json({
+      job_id,
+      status: job.status,
+      newMessagesAdded: result?.newMessagesAdded,
+      timeframe: {
+        start_date: dayjs(job.startDate).toISOString(),
+        end_date: dayjs(job.endDate).toISOString(),
+      },
+      ...(job.error ? { error: job.error } : {}),
+    });
+  } catch (error) {
+    console.error("Error checking historical message fetch status:", error);
+    return c.json({
+      job_id: c.req.param("job_id"),
+      status: "failed" as const,
+      timeframe: {
+        start_date: new Date().toISOString(),
+        end_date: new Date().toISOString(),
+      },
+      error: String(error),
+    });
   }
 });
 
