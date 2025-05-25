@@ -50,19 +50,7 @@ discordClient.on("guildCreate", async (guild) => {
   // Check if platform connection already exists
   await createPlatformConnection(guild.id, guild.name, "discord");
 
-  if (!fetchHistoricalMessagesTool.execute) {
-    throw new Error("Historical messages tool not initialized");
-  }
-
   await registerCommandsForGuild(guild.id, guild.name, discordClient);
-
-  await fetchHistoricalMessagesTool.execute({
-    context: {
-      platformId: guild.id,
-      startDate: createUnixTimestamp(undefined, 30),
-      endDate: createUnixTimestamp(dayjs().toISOString()),
-    },
-  });
 });
 
 discordClient.on("guildDelete", async (guild) => {
