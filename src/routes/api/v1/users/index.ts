@@ -29,12 +29,12 @@ usersRoute.openapi(createUser, async (c) => {
   const [user] = await db.select().from(users).where(eq(users.did, body.did)).limit(1);
 
   if (user) {
-    return c.json({ message: "User already exists" }, 409);
+    return c.json({ ...user, new: false });
   }
 
   const [result] = await db.insert(users).values(body).returning();
 
-  return c.json(result);
+  return c.json({ ...result, new: true });
 });
 
 // Update a User

@@ -7,7 +7,7 @@ export const getUser = createRoute({
   description: "Retrieves user details by DID",
   request: {
     params: z.object({
-      did: z.string().uuid(),
+      did: z.string(),
     }),
   },
   responses: {

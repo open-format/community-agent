@@ -1,12 +1,22 @@
 import { vectorStore } from "@/agent/stores";
 import { db } from "@/db";
-import { communities, community_roles, platformConnections } from "@/db/schema";
+import {
+  communities,
+  community_roles,
+  pendingRewards as pendingRewardsSchema,
+  platformConnections,
+  tiers,
+  user_community_roles,
+  users,
+} from "@/db/schema";
+import { getCommunitySubgraphData } from "@/lib/subgraph";
 import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
 import { createErrorResponse, createSuccessResponse } from "@/utils/api";
 import { withPagination } from "@/utils/pagination";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { asc, eq } from "drizzle-orm";
-import { isAddress } from "viem";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { validate as isUuid } from "uuid";
+import { type Address, isAddress } from "viem";
 import {
   createCommunity,
   generateCode,
@@ -25,7 +35,12 @@ communitiesRoute.openapi(getCommunity, async (c) => {
     [community] = await db.select().from(communities).where(eq(communities.id, id)).limit(1);
   }
 
-  // If not found by ID, try to find by platform ID through platform connections
+  // If not found by ID, try to find by slug
+  if (!community) {
+    [community] = await db.select().from(communities).where(eq(communities.slug, id)).limit(1);
+  }
+
+  // If not found by slug, try to find by platform ID through platform connections
   if (!community) {
     const [platformConnection] = await db
       .select()
@@ -119,7 +134,70 @@ communitiesRoute.openapi(getCommunity, async (c) => {
 communitiesRoute.openapi(getCommunities, async (c) => {
   try {
     const { page = 1, limit = 2 } = c.req.query();
-    const query = db.select().from(communities).orderBy(asc(communities.id));
+    const did = c.req.header("x-user-id");
+
+    if (!did) {
+      return c.json({ message: "User not found" }, 404);
+    }
+
+    // 1. Get the user by DID
+    const [user] = await db.select().from(users).where(eq(users.did, did)).limit(1);
+    if (!user) {
+      return c.json({ message: "User not found" }, 404);
+    }
+
+    // 2. Find all Admin roles
+    const adminRoles = await db
+      .select()
+      .from(community_roles)
+      .where(eq(community_roles.name, "Admin"));
+
+    const adminRoleIds = adminRoles.map((r) => r.id);
+    if (adminRoleIds.length === 0) {
+      return c.json(
+        createSuccessResponse([], {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        }),
+      );
+    }
+
+    // 3. Find all user_community_roles for this user and admin roles
+    const userAdminRoles = await db
+      .select()
+      .from(user_community_roles)
+      .where(
+        and(
+          eq(user_community_roles.userId, user.id),
+          inArray(user_community_roles.roleId, adminRoleIds),
+        ),
+      );
+
+    // Filter out nulls from communityIds
+    const communityIds = userAdminRoles
+      .map((ucr) => ucr.communityId)
+      .filter((id): id is string => !!id);
+
+    if (communityIds.length === 0) {
+      return c.json(
+        createSuccessResponse([], {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        }),
+      );
+    }
+
+    // 4. Get the corresponding communities with pagination
+    const query = db
+      .select()
+      .from(communities)
+      .where(inArray(communities.id, communityIds))
+      .orderBy(asc(communities.id));
+
     const result = await withPagination(query, communities, {
       page,
       limit,
