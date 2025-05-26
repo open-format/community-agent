@@ -179,7 +179,8 @@ const identifyRewardsStep = new Step({
             `❌ identifyRewards failed for batch ${i + 1}:`,
             error instanceof Error ? error.message : error,
           );
-          // Continue with next batch
+          // If batch fails, retry the batch
+          i--;
         }
       }
 
