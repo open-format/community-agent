@@ -47,6 +47,8 @@ discordClient.on("guildCreate", async (guild) => {
   if (!guild.members.me?.permissions.has("ViewChannel")) {
     console.warn(`Missing required permissions in ${guild.name}`);
   }
+  // Check if platform connection already exists
+  await createPlatformConnection(guild.id, guild.name, "discord");
 
   if (!fetchHistoricalMessagesTool.execute) {
     throw new Error("Historical messages tool not initialized");
@@ -61,9 +63,6 @@ discordClient.on("guildCreate", async (guild) => {
       endDate: createUnixTimestamp(dayjs().toISOString()),
     },
   });
-
-  // Check if platform connection already exists
-  await createPlatformConnection(guild.id, guild.name, "discord");
 });
 
 discordClient.on("guildDelete", async (guild) => {

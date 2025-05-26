@@ -139,8 +139,8 @@ summariesRoute.openapi(getHistoricalMessages, async (c) => {
 
     // Convert dates to timestamps, using defaults if not provided
     const endTimestamp = end_date ? dayjs(end_date as string).valueOf() : dayjs().valueOf();
-    const startTimestamp = start_date 
-      ? dayjs(start_date as string).valueOf() 
+    const startTimestamp = start_date
+      ? dayjs(start_date as string).valueOf()
       : dayjs().subtract(14, "day").valueOf();
 
     // Execute the historical messages tool

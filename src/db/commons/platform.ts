@@ -2,6 +2,7 @@ import { vectorStore } from "@/agent/stores";
 import { db } from "@/db";
 import { communities, community_roles, platformConnections } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 
 export async function deletePlatformConnection(
   platformId: string,
@@ -66,6 +67,7 @@ export async function createPlatformConnection(
           .insert(communities)
           .values({
             name: platformName,
+            slug: uuidv4(),
           })
           .returning();
 
@@ -91,6 +93,7 @@ export async function createPlatformConnection(
         .insert(communities)
         .values({
           name: platformName,
+          slug: uuidv4(),
         })
         .returning();
 
