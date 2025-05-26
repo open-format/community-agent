@@ -43,21 +43,6 @@ export const getCommunity = createRoute({
   },
 });
 
-export const getCommunities = createRoute({
-  method: "get",
-  path: "/",
-  responses: {
-    200: {
-      description: "The communities were retrieved successfully",
-      content: {
-        "application/json": {
-          schema: z.array(community),
-        },
-      },
-    },
-  },
-});
-
 export const createCommunity = createRoute({
   method: "post",
   path: "/",
@@ -165,6 +150,36 @@ export const generateCode = createRoute({
     },
     500: {
       description: "Failed to generate code",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const getCommunities = createRoute({
+  method: "get",
+  path: "/",
+  request: {
+    headers: z.object({
+      "x-user-id": z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Communities where the user has the Admin role",
+      content: {
+        "application/json": {
+          schema: z.array(community),
+        },
+      },
+    },
+    404: {
+      description: "User not found",
       content: {
         "application/json": {
           schema: z.object({
