@@ -1,0 +1,659 @@
+{
+  "info": {
+    "_postman_id": "e730ec17-14e2-4a8e-883c-8692974fb903",
+    "name": "Open Format - Agent API Copy",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "43680177"
+  },
+  "item": [
+    {
+      "name": "Communities",
+      "item": [
+        {
+          "name": "POST /api/v1/communities",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"community-{{$randomUuid}}\",\n  \"name\": \"My Awesome Community\",\n  \"description\": \"A community for cool people.\",\n  \"communityWalletId\": \"wallet-{{$randomUuid}}\",\n  \"communityWalletAddress\": \"0xAbc123Def4567890123456789012345678901234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities"]
+            },
+            "description": "Creates a new community."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/communities/{id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/communities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "community-{{$randomUuid}}",
+                  "description": "Community ID or Platform ID"
+                }
+              ]
+            },
+            "description": "Retrieves a community by ID or Platform ID."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/v1/communities/{id}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"community-{{$randomUuid}}\",\n  \"name\": \"Updated Community Name\",\n  \"description\": \"Updated description.\",\n  \"communityWalletId\": \"wallet-{{$randomUuid}}\",\n  \"communityWalletAddress\": \"0xUpdatedAbc123Def456789012345678901234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "community-{{$randomUuid}}",
+                  "description": "Community ID"
+                }
+              ]
+            },
+            "description": "Updates a community by ID."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/communities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-user-id",
+                "value": "{{privy_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/communities",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities"]
+            },
+            "description": "Retrieves all communities."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/communities/verify/generate-code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"community_id\": \"community-{{$randomUuid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/communities/verify/generate-code",
+              "host": ["{{baseUrl}}"],
+              "path": ["communities", "verify", "generate-code"]
+            },
+            "description": "Generates a verification code for a community."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "POST /api/v1/reports/impact",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/impact?platformId=discord-abc&startDate=2023-01-01T00:00:00Z&endDate=2023-12-31T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "impact"],
+              "query": [
+                {
+                  "key": "platformId",
+                  "value": "discord-abc",
+                  "description": "Platform ID"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2023-01-01T00:00:00Z",
+                  "description": "Start date (date-time)"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-12-31T23:59:59Z",
+                  "description": "End date (date-time)"
+                }
+              ]
+            },
+            "description": "Generate an impact report for a community over a specified time period."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/impact",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "impact"]
+            },
+            "description": "Get all impact reports."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact/status/:jobId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/impact/status/:jobId",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "impact", "status", ":jobId"],
+              "variable": [
+                {
+                  "key": "jobId",
+                  "value": "{{$randomUuid}}",
+                  "description": "Job ID for the report generation (uuid)"
+                }
+              ]
+            },
+            "description": "Check the status of an ongoing report generation request."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/reports/impact/:summaryId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reports/impact/:summaryId",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "impact", ":summaryId"],
+              "variable": [
+                {
+                  "key": "summaryId",
+                  "value": "{{$randomUuid}}",
+                  "description": "Report ID (uuid)"
+                }
+              ]
+            },
+            "description": "Get an impact report by ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Summaries",
+      "item": [
+        {
+          "name": "GET /api/v1/summaries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/summaries?platformId=discord-abc&channelId=channel-123&startDate=2023-01-01T00:00:00Z&endDate=2023-12-31T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["summaries"],
+              "query": [
+                {
+                  "key": "platformId",
+                  "value": "discord-abc",
+                  "description": "Platform ID"
+                },
+                {
+                  "key": "channelId",
+                  "value": "channel-123",
+                  "description": "Channel ID"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2023-01-01T00:00:00Z",
+                  "description": "Start date (date-time)"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2023-12-31T23:59:59Z",
+                  "description": "End date (date-time)"
+                }
+              ]
+            },
+            "description": "Gets a summary for a platform/channel over a time period."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/summaries/query",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Summarize the main discussion points about the new feature.\",\n  \"platform_id\": \"discord-abc\",\n  \"start_date\": \"2023-10-01T00:00:00Z\",\n  \"end_date\": \"2023-10-31T23:59:59Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/summaries/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["summaries", "query"]
+            },
+            "description": "Generates a summary based on a specific query and timeframe."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/summaries/historical-messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/summaries/historical-messages?platform_id=discord-abc&start_date=2023-01-01T00:00:00Z&end_date=2023-12-31T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["summaries", "historical-messages"],
+              "query": [
+                {
+                  "key": "platform_id",
+                  "value": "discord-abc",
+                  "description": "Platform ID"
+                },
+                {
+                  "key": "start_date",
+                  "value": "2023-01-01T00:00:00Z",
+                  "description": "Start date (date-time)"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2023-12-31T23:59:59Z",
+                  "description": "End date (date-time)"
+                }
+              ]
+            },
+            "description": "Starts a background job to fetch and store historical messages for a platform within a timeframe."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/summaries/historical-messages/status/:job_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/summaries/historical-messages/status/:job_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["summaries", "historical-messages", "status", ":job_id"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "{{$randomUuid}}",
+                  "description": "Job ID for the historical message fetch (uuid)"
+                }
+              ]
+            },
+            "description": "Check the status of an ongoing historical message fetch request."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "POST /api/v1/webhooks/github",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-GitHub-Event",
+                "value": "push",
+                "description": "Example: push, pull_request, issues etc.",
+                "type": "text"
+              },
+              {
+                "key": "X-Hub-Signature-256",
+                "value": "sha256=example_signature",
+                "description": "The signature of the payload",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payload\": {\n    \"ref\": \"refs/heads/main\",\n    \"repository\": {\n      \"id\": 12345,\n      \"name\": \"my-repo\",\n      \"full_name\": \"myuser/my-repo\"\n    },\n    \"pusher\": {\n      \"name\": \"myuser\"\n    },\n    \"commits\": [\n      {\n        \"id\": \"abcdef1234567890\",\n        \"message\": \"feat: Add new feature\",\n        \"author\": {\n          \"name\": \"myuser\"\n        }\n      }\n    ]\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/github",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "github"]
+            },
+            "description": "Handles incoming GitHub webhook events."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Rewards",
+      "item": [
+        {
+          "name": "POST /api/v1/rewards/recommendations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Community-ID",
+                "value": "{{$randomUuid}}",
+                "description": "Community ID (uuid)",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform_id\": \"discord-abc\",\n  \"start_date\": \"2023-10-01T00:00:00Z\",\n  \"end_date\": \"2023-10-31T23:59:59Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rewards/recommendations",
+              "host": ["{{baseUrl}}"],
+              "path": ["rewards", "recommendations"]
+            },
+            "description": "Starts the analysis of community messages to identify and suggest rewards."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/rewards/recommendations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Community-ID",
+                "value": "{{$randomUuid}}",
+                "description": "Community ID (uuid)",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/rewards/recommendations?status=pending&limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["rewards", "recommendations"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": "Filter by status (pending, processed, failed)"
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Pagination limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset"
+                }
+              ]
+            },
+            "description": "Retrieves all pending rewards for a specific community."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/rewards/recommendations/status/:job_id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rewards/recommendations/status/:job_id",
+              "host": ["{{baseUrl}}"],
+              "path": ["rewards", "recommendations", "status", ":job_id"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "{{$randomUuid}}",
+                  "description": "Job ID for the rewards analysis (uuid)"
+                }
+              ]
+            },
+            "description": "Check the status of an ongoing rewards analysis request."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/rewards/recommendations/{id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/rewards/recommendations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["rewards", "recommendations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "{{$randomUuid}}",
+                  "description": "Reward recommendation ID (uuid)"
+                }
+              ]
+            },
+            "description": "Deletes a specific pending reward recommendation by ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "POST /api/v1/users",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"did\": \"did:openformat:{{$randomUuid}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["users"]
+            },
+            "description": "Creates a new user with a Decentralized Identifier (DID)."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/v1/users/{did}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:did",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":did"],
+              "variable": [
+                {
+                  "key": "did",
+                  "value": "did:openformat:{{$randomUuid}}",
+                  "description": "User's DID (Decentralized Identifier)"
+                }
+              ]
+            },
+            "description": "Retrieves user details by DID."
+          },
+          "response": []
+        },
+        {
+          "name": "PUT /api/v1/users/{did}",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"did\": \"did:openformat:{{$randomUuid}}\",\n  \"profile\": {\n    \"name\": \"Updated Name\",\n    \"email\": \"updated.email@example.com\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/:did",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":did"],
+              "variable": [
+                {
+                  "key": "did",
+                  "value": "did:openformat:{{$randomUuid}}",
+                  "description": "User's DID (Decentralized Identifier)"
+                }
+              ]
+            },
+            "description": "Updates user details by DID."
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE /api/v1/users/{did}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/:did",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", ":did"],
+              "variable": [
+                {
+                  "key": "did",
+                  "value": "did:openformat:{{$randomUuid}}",
+                  "description": "User's DID (Decentralized Identifier)"
+                }
+              ]
+            },
+            "description": "Deletes a user by DID."
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/users/assign-role",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"did\": \"did:openformat:{{$randomUuid}}\",\n  \"community_id\": \"{{$randomUuid}}\",\n  \"role_name\": \"member\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/assign-role",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "assign-role"]
+            },
+            "description": "Assigns a role to a user within a community."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{API_KEY}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API_KEY",
+      "value": "ADD_API_KEY_HERE",
+      "type": "string"
+    },
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    }
+  ]
+}

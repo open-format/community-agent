@@ -36,16 +36,16 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
     const startTimestamp = createUnixTimestamp(startDate, 14);
     const endTimestamp = createUnixTimestamp(endDate);
 
-    const jobId = crypto.randomUUID();
+    const job_id = crypto.randomUUID();
 
-    await createReportJob(jobId, platformId as string, startTimestamp, endTimestamp);
+    await createReportJob(job_id, platformId as string, startTimestamp, endTimestamp);
 
-    generateReportInBackground(jobId, startTimestamp, endTimestamp, platformId as string);
+    generateReportInBackground(job_id, startTimestamp, endTimestamp, platformId as string);
 
     // Return immediately with the job ID
     return c.json({
       success: true,
-      jobId,
+      job_id,
       status: ReportStatus.PENDING,
       timeframe: {
         startDate: dayjs(startTimestamp).toISOString(),
