@@ -299,7 +299,7 @@ function formatMessagesChronologically(
 
   // Format each channel's messages
   const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
-    const channelHeader = `=== Messages from Channel with: [Channel_ID=${channelId}][Platform=${msgs[0].platform}][Platform_ID=${msgs[0].platformId}] ===`;
+    const channelHeader = `=== Messages from Channel with: [Channel_ID=${channelId}][Platform=${msgs[0].platform}][Platform_ID=${msgs[0].platformId}] ===\n`;
     const channelMessages = msgs
       .map((msg) => {
         const messageIdPart = includeMessageId ? ` [MESSAGE_ID=${msg.messageId}]` : "";
