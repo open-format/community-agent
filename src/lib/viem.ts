@@ -1,4 +1,4 @@
-import { ChainName, openFormatChain, turboChain } from "@/constants/chains";
+import { openFormatChain, turboChain } from "@/constants/chains";
 import { PrivyClient } from "@privy-io/server-auth";
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import { eq } from "drizzle-orm";
@@ -48,19 +48,20 @@ export async function getCommunityWallet(communityId: string) {
   });
 }
 
-export function getPublicClientByChainName(chainName: string) {
-  const chainMap = {
-    [ChainName.ARBITRUM_SEPOLIA]: arbitrumSepolia,
-    [ChainName.AURORA]: aurora,
-    [ChainName.BASE]: base,
-    [ChainName.TURBO]: turboChain,
-    [ChainName.MATCHAIN]: matchain,
-    [ChainName.OPENFORMAT]: openFormatChain,
-  };
+const viemChainMap: Record<number, any> = {
+  [arbitrumSepolia.id]: arbitrumSepolia,
+  [aurora.id]: aurora,
+  [base.id]: base,
+  [matchain.id]: matchain,
+  [turboChain.id]: turboChain,
+  [openFormatChain.id]: openFormatChain,
+};
 
-  const chain = chainMap[chainName as ChainName];
+export function getPublicClientByChainId(chainId: number) {
+  const chain = viemChainMap[chainId];
+
   if (!chain) {
-    throw new Error(`Unsupported chain: ${chainName}`);
+    throw new Error(`Unsupported chain: ${chainId}`);
   }
 
   return createPublicClient({
@@ -69,19 +70,10 @@ export function getPublicClientByChainName(chainName: string) {
   });
 }
 
-export function getWalletClientByChainName(chainName: string, account: Account) {
-  const chainMap = {
-    [ChainName.ARBITRUM_SEPOLIA]: arbitrumSepolia,
-    [ChainName.AURORA]: aurora,
-    [ChainName.BASE]: base,
-    [ChainName.TURBO]: turboChain,
-    [ChainName.MATCHAIN]: matchain,
-    [ChainName.OPENFORMAT]: openFormatChain,
-  };
-
-  const chain = chainMap[chainName as ChainName];
+export function getWalletClientByChainId(chainId: number, account: Account) {
+  const chain = viemChainMap[chainId];
   if (!chain) {
-    throw new Error(`Unsupported chain: ${chainName}`);
+    throw new Error(`Unsupported chain: ${chainId}`);
   }
 
   return createWalletClient({

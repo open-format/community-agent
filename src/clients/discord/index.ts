@@ -7,11 +7,10 @@ import { PGVECTOR_PROMPT } from "@mastra/rag";
 import { embed } from "ai";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
-import { and, eq } from "drizzle-orm";
+import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
-import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 
 const discordClient = new Client({
   intents: [
@@ -48,29 +47,15 @@ discordClient.on("guildCreate", async (guild) => {
   if (!guild.members.me?.permissions.has("ViewChannel")) {
     console.warn(`Missing required permissions in ${guild.name}`);
   }
-
-  if (!fetchHistoricalMessagesTool.execute) {
-    throw new Error("Historical messages tool not initialized");
-  }
-
-  await registerCommandsForGuild(guild.id, guild.name, discordClient);
-
-  await fetchHistoricalMessagesTool.execute({
-    context: {
-      platformId: guild.id,
-      startDate: createUnixTimestamp(undefined, 30),
-      endDate: createUnixTimestamp(dayjs().toISOString()),
-    },
-  });
-
   // Check if platform connection already exists
   await createPlatformConnection(guild.id, guild.name, "discord");
-  
+
+  await registerCommandsForGuild(guild.id, guild.name, discordClient);
 });
 
 discordClient.on("guildDelete", async (guild) => {
   console.log(`Bot left server: ${guild.name} (${guild.id})`);
-  
+
   // Delete platform connection
   await deletePlatformConnection(guild.id, "discord");
 });
