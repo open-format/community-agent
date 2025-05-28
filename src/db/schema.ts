@@ -47,7 +47,7 @@ export const communities = pgTable("communities", {
   communityContractChainId: integer("community_contract_chain_id"),
   communityWalletId: text("community_wallet_id"),
   communityWalletAddress: text("community_wallet_address"),
-  slug: varchar("slug", { length: 255 }).default("").notNull().unique(),
+  slug: varchar("slug", { length: 255 }).default(sql`gen_random_uuid()`).notNull().unique(),
   accentColor: varchar("accent_color", { length: 7 }).notNull().default("#6366F1"),
   tokenLabel: varchar("token_label", { length: 255 }).notNull().default("Points"),
   userLabel: varchar("user_label", { length: 255 }).notNull().default("User"),
