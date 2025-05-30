@@ -8,6 +8,10 @@ export const createPrivyWalletTool = {
     } 
   }) => {
     try {
+      const linked_account = context.platform === "discord" ? 
+        { type: 'discord_oauth', subject: context.username, username: context.username } // Discord account
+        : { type: "telegram", telegram_user_id: context.username } // Telegram account
+
       const response = await fetch(`https://auth.privy.io/api/v1/users`, {
         method: 'POST',
         headers: {
@@ -18,11 +22,7 @@ export const createPrivyWalletTool = {
         body: JSON.stringify({
           create_ethereum_wallet: true,
           create_ethereum_smart_wallet: true,
-          linked_accounts: [{
-            type: 'discord_oauth',
-            subject: context.username,
-            username: context.username
-          }]
+          linked_accounts: [ linked_account ]
         })
       });
 
