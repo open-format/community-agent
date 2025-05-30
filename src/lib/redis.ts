@@ -24,7 +24,8 @@ export interface ReportJob {
   status: ReportStatus;
   startDate: number;
   endDate: number;
-  platformId: string;
+  platformId?: string;
+  communityId?: string;
   createdAt: number;
   reportId?: string;
   error?: string;
@@ -35,7 +36,8 @@ export interface ReportJob {
  */
 export async function createReportJob(
   jobId: string,
-  platformId: string,
+  platformId: string|undefined,
+  communityId: string|undefined,
   startDate: number,
   endDate: number,
 ): Promise<ReportJob> {
@@ -45,6 +47,7 @@ export async function createReportJob(
     startDate,
     endDate,
     platformId,
+    communityId,
     createdAt: Date.now(),
   };
 

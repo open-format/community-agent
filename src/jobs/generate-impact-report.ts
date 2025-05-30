@@ -53,52 +53,53 @@ export async function generateImpactReports() {
         "Processing community platforms",
       );
 
-      for (const platformConnection of platformConnections) {
-        try {
-          const workflow = mastra.getWorkflow("impactReportWorkflow");
-          const { start } = workflow.createRun();
+      const platformIds = platformConnections.map( pc => pc.platformId );
+      
+      try {
+        const workflow = mastra.getWorkflow("impactReportWorkflow");
+        const { start } = workflow.createRun();
 
-          const result = await start({
-            triggerData: {
-              startDate: dayjs().subtract(1, "week").valueOf(),
-              endDate: dayjs().valueOf(),
-              platformId: platformConnection.platformId,
-            },
-          });
+        const result = await start({
+          triggerData: {
+            startDate: dayjs().subtract(1, "week").valueOf(),
+            endDate: dayjs().valueOf(),
+            platformId: platformIds.length === 1 ? platformIds[0] : undefined,
+            communityId: platformIds.length === 1 ? undefined : community.id,
+          },
+        });
 
-          if (!result.results?.saveReport?.output) {
-            logger.error(
-              {
-                platformId: platformConnection.platformId,
-                communityId: community.id,
-                results: result.results,
-              },
-              "Failed to generate impact report - no output from saveReport step",
-            );
-            continue;
-          }
-
-          logger.info(
-            {
-              platformId: platformConnection.platformId,
-              communityId: community.id,
-              summaryId: result.results.saveReport.output.summaryId,
-              reportTimestamp: result.results.saveReport.output.timestamp,
-              messageCount: result.results.saveReport.output.messageCount,
-              uniqueUsers: result.results.saveReport.output.uniqueUserCount,
-            },
-            "Successfully generated impact report",
-          );
-        } catch (error) {
+        if (!result.results?.saveReport?.output) {
           logger.error(
             {
-              err: error,
-              platformId: platformConnection.platformId,
+              platformIds: platformIds,
               communityId: community.id,
+              results: result.results,
             },
-            "Error in impact report generation",
+            "Failed to generate impact report - no output from saveReport step",
           );
+          continue;
         }
+
+        logger.info(
+          {
+            platformIds: platformIds,
+            communityId: community.id,
+            summaryId: result.results.saveReport.output.summaryId,
+            reportTimestamp: result.results.saveReport.output.timestamp,
+            messageCount: result.results.saveReport.output.messageCount,
+            uniqueUsers: result.results.saveReport.output.uniqueUserCount,
+          },
+          "Successfully generated impact report",
+        );
+      } catch (error) {
+        logger.error(
+          {
+            err: error,
+            platformIds: platformIds,
+            communityId: community.id,
+          },
+          "Error in impact report generation",
+        );
       }
     }
   } catch (error) {

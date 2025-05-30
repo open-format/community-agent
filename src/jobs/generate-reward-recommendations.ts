@@ -78,6 +78,7 @@ export async function generateRewardRecommendations() {
             job_id,
             community.id,
             platformConnection.platformId,
+            platformConnection.platformType.toLowerCase(),
             dayjs().subtract(1, "year").valueOf(),
             dayjs().valueOf(),
           );

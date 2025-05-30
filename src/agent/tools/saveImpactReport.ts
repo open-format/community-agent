@@ -28,12 +28,14 @@ export const saveImpactReportTool = createTool({
       topContributors: z.array(
         z.object({
           username: z.string(),
+          platform: z.string(),
           messageCount: z.number(),
         }),
       ),
       channelBreakdown: z.array(
         z.object({
           channelName: z.string(),
+          platform: z.string(),
           messageCount: z.number(),
           uniqueUsers: z.number(),
         }),
@@ -85,7 +87,8 @@ export const saveImpactReportTool = createTool({
       };
       startDate: number;
       endDate: number;
-      platformId: string;
+      platformId?: string;
+      communityId?: string;
       summaryId?: string;
     };
   }) => {
@@ -100,6 +103,7 @@ export const saveImpactReportTool = createTool({
 
       const reportMetadata: ImpactReportMetadata = {
         platformId: context.platformId,
+        communityId: context.communityId,
         timestamp: Date.now(),
         startDate: context.startDate,
         endDate: context.endDate,
@@ -110,6 +114,8 @@ export const saveImpactReportTool = createTool({
         keyTopics: context.report.keyTopics,
         userSentiment: context.report.userSentiment,
         summaryId: context.summaryId,
+        messageCount: context.report.overview.totalMessages,
+        uniqueUserCount: context.report.overview.uniqueUsers,
       };
 
       await vectorStore.upsert({

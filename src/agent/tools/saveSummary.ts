@@ -13,7 +13,8 @@ export const saveSummaryTool = createTool({
     startDate: z.number(),
     endDate: z.number(),
     summarizationResult: z.any().optional(),
-    platformId: z.string(),
+    platformId: z.string().optional(),
+    communityId: z.string().optional(),
   }),
   outputSchema: z.object({
     success: z.boolean(),
@@ -39,6 +40,7 @@ export const saveSummaryTool = createTool({
 
       const summaryMetadata: SummaryMetadata = {
         platformId: context.platformId,
+        communityId: context.communityId,
         timestamp: dayjs().valueOf(),
         text: context.summary,
         startDate: context.startDate,

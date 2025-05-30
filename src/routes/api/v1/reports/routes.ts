@@ -8,7 +8,8 @@ export const generateImpactReport = createRoute({
   description: "Generate an impact report for a community over a specified time period",
   request: {
     query: z.object({
-      platformId: z.string().describe("Platform ID"),
+      platformId: z.string().describe("Platform ID").optional(),
+      communityId: z.string().describe("Community ID").optional(),
       startDate: z
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
@@ -17,7 +18,16 @@ export const generateImpactReport = createRoute({
         .string({ message: "must be a valid ISO 8601 date format" })
         .datetime({ message: "must be a valid ISO 8601 date format" })
         .optional(),
-    }),
+    })
+    .superRefine((data, ctx) => {
+    if (!data.platformId && !data.communityId) {
+       ctx.addIssue({
+         code: z.ZodIssueCode.custom,
+         path: ["communityId"],
+         message: "Required to specify communityId or platformId.",
+       });
+     }
+  }),
   },
   responses: {
     200: {
@@ -132,8 +142,14 @@ export const getImpactReports = createRoute({
   method: "get",
   path: "/impact",
   tags: ["Reports"],
-  summary: "Get all impact reports",
-  description: "Get all impact reports",
+  summary: "Get impact reports",
+  description: "Get impact reports",
+  request: {
+    query: z.object({
+      platformId: z.string().describe("Platform ID").optional(),
+      communityId: z.string().describe("Community ID").optional(),
+    })
+  },
   responses: {
     200: {
       description: "Impact reports retrieved successfully",

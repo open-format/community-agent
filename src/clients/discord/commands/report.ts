@@ -1,8 +1,8 @@
 import { vectorStore } from "@/agent/stores/vectorStore";
+import { ReportData } from "@/clients/common/formatters/report";
 import dayjs from "dayjs";
 import type { Message } from "discord.js";
 import { EmbedBuilder } from "discord.js";
-import type { ReportData } from "../formatters/report";
 
 export async function handleReportCommand(msg: Message) {
   if (!msg.guild) {

@@ -1,6 +1,6 @@
 import { mastra } from "@/agent";
 import { db } from "@/db";
-import { communities, pendingRewards } from "@/db/schema";
+import { communities, pendingRewards, platformConnections as platformConnectionsSchema } from "@/db/schema";
 import {
   ReportStatus,
   createReportJob,
@@ -32,6 +32,7 @@ export async function generateRewardsInBackground(
   job_id: string,
   community_id: string,
   platform_id: string,
+  platform_type: string,
   start_date: number,
   end_date: number,
 ) {
@@ -43,6 +44,7 @@ export async function generateRewardsInBackground(
       triggerData: {
         community_id,
         platform_id,
+        platform_type,
         start_date: dayjs(start_date).valueOf(),
         end_date: dayjs(end_date).valueOf(),
       },
@@ -81,13 +83,33 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
       return c.json({ message: "Community not found" }, 404);
     }
 
+    const platformConnections = await db
+      .select()
+      .from(platformConnectionsSchema)
+      .where(
+        and(
+          eq(platformConnectionsSchema.communityId, community.id),
+          eq(platformConnectionsSchema.platformId, platform_id)
+        )
+      );
+    if (platformConnections.length === 0) {
+      return c.json({ message: "Provided platform does not belongs to community" }, 404);      
+    }
+
     const job_id = crypto.randomUUID();
     const start_timestamp = dayjs(start_date).valueOf();
     const end_timestamp = dayjs(end_date).valueOf();
 
-    await createReportJob(job_id, platform_id, start_timestamp, end_timestamp);
+    await createReportJob(job_id, platform_id, undefined, start_timestamp, end_timestamp);
 
-    generateRewardsInBackground(job_id, community_id, platform_id, start_timestamp, end_timestamp);
+    generateRewardsInBackground(
+      job_id, 
+      community_id, 
+      platform_id,
+      platformConnections.at(0)!.platformType.toLowerCase(),
+      start_timestamp, 
+      end_timestamp
+    );
 
     return c.json({
       job_id,
