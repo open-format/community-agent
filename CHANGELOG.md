@@ -1,3 +1,10 @@
+# [0.31.0](https://github.com/open-format/community-agent/compare/v0.30.0...v0.31.0) (2025-05-30)
+
+
+### Features
+
+* Fixed embeddings generation err when message content is empty ([da65b66](https://github.com/open-format/community-agent/commit/da65b6609fe621509d0daa33360bae8468881c8b))
+
 # [0.30.0](https://github.com/open-format/community-agent/compare/v0.29.0...v0.30.0) (2025-05-28)
 
 
