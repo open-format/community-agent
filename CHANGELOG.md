@@ -1,3 +1,33 @@
+# [0.30.0](https://github.com/open-format/community-agent/compare/v0.29.0...v0.30.0) (2025-05-28)
+
+
+### Bug Fixes
+
+* **communities:** conditionally retrieve on-chain data for community ([1e9e014](https://github.com/open-format/community-agent/commit/1e9e014fa4ffe58baa859b47123e2d84337ffb34))
+* **communities:** update snapshot to return only the first sorted result ([22ff530](https://github.com/open-format/community-agent/commit/22ff5309ee75ce844ccebd122d1ea5a77209f69a))
+* Rename jobId variable to job_id for consistency in report generation process ([a9676fd](https://github.com/open-format/community-agent/commit/a9676fd4e064fc722c53b0dfe1eadebc777c4ad7))
+* Update batch processing logic to retry failed batches in rewards identification ([472ad10](https://github.com/open-format/community-agent/commit/472ad10518b220a61834e21a913b677187c42943))
+* Update users table to set id column data type to uuid with casting ([2fcd728](https://github.com/open-format/community-agent/commit/2fcd7282dcbce8fb64c98be8bcf3eb458fcb5797))
+
+
+### Features
+
+* Add background fetching of historical messages with job status updates ([d7fe65b](https://github.com/open-format/community-agent/commit/d7fe65b1248cce7ce1180ec519f1772a2c63bd36))
+* Add CRUD endpoints for managing users in the Community Agent ([caa2faf](https://github.com/open-format/community-agent/commit/caa2fafbb6a5eacc51277a5f5f353e8129d04afc))
+* Add getCommunities endpoint to retrieve communities where the user has Admin role ([f8f8d16](https://github.com/open-format/community-agent/commit/f8f8d16b342598038964cbe707314b9fd4e08d08))
+* Add migration for setting default slug value to gen_random_uuid() in communities table ([6fa7cf0](https://github.com/open-format/community-agent/commit/6fa7cf00fea19a2c9374a408b82f4305a4aca9ad))
+* Add Open Format - Agent API Postman collection for community, reports, summaries, webhooks, rewards, and users ([9f8ab70](https://github.com/open-format/community-agent/commit/9f8ab7030a2a215d3f825aeae3ce6bc027a1c6f7))
+* Add roles support ([01280f2](https://github.com/open-format/community-agent/commit/01280f224cd2e9c29164f4bebbe3d2209a1e9543))
+* Add roles support ([b8776a7](https://github.com/open-format/community-agent/commit/b8776a77b96013b07565b753d75725671507b266))
+* **communities:** add slug generation for community names on guild creation ([2757d98](https://github.com/open-format/community-agent/commit/2757d9852ffa60742d17727aef5be7628a888df7))
+* **communities:** implement pagination and error handling for community retrieval ([1ef1ef8](https://github.com/open-format/community-agent/commit/1ef1ef8e27d7cbe60a8039d61d0c4f2b52088a5d))
+* **database:** add tiers table and update communities schema ([57410ac](https://github.com/open-format/community-agent/commit/57410acaba3c632f88e654a44f062aada02cddd8))
+* Enhance Discord guild creation with platform connection check and update community slug generation ([bb6dab3](https://github.com/open-format/community-agent/commit/bb6dab329f03560a44ffa39a319470b180714a5f))
+* Implement batch processing for rewards identification and enhance evidence formatting ([f1a4492](https://github.com/open-format/community-agent/commit/f1a44926722ce0a1203b9ef6c35209fdda3ac0a1))
+* Implement community role assignment and default role creation ([c015ea7](https://github.com/open-format/community-agent/commit/c015ea74dfd6dde76e1bb2a370e4bc0e924326c6))
+* Implement historical messages status endpoint and update job creation process ([6347301](https://github.com/open-format/community-agent/commit/6347301565ab2d42c597e230cefafca58a09d16a))
+* Introduce community roles and user community management ([1277cb1](https://github.com/open-format/community-agent/commit/1277cb108792063c468cc99d34f03f1fc0e5bd35))
+
 # [0.29.0](https://github.com/open-format/community-agent/compare/v0.28.1...v0.29.0) (2025-05-15)
 
 
