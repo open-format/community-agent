@@ -29,6 +29,8 @@ const impactReportSchema = z.object({
     description: z.string(),
     evidence: z.array(z.object({
       channelId: z.string(),
+      platform:  z.string(),
+      platformId:  z.string(),
       messageId: z.string()
     })).min(1).max(5)
   })),
@@ -39,6 +41,8 @@ const impactReportSchema = z.object({
       users: z.array(z.string()),
       evidence: z.array(z.object({
         channelId: z.string(),
+        platform:  z.string(),
+        platformId:  z.string(),
         messageId: z.string()
       })).min(1).max(5)
     })),
@@ -48,6 +52,8 @@ const impactReportSchema = z.object({
       users: z.array(z.string()),
       evidence: z.array(z.object({
         channelId: z.string(),
+        platform:  z.string(),
+        platformId:  z.string(),
         messageId: z.string()
       })).min(1).max(5)
     }))
@@ -67,19 +73,21 @@ export const impactAgent = new Agent({
   - User sentiment analysis (what excites and frustrates users, 5-10 key points for each)
 
   For Message Examples as evidence:
-  1. Extract the channel ID from the channel section header: === Messages from Channel with Channel ID: [channelId] ===
-  2. Extract the message ID from the message: [MESSAGE_ID=messageId]
-  3. Return them in the evidence array as objects with channelId and messageId
+  1. Extract the channel ID from the channel section header: === Messages from Channel with: [Channel_ID=channelId][Platform=platform][Platform_ID=platformId] ===
+  2. Extract the Platform ID from the channel section header: === Messages from Channel with: [Channel_ID=channelId][Platform=platform][Platform_ID=platformId] ===
+  3. Extract the Platform (discord or telegram) from the channel section header: === Messages from Channel with: [Channel_ID=channelId][Platform=platform][Platform_ID=platformId] ===
+  4. Extract the message ID from the message: [MESSAGE_ID=messageId]
+  5. Return them in the evidence array as objects with channelId, platformId, platform and messageId
 
   Example:
   From transcript:
-  === Messages from Channel with Channel ID: [987654321] ===
+  === Messages from Channel with Channel ID: [Channel_ID=987654321][Platform=discord][Platform_ID=1368807851945889903] ===
   [2024-03-20] [MESSAGE_ID=111222333] username: content
 
   Should become:
-  evidence: [{ "channelId": "987654321", "messageId": "111222333" }]
+  evidence: [{ "channelId": "987654321", "platform": "discord", "platformId": "1368807851945889903", "messageId": "111222333" }]
 
-  - Only use channel IDs that appear in channel headers === Messages from Channel with Channel ID: [channelId] ===
+  - Only use channel IDs that appear in channel headers === Messages from Channel with: [Channel_ID=channelId][Platform=platform][Platform_ID=platformId] ===
   - Use the appropriate message IDs for the message you are referencing
   - Never modify or make up IDs
   - Use fewer examples if you can't find enough relevant messages
@@ -138,12 +146,14 @@ interface ImpactReportData {
     }>;
     topContributors: Array<{
       username: string;
+      platform: string;
       count: number;
     }>;
     messagesByChannel: Array<{
       channel: {
         id: string;
         name: string;
+        platform: string;
       };
       count: number;
       uniqueUsers: number;

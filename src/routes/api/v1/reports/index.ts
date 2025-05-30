@@ -1,6 +1,6 @@
 import { vectorStore } from "@/agent/stores/vectorStore";
 import { db } from "@/db";
-import { platformConnections } from "@/db/schema";
+import { communities, platformConnections } from "@/db/schema";
 import { ReportStatus, createReportJob, getReportJob, getReportResult } from "@/lib/redis";
 import { generateReportInBackground } from "@/services/report-generation";
 import { createUnixTimestamp } from "@/utils/time";
@@ -23,14 +23,27 @@ const reportsRoute = new OpenAPIHono();
 
 reportsRoute.openapi(generateImpactReport, async (c) => {
   try {
-    const { startDate, endDate, platformId } = c.req.query();
+    const { startDate, endDate, platformId, communityId } = c.req.query();
 
-    const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.platformId, platformId as string),
-    });
+    if (platformId) {
+      const platform = await db.query.platformConnections.findFirst({
+        where: eq(platformConnections.platformId, platformId as string),
+      });
 
-    if (!platform) {
-      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+      if (!platform) {
+        return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+      }
+    }
+
+    if (communityId) {
+      const community = await db.query.communities.findFirst({
+        where: eq(communities.id, communityId as string),
+      });
+
+      if (!community) {
+        return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
+      }
+
     }
 
     const startTimestamp = createUnixTimestamp(startDate, 14);
@@ -38,9 +51,9 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
 
     const jobId = crypto.randomUUID();
 
-    await createReportJob(jobId, platformId as string, startTimestamp, endTimestamp);
+    await createReportJob(jobId, platformId, communityId, startTimestamp, endTimestamp);
 
-    generateReportInBackground(jobId, startTimestamp, endTimestamp, platformId as string);
+    generateReportInBackground(jobId, startTimestamp, endTimestamp, platformId, communityId);
 
     // Return immediately with the job ID
     return c.json({
@@ -108,18 +121,23 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
 reportsRoute.openapi(getImpactReports, async (c) => {
   try {
-    const { platformId, limit } = c.req.query();
+    const { platformId, communityId, limit } = c.req.query();
 
     const topK = limit ? Number.parseInt(limit as string) : 10;
 
+    let filter = undefined;
+    if (communityId) {
+      filter = { communityId }
+    } else if (platformId) {
+      filter = { platformId }
+    }
+    
     const results = await vectorStore.query({
       indexName: "impact_reports",
       queryVector: new Array(1536).fill(0),
       topK,
       includeMetadata: true,
-      filter: {
-        platformId,
-      },
+      filter,
     });
 
     const sortedResults = results.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);

@@ -43,7 +43,8 @@ declare global {
   // Define interface for the summary metadata
   interface SummaryMetadata {
     platform?: string;
-    platformId: string;
+    platformId?: string;
+    communityId?: string,
     timestamp: number;
     text: string;
     startDate: number;
@@ -52,16 +53,6 @@ declare global {
     coverageScore?: number | null;
     alignmentScore?: number | null;
     summarizationReason?: string | null;
-  }
-
-  interface getMessagesToolContext {
-    context: {
-      startDate: number;
-      endDate: number;
-      platformId: string;
-      includeStats?: boolean;
-      includeMessageId?: boolean;
-    };
   }
 
   interface VectorStoreResult {
@@ -100,7 +91,8 @@ declare global {
 
   // Impact Report Types
   interface ImpactReportMetadata {
-    platformId: string;
+    platformId?: string;
+    communityId?: string;
     timestamp: number;
     startDate: number;
     endDate: number;
@@ -129,11 +121,13 @@ declare global {
 
   interface TopContributor {
     username: string;
+    platform: string;
     messageCount: number;
   }
 
   interface ChannelBreakdown {
     channelName: string;
+    platform: string;
     messageCount: number;
     uniqueUsers: number;
   }
