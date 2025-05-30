@@ -1,5 +1,4 @@
-import { WorkflowContext } from "@mastra/core/dist/workflows";
-import { Step, Workflow } from "@mastra/core/workflows";
+import { Step, Workflow, type WorkflowContext } from "@mastra/core/workflows";
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
 import dayjs from "dayjs";
 import pino from "pino";
@@ -80,35 +79,138 @@ const identifyRewardsStep = new Step({
     ),
   }),
   execute: async ({ context }: { context: WorkflowContext }) => {
-    logger.info("Starting identifyRewards step");
+    logger.info("Starting identifyRewards step (batch mode)");
     try {
       if (context.steps.fetchMessages.status !== "success") {
         throw new Error("Failed to fetch messages");
       }
 
-      const transcript = context.steps.fetchMessages.output.transcript;
-      const rewards = await identifyRewards(transcript);
+      // Configurable batch size
+      const BATCH_SIZE = Number.parseInt(process.env.REWARD_LLM_BATCH_SIZE || "1000", 10);
+      const messages = context.steps.fetchMessages.output.messages;
 
-      const enhancedRewards = {
-        contributions: rewards.contributions.map(
-          (contribution: {
-            evidence: Array<{ channelId: string; messageId: string }>;
-          }) => ({
-            ...contribution,
-            evidence: contribution.evidence.map(
-              (evidence: { channelId: string; messageId: string }) =>
-                getMessageUrlForPlatform(
-                  context.triggerData.platform_type, 
-                  context.triggerData.platform_id, 
-                  evidence.channelId, 
-                  evidence.messageId
-                )
-            ),
-          }),
-        ),
+      if (!messages || messages.length === 0) {
+        logger.info("No messages to process for rewards");
+        return { contributions: [] };
+      }
+
+      // Message and evidence types
+      type Message = {
+        id: string;
+        metadata: {
+          timestamp: number;
+          authorId: string;
+          authorUsername: string;
+          channelId?: string;
+          messageId?: string;
+          text?: string;
+        };
       };
 
-      logger.info("✅ identifyRewards step completed successfully");
+      type Evidence = { channelId: string; messageId: string } | string;
+
+      type Contribution = {
+        contributor: string;
+        short_summary: string;
+        comprehensive_description: string;
+        impact: string;
+        evidence: Evidence[];
+        rewardId: string;
+        suggested_reward: {
+          points: number;
+          reasoning: string;
+        };
+      };
+
+      // Helper to format a batch of messages as a transcript
+      function formatBatchTranscript(batch: Message[], platformId: string) {
+        // Reuse the same format as getMessagesTool/formatMessagesChronologically
+        const dayjs = require("dayjs");
+        const header = `The server ID is [${platformId}]\n\n`;
+        const formattedMessages = batch.map((message) => {
+          return {
+            timestamp: dayjs(message.metadata.timestamp).format("YYYY-MM-DD HH:mm"),
+            channelId: message.metadata.channelId || "unknown-channel",
+            messageId: message.metadata.messageId || message.id,
+            username: message.metadata.authorUsername || "Unknown User",
+            content: message.metadata.text || "[No content]",
+          };
+        });
+        // Group by channel
+        const messagesByChannel = formattedMessages.reduce(
+          (acc: Record<string, typeof formattedMessages>, msg) => {
+            if (!acc[msg.channelId]) acc[msg.channelId] = [];
+            acc[msg.channelId].push(msg);
+            return acc;
+          },
+          {} as Record<string, typeof formattedMessages>,
+        );
+        const sections = Object.entries(messagesByChannel).map(([channelId, msgs]) => {
+          const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
+          const channelMessages = msgs
+            .map((msg) => {
+              const messageIdPart = msg.messageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : "";
+              return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
+            })
+            .join("\n");
+          const channelFooter = `=== End of Messages from Channel with Channel ID: [${channelId}] ===\n`;
+          return `${channelHeader}${channelMessages}${channelFooter}`;
+        });
+        return header + sections.join("\n\n");
+      }
+
+      // Split messages into batches
+      const batches: Message[][] = [];
+      for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+        batches.push(messages.slice(i, i + BATCH_SIZE));
+      }
+
+      let allContributions: Contribution[] = [];
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+        const transcript = formatBatchTranscript(batch, context.triggerData.platform_id);
+        try {
+          logger.info(`Processing batch ${i + 1}/${batches.length} with ${batch.length} messages`);
+          const rewards = await identifyRewards(transcript);
+          if (rewards?.contributions && Array.isArray(rewards.contributions)) {
+            allContributions = allContributions.concat(rewards.contributions);
+          }
+        } catch (error) {
+          logger.error(
+            `❌ identifyRewards failed for batch ${i + 1}:`,
+            error instanceof Error ? error.message : error,
+          );
+          // If batch fails, retry the batch
+          i--;
+        }
+      }
+
+      // Format evidence as Discord URLs
+      const enhancedRewards = {
+        contributions: allContributions.map((contribution) => ({
+          ...contribution,
+          evidence: (contribution.evidence || []).map((evidence) => {
+            // If already a URL, keep as is
+            if (
+              typeof evidence === "string" &&
+              evidence.startsWith("https://discord.com/channels/")
+            ) {
+              return evidence;
+            }
+            // If object with channelId/messageId, format as URL
+            if (
+              typeof evidence === "object" &&
+              (evidence as { channelId?: string; messageId?: string })?.channelId &&
+              (evidence as { channelId?: string; messageId?: string })?.messageId
+            ) {
+              return `https://discord.com/channels/${context.triggerData.platform_id}/${(evidence as { channelId: string }).channelId}/${(evidence as { messageId: string }).messageId}`;
+            }
+            return evidence;
+          }),
+        })),
+      };
+
+      logger.info("✅ identifyRewards step (batch mode) completed successfully");
       return enhancedRewards;
     } catch (error) {
       logger.error(
@@ -343,9 +445,11 @@ const savePendingRewardsStep = new Step({
             };
           }
 
-          const platformType = context.triggerData.platform_type == "discord" ? "discord" : "telegram";
+          if (!savePendingRewardTool.execute) {
+            throw new Error("Save pending reward tool not initialized");
+          }
 
-          const result = await savePendingRewardTool.execute!({
+          const result = await savePendingRewardTool.execute({
             context: {
               communityId: context.triggerData.community_id,
               contributor: reward.contributor,

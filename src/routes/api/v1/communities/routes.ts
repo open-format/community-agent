@@ -1,6 +1,4 @@
-import { addressSchema } from "@/utils/schema";
 import { createRoute, z } from "@hono/zod-openapi";
-import { isAddress } from "viem";
 import { community, communityUpdate } from "./schema";
 
 export const getCommunity = createRoute({
@@ -8,10 +6,7 @@ export const getCommunity = createRoute({
   path: "/{id}",
   request: {
     params: z.object({
-      id: z.union([z.string().uuid(), addressSchema]).refine((val) => isAddress(val), {
-        message:
-          "Invalid community ID format. Please provide either a valid UUID or Ethereum address",
-      }),
+      id: z.string().describe("Community ID or Platform ID"),
     }),
   },
   responses: {
@@ -155,6 +150,36 @@ export const generateCode = createRoute({
     },
     500: {
       description: "Failed to generate code",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const getCommunities = createRoute({
+  method: "get",
+  path: "/",
+  request: {
+    headers: z.object({
+      "x-user-id": z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "Communities where the user has the Admin role",
+      content: {
+        "application/json": {
+          schema: z.array(community),
+        },
+      },
+    },
+    404: {
+      description: "User not found",
       content: {
         "application/json": {
           schema: z.object({
