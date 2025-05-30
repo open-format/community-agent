@@ -2,15 +2,14 @@ import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { createUnixTimestamp } from "@/utils/time";
-import { openai } from "@ai-sdk/openai";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
-import { embed } from "ai";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
 import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
+import { getEmbeddingsVector } from "../common/utils";
 
 const discordClient = new Client({
   intents: [
@@ -199,11 +198,8 @@ Please search through the conversation history to find relevant information.
     return;
   }
 
-  // Generate embeddings for message content
-  const embedding = await embed({
-    model: openai.embedding("text-embedding-3-small"),
-    value: msg.content,
-  });
+  // Get embeddings for message content
+  const embeddingsVector = await getEmbeddingsVector(msg.content);
 
   // Initialize metadata for the message
   const metadata: MessageMetadata = {
@@ -229,7 +225,7 @@ Please search through the conversation history to find relevant information.
   // Store in vector store
   await vectorStore.upsert({
     indexName: "community_messages",
-    vectors: [embedding.embedding],
+    vectors: embeddingsVector,
     metadata: [metadata],
   });
 });
@@ -258,16 +254,13 @@ discordClient.on("messageReactionAdd", async (reaction, user) => {
     checkedForReward: false,
   };
 
-  // Generate embeddings for message content
-  const embedding = await embed({
-    model: openai.embedding("text-embedding-3-small"),
-    value: reaction.emoji.name ?? "",
-  });
+  // Get embeddings for message content
+  const embeddingsVector = await getEmbeddingsVector(reaction.emoji.name ?? "");
 
   // Store in vector store
   await vectorStore.upsert({
     indexName: "community_messages",
-    vectors: [embedding.embedding],
+    vectors: embeddingsVector,
     metadata: [metadata],
   });
 });
