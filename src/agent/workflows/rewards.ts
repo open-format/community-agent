@@ -1,4 +1,4 @@
-import { Step, Workflow, type WorkflowContext } from "@mastra/core/workflows";
+import { Step, Workflow } from "@mastra/core/workflows";
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
 import dayjs from "dayjs";
 import pino from "pino";
@@ -149,7 +149,7 @@ const identifyRewardsStep = new Step({
           const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
           const channelMessages = msgs
             .map((msg) => {
-              const messageIdPart = msg.messageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : "";
+              const messageIdPart = msg.messageId ? ` [MESSAGE_ID=${msg.messageId}]` : "";
               return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
             })
             .join("\n");
@@ -192,8 +192,10 @@ const identifyRewardsStep = new Step({
           evidence: (contribution.evidence || []).map((evidence) => {
             // If already a URL, keep as is
             if (
-              typeof evidence === "string" &&
-              evidence.startsWith("https://discord.com/channels/")
+              typeof evidence === "string" && (
+                evidence.startsWith("https://discord.com/channels/")
+                || evidence.startsWith("https://t.me/c/")
+              )
             ) {
               return evidence;
             }
@@ -203,7 +205,12 @@ const identifyRewardsStep = new Step({
               (evidence as { channelId?: string; messageId?: string })?.channelId &&
               (evidence as { channelId?: string; messageId?: string })?.messageId
             ) {
-              return `https://discord.com/channels/${context.triggerData.platform_id}/${(evidence as { channelId: string }).channelId}/${(evidence as { messageId: string }).messageId}`;
+              return  getMessageUrlForPlatform(
+                context.triggerData.platform_type, 
+                context.triggerData.platform_id, 
+                evidence.channelId, 
+                evidence.messageId
+              )
             }
             return evidence;
           }),
@@ -449,6 +456,7 @@ const savePendingRewardsStep = new Step({
             throw new Error("Save pending reward tool not initialized");
           }
 
+          const platformType = context.triggerData.platform_type == "discord" ? "discord" : "telegram";
           const result = await savePendingRewardTool.execute({
             context: {
               communityId: context.triggerData.community_id,
