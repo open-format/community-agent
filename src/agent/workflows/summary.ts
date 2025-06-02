@@ -35,7 +35,7 @@ const fetchMessagesStep = new Step({
         context: {
           startDate: context.triggerData.startDate,
           endDate: context.triggerData.endDate,
-          platformId: context.triggerData.platformId,
+          platformIds: [context.triggerData.platformId],
           channelId: context.triggerData.channelId,
           includeStats: false,
           includeMessageId: false,

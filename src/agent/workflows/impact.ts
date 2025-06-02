@@ -2,12 +2,17 @@ import { Workflow, Step } from '@mastra/core/workflows';
 import { z } from 'zod';
 import { generateImpactReport, generateSummary } from '../agents/index';
 import { saveSummaryTool, saveImpactReportTool, getMessagesTool } from '../tools/index';
+import { db } from '@/db';
+import { eq } from 'drizzle-orm';
+import { platformConnections } from '@/db/schema';
+import { getMessageUrlForPlatform } from '../tools/clients';
 
 interface WorkflowContext {
   triggerData: {
     startDate: number;
     endDate: number;
     platformId: string;
+    communityId: string;
   };
   steps: {
     fetchMessages: {
@@ -20,11 +25,12 @@ interface WorkflowContext {
           messageCount: number;
           uniqueUserCount: number;
           messagesByDate: Array<{ date: string; count: number; uniqueUsers: number }>;
-          topContributors: Array<{ username: string; count: number }>;
+          topContributors: Array<{ username: string; platform: string; count: number }>;
           messagesByChannel: Array<{ 
             channel: {
               id: string;
               name: string;
+              platform: string;
             };
             count: number;
             uniqueUsers: number;
@@ -61,6 +67,8 @@ interface WorkflowContext {
             description: string;
             evidence: Array<{
               channelId: string;
+              platform:  string;
+              platformId:  string;
               messageId: string;
             }>;
           }>;
@@ -71,6 +79,8 @@ interface WorkflowContext {
               users: string[];
               evidence: Array<{
                 channelId: string;
+                platform:  string;
+                platformId:  string;
                 messageId: string;
               }>;
             }>;
@@ -80,6 +90,8 @@ interface WorkflowContext {
               users: string[];
               evidence: Array<{
                 channelId: string;
+                platform:  string;
+                platformId:  string;
                 messageId: string;
               }>;
             }>;
@@ -123,8 +135,17 @@ export const impactReportWorkflow = new Workflow({
         const digits = Math.floor(Math.log10(val)) + 1;
         return digits === 10 || digits === 13;
       }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
-    platformId: z.string().nonempty(),
-  }),
+    platformId: z.string().optional(),
+    communityId: z.string().optional(),
+  }).superRefine((data, ctx) => {
+    if (!data.platformId && !data.communityId) {
+       ctx.addIssue({
+         code: z.ZodIssueCode.custom,
+         path: ["communityId"],
+         message: "communityId should be set if platformId is not.",
+       });
+     }
+  }) ,
 });
 
 // Step 1: Fetch messages with stats
@@ -175,6 +196,21 @@ const fetchMessagesStep = new Step({
         ? context.triggerData.endDate * 1000
         : context.triggerData.endDate;
 
+
+      const platformIds:string[] = [];
+      if (context.triggerData.platformId) {
+        platformIds.push(context.triggerData.platformId);
+      } else {
+        const platforms = await db
+          .select()
+          .from(platformConnections)
+          .where(eq(platformConnections.communityId, context.triggerData.communityId));
+        if (platforms.length === 0) {
+          throw new Error('No platform connections found.');
+        }
+        platforms.forEach( p => platformIds.push(p.platformId) );
+      }
+      
       if (!getMessagesTool.execute) {
         throw new Error('Fetch messages tool not initialized');
       }
@@ -183,7 +219,7 @@ const fetchMessagesStep = new Step({
         context: {
           startDate,
           endDate,
-          platformId: context.triggerData.platformId,
+          platformIds,
           includeStats: true,
           includeMessageId: true
         }
@@ -214,10 +250,12 @@ const generateReportStep = new Step({
       })),
       topContributors: z.array(z.object({
         username: z.string(),
+        platform: z.string(),
         messageCount: z.number(),
       })),
       channelBreakdown: z.array(z.object({
         channelName: z.string(),
+        platform: z.string(),
         messageCount: z.number(),
         uniqueUsers: z.number(),
       })),
@@ -227,6 +265,8 @@ const generateReportStep = new Step({
         description: z.string(),
         evidence: z.array(z.object({
           channelId: z.string(),
+          platform:  z.string(),
+          platformId:  z.string(),
           messageId: z.string()
         })),
       })),
@@ -237,6 +277,8 @@ const generateReportStep = new Step({
           users: z.array(z.string()),
           evidence: z.array(z.object({
             channelId: z.string(),
+            platform:  z.string(),
+            platformId:  z.string(),
             messageId: z.string()
           })),
         })),
@@ -246,6 +288,8 @@ const generateReportStep = new Step({
           users: z.array(z.string()),
           evidence: z.array(z.object({
             channelId: z.string(),
+            platform:  z.string(),
+            platformId:  z.string(),
             messageId: z.string()
           })),
         })),
@@ -301,7 +345,8 @@ const saveSummaryStep = new Step({
         summary: context.steps.generateSummary.output.summary,
         startDate: context.triggerData.startDate,
         endDate: context.triggerData.endDate,
-        platformId: context.triggerData.platformId
+        platformId: context.triggerData.platformId,
+        communityId: context.triggerData.communityId,
       }
     });
   }
@@ -346,31 +391,27 @@ const saveReportStep = new Step({
       })),
       topContributors: messagesStats.topContributors.map(contributor => ({
         username: contributor.username,
+        platform: contributor.platform,
         messageCount: contributor.count
       })),
       channelBreakdown: messagesStats.messagesByChannel.map(channel => ({
         channelName: channel.channel.name,
+        platform: channel.channel.platform,
         messageCount: channel.count,
         uniqueUsers: channel.uniqueUsers
       })),
       keyTopics: generatedReport.keyTopics.map(topic => ({
         ...topic,
-        evidence: topic.evidence.map(evidence => 
-          `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
-        )
+        evidence: topic.evidence.map(evidence => getMessageUrlForPlatform(evidence.platform, evidence.platformId, evidence.channelId, evidence.messageId))
       })),
       userSentiment: {
         excitement: generatedReport.userSentiment.excitement.map(item => ({
           ...item,
-          evidence: item.evidence.map(evidence => 
-            `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
-          )
+          evidence: item.evidence.map(evidence => getMessageUrlForPlatform(evidence.platform, evidence.platformId, evidence.channelId, evidence.messageId))
         })),
         frustrations: generatedReport.userSentiment.frustrations.map(item => ({
           ...item,
-          evidence: item.evidence.map(evidence => 
-            `https://discord.com/channels/${context.triggerData.platformId}/${evidence.channelId}/${evidence.messageId}`
-          )
+          evidence: item.evidence.map(evidence => getMessageUrlForPlatform(evidence.platform, evidence.platformId, evidence.channelId, evidence.messageId))
         }))
       }
     };
@@ -381,6 +422,7 @@ const saveReportStep = new Step({
         startDate: context.triggerData.startDate,
         endDate: context.triggerData.endDate,
         platformId: context.triggerData.platformId,
+        communityId: context.triggerData.communityId,
         summaryId: context.steps.saveSummary.output.summaryId
       }
     });

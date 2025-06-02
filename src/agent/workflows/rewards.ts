@@ -1,4 +1,4 @@
-import { Step, Workflow, type WorkflowContext } from "@mastra/core/workflows";
+import { Step, Workflow } from "@mastra/core/workflows";
 import { ThirdwebStorage } from "@thirdweb-dev/storage";
 import dayjs from "dayjs";
 import pino from "pino";
@@ -11,6 +11,7 @@ import {
   getWalletAddressTool,
   savePendingRewardTool,
 } from "../tools";
+import { getMessageUrlForPlatform } from "../tools/clients";
 
 // Create a logger instance
 const logger = pino({
@@ -41,7 +42,7 @@ const fetchMessagesStep = new Step({
         context: {
           startDate: context.triggerData.start_date,
           endDate: context.triggerData.end_date,
-          platformId: context.triggerData.platform_id,
+          platformIds: [context.triggerData.platform_id],
           includeStats: false,
           includeMessageId: true,
           checkedForReward: false,
@@ -148,7 +149,7 @@ const identifyRewardsStep = new Step({
           const channelHeader = `=== Messages from Channel with Channel ID: [${channelId}] ===\n`;
           const channelMessages = msgs
             .map((msg) => {
-              const messageIdPart = msg.messageId ? ` [DISCORD_MESSAGE_ID=${msg.messageId}]` : "";
+              const messageIdPart = msg.messageId ? ` [MESSAGE_ID=${msg.messageId}]` : "";
               return `[${msg.timestamp}]${messageIdPart} ${msg.username}: ${msg.content}`;
             })
             .join("\n");
@@ -191,8 +192,10 @@ const identifyRewardsStep = new Step({
           evidence: (contribution.evidence || []).map((evidence) => {
             // If already a URL, keep as is
             if (
-              typeof evidence === "string" &&
-              evidence.startsWith("https://discord.com/channels/")
+              typeof evidence === "string" && (
+                evidence.startsWith("https://discord.com/channels/")
+                || evidence.startsWith("https://t.me/c/")
+              )
             ) {
               return evidence;
             }
@@ -202,7 +205,12 @@ const identifyRewardsStep = new Step({
               (evidence as { channelId?: string; messageId?: string })?.channelId &&
               (evidence as { channelId?: string; messageId?: string })?.messageId
             ) {
-              return `https://discord.com/channels/${context.triggerData.platform_id}/${(evidence as { channelId: string }).channelId}/${(evidence as { messageId: string }).messageId}`;
+              return  getMessageUrlForPlatform(
+                context.triggerData.platform_type, 
+                context.triggerData.platform_id, 
+                evidence.channelId, 
+                evidence.messageId
+              )
             }
             return evidence;
           }),
@@ -246,14 +254,15 @@ const getWalletAddressesStep = new Step({
         throw new Error("Get wallet address tool not initialized");
       }
 
+      const platform = context.triggerData.platform_type == "discord" ? "discord" : "telegram";
       const contributions = context.steps.identifyRewards.output.contributions;
       const rewards = await Promise.all(
         contributions.map(async (contribution) => {
           // First try to get existing wallet
-          const walletInfo = await getWalletAddressTool.execute({
+          const walletInfo = await getWalletAddressTool.execute!({
             context: {
               username: contribution.contributor,
-              platform: "discord",
+              platform,
             },
           });
 
@@ -263,7 +272,7 @@ const getWalletAddressesStep = new Step({
               const privyWalletInfo = await createPrivyWalletTool.execute({
                 context: {
                   username: contribution.contributor,
-                  platform: "discord",
+                  platform,
                 },
               });
 
@@ -447,12 +456,13 @@ const savePendingRewardsStep = new Step({
             throw new Error("Save pending reward tool not initialized");
           }
 
+          const platformType = context.triggerData.platform_type == "discord" ? "discord" : "telegram";
           const result = await savePendingRewardTool.execute({
             context: {
               communityId: context.triggerData.community_id,
               contributor: reward.contributor,
               walletAddress: reward.walletAddress,
-              platform: "discord",
+              platform: platformType,
               rewardId: reward.rewardId,
               points: reward.suggested_reward.points,
               summary: reward.short_summary,
@@ -523,6 +533,7 @@ interface WorkflowContext {
   triggerData: {
     community_id: string;
     platform_id: string;
+    platform_type: string;
     start_date: number;
     end_date: number;
   };
@@ -610,6 +621,7 @@ export const rewardsWorkflow = new Workflow({
   triggerSchema: z.object({
     community_id: z.string(),
     platform_id: z.string(),
+    platform_type: z.string(),
     start_date: z
       .string()
       .datetime({ message: "must be a valid ISO 8601 date format" })
