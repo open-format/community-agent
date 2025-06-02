@@ -29,15 +29,15 @@ Impact reports are generated every week. The next report will be available soon
   const nextReportDate = dayjs(report.timestamp).add(7, "days");
 
   // REPORT:
-  return escapeMarkdownV2(`*Community Impact Report*
+  return `*Community Impact Report*
   
 _Latest insights from your community's activity_
 
 *📊 Overview*
 
-• ${report.overview.totalMessages.toLocaleString()} total messages
-• ${report.overview.uniqueUsers.toLocaleString()} unique participants
-• ${report.overview.activeChannels} active channels
+• ${escapeMarkdownV2(report.overview.totalMessages.toLocaleString())} total messages
+• ${escapeMarkdownV2(report.overview.uniqueUsers.toLocaleString())} unique participants
+• ${escapeMarkdownV2(report.overview.activeChannels.toLocaleString())} active channels
 
 *🏆 Top Contributors*
 
@@ -45,7 +45,7 @@ ${report.topContributors
   .slice(0, 3)
   .map(
     (contributor) =>
-      `• ${escapeMarkdownV2(contributor.username)}: ${contributor.messageCount.toLocaleString()} messages`,
+      `• ${escapeMarkdownV2(contributor.username)}: ${escapeMarkdownV2(contributor.messageCount.toLocaleString())} messages`,
   )
   .join("\n")}
 
@@ -58,14 +58,14 @@ ${report.keyTopics
 
 *📅 Next Report*
 
-The next impact report will be generated on ${nextReportDate.format("MMMM D, YYYY")}
+The next impact report will be generated on ${escapeMarkdownV2(nextReportDate.format("MMMM D, YYYY"))}
 
 *🔗 Full Report*
 
 [View detailed report](${process.env.PLATFORM_URL}/reports/${report.summaryId})
 
-_Report generated on ${dayjs(report.timestamp).format("MMMM D, YYYY")}_
-`);
+_Report generated on ${escapeMarkdownV2(dayjs(report.timestamp).format("MMMM D, YYYY"))}_
+`;
 }
 
 export function escapeMarkdownV2(text: string): string {
