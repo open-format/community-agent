@@ -79,7 +79,7 @@ telegramClient.command('link_community', async (ctx) => {
   const code = args[0];
 
   try {
-    const verificationResult = await verifyCommunity(code, platformId);
+    const verificationResult = await verifyCommunity(code, platformId, "telegram");
 
     try {
       // Just try to delete message with the code
