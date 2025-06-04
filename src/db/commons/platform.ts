@@ -45,76 +45,28 @@ export async function createPlatformConnection(
   platformType: "discord" | "github" | "telegram",
 ) {
   // Check if platform connection already exists
-  const existingConnection = await db.query.platformConnections.findFirst({
+  let platformConnection = await db.query.platformConnections.findFirst({
     where: (connections, { eq }) =>
       and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
   });
 
-  try {
-    if (existingConnection) {
-      // Update if the connection exists and name is different or null/undefined
-      if (existingConnection.platformName !== platformName || !existingConnection.platformName) {
-        await db
-          .update(platformConnections)
-          .set({ platformName: platformName })
-          .where(eq(platformConnections.platformId, platformId));
-        console.log(`Updated platform name for ${platformName}`);
-      }
-
-      // Create community if none exists
-      if (!existingConnection.communityId) {
-        const [newCommunity] = await db
-          .insert(communities)
-          .values({
-            name: platformName,
-            slug: uuidv4(),
-          })
-          .returning();
-
-        // Create default admin role
-        await db.insert(community_roles).values({
-          communityId: newCommunity.id,
-          name: "Admin",
-          description: "Default administrator role with full permissions",
-        });
-
-        await db
-          .update(platformConnections)
-          .set({ communityId: newCommunity.id })
-          .where(eq(platformConnections.platformId, platformId));
-
-        console.log(
-          `Created new community for ${platformName} and linked it to the platform connection`,
-        );
-      }
-    } else {
-      // Create new community
-      const [newCommunity] = await db
-        .insert(communities)
-        .values({
-          name: platformName,
-          slug: uuidv4(),
-        })
-        .returning();
-
-      // Create default admin role
-      await db.insert(community_roles).values({
-        communityId: newCommunity.id,
-        name: "Admin",
-        description: "Default administrator role with full permissions",
-      });
-
-      // Create new platform connection linked to the community
-      await db.insert(platformConnections).values({
-        communityId: newCommunity.id, // Link to community immediately
-        platformId: platformId,
-        platformType: platformType,
-        platformName: platformName,
-      });
-
-      console.log(`Created new platform connection and community for ${platformName}`);
-    }
-  } catch (error) {
-    console.error(`Failed to setup Platform: ${platformName}:`, error);
+  if (!platformConnection) {
+    // Only create the platform connection, do not link to a community yet
+    [platformConnection] = await db.insert(platformConnections).values({
+      platformId,
+      platformType,
+      platformName,
+    }).returning();
+  } else if (platformConnection.platformName !== platformName) {
+    // Optionally update the name if it changed
+    await db.update(platformConnections)
+      .set({ platformName })
+      .where(eq(platformConnections.platformId, platformId));
+    platformConnection = await db.query.platformConnections.findFirst({
+      where: (connections, { eq }) =>
+        and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
+    });
   }
+
+  return platformConnection;
 }

@@ -16,7 +16,9 @@ const telegramOptions = {
 const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!, telegramOptions);
 
 // TODO: Change texts
-telegramClient.start((ctx) => {ctx.reply('Hello.')});
+telegramClient.start((ctx) => {
+  ctx.reply('I am OPENFORMAT telegram bot. I only work in group chats.');
+});
 telegramClient.help((ctx) => ctx.reply('I am OPENFORMAT telegram bot. I only work in group chats.'))
 
 telegramClient.on(message('new_chat_members'), async (ctx) => {
@@ -28,12 +30,36 @@ telegramClient.on(message('new_chat_members'), async (ctx) => {
       console.log(`Telegram Bot joined new Chat: ${ctx.chat.id}`);
 
       const name:string = ("name" in ctx.chat) ? ctx.chat.name as string : ctx.chat.id.toString();
-      await createPlatformConnection(ctx.chat.id.toString(), name, "telegram");
+      // Create the platform connection and get the UUID
+      
+      const platformConnection = await createPlatformConnection(ctx.chat.id.toString(), name, "telegram");
+      const platformConnectionId = platformConnection?.id; // Adjust this line based on your actual return value
+      if (!platformConnectionId) {
+        ctx.reply('Failed to create platform connection. Please try again.');
+        return;
+      }
+      // Send the group message with the callback button
+      const callbackUrl = `${(process.env.PLATFORM_BASE_URL || (() => { throw new Error("PLATFORM_BASE_URL (e.g. your ngrok tunnel URL) is not set."); })())}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
+      await ctx.reply(
+        "Click below to finish linking this group to your community.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "✅ Link this group", url: callbackUrl }
+              ]
+            ]
+          }
+        }
+      );
     }
   } catch (error) {
-    console.log("Error handling new Telegram chat members:", error);
+    if (error && typeof error === "object" && "response" in (error as { response?: any })) {
+      console.error("Error handling new Telegram chat members (TelegramError):", error, (error as { response: any }).response);
+    } else {
+      console.error("Error handling new Telegram chat members (generic):", error);
+    }
   }
-
 });
 
 telegramClient.on('my_chat_member', async (ctx) => {
@@ -214,12 +240,16 @@ telegramClient.on('message', async (ctx) => {
   } catch (error) {
     console.log("Error handling Telegram message:", error);
     // Don't try to reply if we've left the group or been kicked
-    if (error?.response?.error_code !== 403) {
-      try {
-        await ctx.reply("An error occurred while processing your message.");
-      } catch (replyError) {
-        console.log("Failed to send Telegram error message:", replyError);
+    if (error && typeof error === "object" && "response" in (error as { response?: any })) {
+      if ((error as { response: { error_code?: number } }).response?.error_code !== 403) {
+         try {
+            await ctx.reply("An error occurred while processing your message.");
+         } catch (replyError) {
+            console.log("Failed to send Telegram error message:", replyError);
+         }
       }
+    } else {
+      console.error("Error (generic) handling Telegram message:", error);
     }
   }
 });
