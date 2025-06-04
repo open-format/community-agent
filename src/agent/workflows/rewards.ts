@@ -176,19 +176,22 @@ const identifyRewardsStep = new Step({
         while (retries < maxRetries) {
           try {
             const rewards = await identifyRewards(transcript);
+
             if (rewards?.contributions && Array.isArray(rewards.contributions)) {
               allContributions = allContributions.concat(rewards.contributions);
             }
+            break;
           } catch (error) {
             retries++;
             if (retries < maxRetries) {
               logger.error(
                 `Error on identifyRewards for batch ${i + 1}, attempt ${retries}:`,
                 error instanceof Error ? error.message : error,
-              )
+              );
               // Wait 1s before next attempt
               await new Promise((resolve) => setTimeout(resolve, 1000));
-            } else { // Last retry
+            } else {
+              // Last retry
               logger.error(
                 `❌ identifyRewards failed for batch ${i + 1} after ${maxRetries} attempts:`,
                 error instanceof Error ? error.message : error,
