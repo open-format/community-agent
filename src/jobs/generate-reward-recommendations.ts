@@ -79,8 +79,8 @@ export async function generateRewardRecommendations() {
             community.id,
             platformConnection.platformId,
             platformConnection.platformType.toLowerCase(),
-            dayjs().subtract(1, "year").valueOf(),
-            dayjs().valueOf(),
+            dayjs().startOf("day").subtract(1, "day").valueOf(),
+            dayjs().endOf("day").valueOf(),
           );
 
           const platformDuration = Date.now() - platformStartTime;
