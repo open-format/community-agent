@@ -1,12 +1,11 @@
-import { Context, Telegraf } from 'telegraf';
+import { vectorStore } from "@/agent/stores";
+import { createPlatformConnection, deletePlatformConnection } from "@/db/commons/platform";
+import { VerificationResult, verifyCommunity } from "@/lib/verification";
+import { openai } from "@ai-sdk/openai";
+import { embed } from "ai";
+import { Telegraf } from "telegraf";
 import { message } from "telegraf/filters";
-import { vectorStore } from '@/agent/stores';
-import { createUnixTimestamp } from '@/utils/time';
-import { openai } from '@ai-sdk/openai';
-import { embed } from 'ai';
-import { createPlatformConnection, deletePlatformConnection } from '@/db/commons/platform';
-import { VerificationResult, verifyCommunity } from '@/lib/verification';
-import { escapeMarkdownV2, getReport } from './commands/report';
+import { getReport } from "./commands/report";
 
 const telegramOptions = {
   telegram: {
@@ -17,71 +16,80 @@ const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!, telegramOpt
 
 // TODO: Change texts
 telegramClient.start((ctx) => {
-  ctx.reply('I am OPENFORMAT telegram bot. I only work in group chats.');
+  ctx.reply("I am OPENFORMAT telegram bot. I only work in group chats.");
 });
-telegramClient.help((ctx) => ctx.reply('I am OPENFORMAT telegram bot. I only work in group chats.'))
+telegramClient.help((ctx) =>
+  ctx.reply("I am OPENFORMAT telegram bot. I only work in group chats."),
+);
 
-telegramClient.on(message('new_chat_members'), async (ctx) => {
+telegramClient.on(message("new_chat_members"), async (ctx) => {
   try {
     const newMembers = ctx.message.new_chat_members;
     const isBotAdded = newMembers.some((member) => member.id === ctx.botInfo.id);
-  
+
     if (isBotAdded) {
       console.log(`Telegram Bot joined new Chat: ${ctx.chat.id}`);
 
-      const name:string = ("name" in ctx.chat) ? ctx.chat.name as string : ctx.chat.id.toString();
+      const name: string = "name" in ctx.chat ? (ctx.chat.name as string) : ctx.chat.id.toString();
       // Create the platform connection and get the UUID
-      
-      const platformConnection = await createPlatformConnection(ctx.chat.id.toString(), name, "telegram");
+
+      const platformConnection = await createPlatformConnection(
+        ctx.chat.id.toString(),
+        name,
+        "telegram",
+      );
       const platformConnectionId = platformConnection?.id; // Adjust this line based on your actual return value
       if (!platformConnectionId) {
-        ctx.reply('Failed to create platform connection. Please try again.');
+        ctx.reply("Failed to create platform connection. Please try again.");
         return;
       }
+      if (!process.env.PLATFORM_URL) {
+        ctx.reply("Platform URL is not corectly configured. Please try again.");
+        return;
+      }
+
       // Send the group message with the callback button
-      const callbackUrl = `${(process.env.PLATFORM_BASE_URL || (() => { throw new Error("PLATFORM_BASE_URL (e.g. your ngrok tunnel URL) is not set."); })())}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
-      await ctx.reply(
-        "Click below to finish linking this group to your community.",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: "✅ Link this group", url: callbackUrl }
-              ]
-            ]
-          }
-        }
-      );
+      const callbackUrl = `${process.env.PLATFORM_URL}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
+
+      await ctx.reply("Click below to finish linking this group to your community.", {
+        reply_markup: {
+          inline_keyboard: [[{ text: "✅ Link this group", url: callbackUrl }]],
+        },
+      });
     }
   } catch (error) {
     if (error && typeof error === "object" && "response" in (error as { response?: any })) {
-      console.error("Error handling new Telegram chat members (TelegramError):", error, (error as { response: any }).response);
+      console.error(
+        "Error handling new Telegram chat members (TelegramError):",
+        error,
+        (error as { response: any }).response,
+      );
     } else {
       console.error("Error handling new Telegram chat members (generic):", error);
     }
   }
 });
 
-telegramClient.on('my_chat_member', async (ctx) => {
+telegramClient.on("my_chat_member", async (ctx) => {
   const chat = ctx.chat;
   const newStatus = ctx.myChatMember.new_chat_member.status;
 
-  if (chat && (newStatus === 'left' || newStatus === 'kicked')) {
+  if (chat && (newStatus === "left" || newStatus === "kicked")) {
     console.log(`Telegram Bot removed from Chat: ${ctx.chat.id}`);
 
     await deletePlatformConnection(chat.id.toString(), "telegram");
   }
 });
 
-telegramClient.command('link_community', async (ctx) => {
+telegramClient.command("link_community", async (ctx) => {
   const chat = ctx.chat;
   const messageText = ctx.message.text;
-  const args = messageText.split(' ').slice(1); // Extract arguments after the command
+  const args = messageText.split(" ").slice(1); // Extract arguments after the command
   const platformId = chat.id.toString();
 
   // Ensure the command is executed in a group
-  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) {
-    return ctx.reply('Command /link_community can only be used in a group.');
+  if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) {
+    return ctx.reply("Command /link_community can only be used in a group.");
   }
 
   // Check if the user is an administrator
@@ -91,15 +99,19 @@ telegramClient.command('link_community', async (ctx) => {
     const isAdmin = administrators.some((admin) => admin.user.id === userId);
 
     if (!isAdmin) {
-      return ctx.reply('Command /link_community can only be executed by the group Administrators.');
+      return ctx.reply("Command /link_community can only be executed by the group Administrators.");
     }
   } catch (error) {
-    console.error('Error fetching group administrators:', error);
-    return ctx.reply('An error occurred while verifying administrator privileges. Please try again later.');
+    console.error("Error fetching group administrators:", error);
+    return ctx.reply(
+      "An error occurred while verifying administrator privileges. Please try again later.",
+    );
   }
 
   if (args.length === 0) {
-    return ctx.reply('Please provide a verification code. Usage: /link_community <verification_code>');
+    return ctx.reply(
+      "Please provide a verification code. Usage: /link_community <verification_code>",
+    );
   }
 
   const code = args[0];
@@ -114,28 +126,29 @@ telegramClient.command('link_community', async (ctx) => {
       // No problem, we do not have permissions for that in this group.
     }
 
-    if ( VerificationResult.FAILED === verificationResult ) {
+    if (VerificationResult.FAILED === verificationResult) {
       return ctx.reply("Invalid or expired verification code.");
     }
-    
-    if (VerificationResult.USED === verificationResult ) {
+
+    if (VerificationResult.USED === verificationResult) {
       return ctx.reply("This verification code has already been used.");
     }
 
-    return ctx.reply("✅ Server verified successfully! Your server is now linked to the community.");
-    
+    return ctx.reply(
+      "✅ Server verified successfully! Your server is now linked to the community.",
+    );
   } catch (error) {
-    console.error('Error linking community:', error);
-    ctx.reply('An error occurred while linking the community. Please try again later.');
+    console.error("Error linking community:", error);
+    ctx.reply("An error occurred while linking the community. Please try again later.");
   }
 });
 
-telegramClient.command('report', async (ctx) => {
+telegramClient.command("report", async (ctx) => {
   const chat = ctx.chat;
 
   // Ensure the command is executed in a group
-  if (!chat || (chat.type !== 'group' && chat.type !== 'supergroup')) {
-    return ctx.reply('Command /report can only be used in a group.');
+  if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) {
+    return ctx.reply("Command /report can only be used in a group.");
   }
 
   // Check if the user is an administrator
@@ -145,26 +158,26 @@ telegramClient.command('report', async (ctx) => {
     const isAdmin = administrators.some((admin) => admin.user.id === userId);
 
     if (!isAdmin) {
-      return ctx.reply('Command /report can only be executed by the group Administrators.');
+      return ctx.reply("Command /report can only be executed by the group Administrators.");
     }
   } catch (error) {
-    console.error('Error fetching group administrators:', error);
-    return ctx.reply('An error occurred while verifying administrator privileges. Please try again later.');
+    console.error("Error fetching group administrators:", error);
+    return ctx.reply(
+      "An error occurred while verifying administrator privileges. Please try again later.",
+    );
   }
 
   try {
     const report = await getReport(ctx.chat.id.toString());
     ctx.replyWithMarkdownV2(report);
-
   } catch (error) {
-    console.error('Error showing report:', error);
-    ctx.reply('An error occurred while showing the report. Please try again later.');
+    console.error("Error showing report:", error);
+    ctx.reply("An error occurred while showing the report. Please try again later.");
   }
 });
 
-
-telegramClient.on('message', async (ctx) => {
-  try {  
+telegramClient.on("message", async (ctx) => {
+  try {
     if (!ctx.chat?.id) {
       return; // Ensure we are in a chat
     }
@@ -201,7 +214,7 @@ telegramClient.on('message', async (ctx) => {
     // Get message ID
     const messageId = message.message_id.toString();
     // Get text or caption
-    
+
     // Generate embeddings for message content
     const embedding = await embed({
       model: openai.embedding("text-embedding-3-small"),
@@ -217,18 +230,18 @@ telegramClient.on('message', async (ctx) => {
       authorUsername: userName,
       channelId: chatId,
       threadId: messageId,
-      timestamp: message.date*1000,
+      timestamp: message.date * 1000,
       text: messageText,
       isBotQuery: message.from.is_bot,
       isReaction: false,
       checkedForReward: false,
     };
-  
+
     // If this is a reply to another message, get the parent message's ID
     if ("reply_to_message" in message && message.reply_to_message) {
       metadata.threadId = message.reply_to_message.message_id.toString();
     }
-  
+
     // Store in vector store
     await vectorStore.upsert({
       indexName: "community_messages",
@@ -236,17 +249,16 @@ telegramClient.on('message', async (ctx) => {
       metadata: [metadata],
     });
     console.log(`Stored message from Telegram chat ${message.chat.id}`);
-
   } catch (error) {
     console.log("Error handling Telegram message:", error);
     // Don't try to reply if we've left the group or been kicked
     if (error && typeof error === "object" && "response" in (error as { response?: any })) {
       if ((error as { response: { error_code?: number } }).response?.error_code !== 403) {
-         try {
-            await ctx.reply("An error occurred while processing your message.");
-         } catch (replyError) {
-            console.log("Failed to send Telegram error message:", replyError);
-         }
+        try {
+          await ctx.reply("An error occurred while processing your message.");
+        } catch (replyError) {
+          console.log("Failed to send Telegram error message:", replyError);
+        }
       }
     } else {
       console.error("Error (generic) handling Telegram message:", error);
