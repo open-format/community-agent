@@ -43,22 +43,21 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
       if (!community) {
         return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
       }
-
     }
 
     const startTimestamp = createUnixTimestamp(startDate, 14);
     const endTimestamp = createUnixTimestamp(endDate);
 
-    const jobId = crypto.randomUUID();
+    const job_id = crypto.randomUUID();
 
-    await createReportJob(jobId, platformId, communityId, startTimestamp, endTimestamp);
+    await createReportJob(job_id, platformId, communityId, startTimestamp, endTimestamp);
 
-    generateReportInBackground(jobId, startTimestamp, endTimestamp, platformId, communityId);
+    generateReportInBackground(job_id, startTimestamp, endTimestamp, platformId, communityId);
 
     // Return immediately with the job ID
     return c.json({
       success: true,
-      jobId,
+      job_id,
       status: ReportStatus.PENDING,
       timeframe: {
         startDate: dayjs(startTimestamp).toISOString(),
@@ -73,13 +72,13 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
 
 reportsRoute.openapi(getImpactReportStatus, async (c) => {
   try {
-    const { jobId } = c.req.param();
+    const { job_id } = c.req.param();
 
-    const job = await getReportJob(jobId);
+    const job = await getReportJob(job_id);
 
     if (!job) {
       return c.json({
-        jobId,
+        job_id,
         status: "failed" as const,
         timeframe: {
           startDate: new Date().toISOString(),
@@ -91,11 +90,11 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
     let reportData = null;
     if (job.status === ReportStatus.COMPLETED && job.reportId) {
-      reportData = await getReportResult(jobId);
+      reportData = await getReportResult(job_id);
     }
 
     return c.json({
-      jobId,
+      job_id,
       status: job.status,
       reportId: job.reportId,
       report: reportData,
@@ -108,7 +107,7 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
   } catch (error) {
     console.error("Error checking report status:", error);
     return c.json({
-      jobId: c.req.param("jobId"),
+      job_id: c.req.param("job_id"),
       status: "failed" as const,
       timeframe: {
         startDate: new Date().toISOString(),
@@ -127,11 +126,11 @@ reportsRoute.openapi(getImpactReports, async (c) => {
 
     let filter = undefined;
     if (communityId) {
-      filter = { communityId }
+      filter = { communityId };
     } else if (platformId) {
-      filter = { platformId }
+      filter = { platformId };
     }
-    
+
     const results = await vectorStore.query({
       indexName: "impact_reports",
       queryVector: new Array(1536).fill(0),

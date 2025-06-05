@@ -169,19 +169,36 @@ const identifyRewardsStep = new Step({
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
         const transcript = formatBatchTranscript(batch, context.triggerData.platform_id);
-        try {
-          logger.info(`Processing batch ${i + 1}/${batches.length} with ${batch.length} messages`);
-          const rewards = await identifyRewards(transcript);
-          if (rewards?.contributions && Array.isArray(rewards.contributions)) {
-            allContributions = allContributions.concat(rewards.contributions);
+
+        logger.info(`Processing batch ${i + 1}/${batches.length} with ${batch.length} messages`);
+
+        let retries = 0;
+        const maxRetries = 3;
+        while (retries < maxRetries) {
+          try {
+            const rewards = await identifyRewards(transcript);
+
+            if (rewards?.contributions && Array.isArray(rewards.contributions)) {
+              allContributions = allContributions.concat(rewards.contributions);
+            }
+            break;
+          } catch (error) {
+            retries++;
+            if (retries < maxRetries) {
+              logger.error(
+                `Error on identifyRewards for batch ${i + 1}, attempt ${retries}:`,
+                error instanceof Error ? error.message : error,
+              );
+              // Wait 1s before next attempt
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            } else {
+              // Last retry
+              logger.error(
+                `❌ identifyRewards failed for batch ${i + 1} after ${maxRetries} attempts:`,
+                error instanceof Error ? error.message : error,
+              );
+            }
           }
-        } catch (error) {
-          logger.error(
-            `❌ identifyRewards failed for batch ${i + 1}:`,
-            error instanceof Error ? error.message : error,
-          );
-          // If batch fails, retry the batch
-          i--;
         }
       }
 

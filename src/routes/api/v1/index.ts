@@ -32,6 +32,7 @@ app.use("*", async (c, next) => {
 });
 
 app.route("/docs", docs);
+app.route("/platform-connections", platformConnectionsRoute)
 app.route("/communities", communitiesRoute);
 app.route("/webhooks", webhooksRoute);
 app.route("/summaries", summariesRoute);

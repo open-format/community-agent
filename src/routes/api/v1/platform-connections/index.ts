@@ -1,57 +1,58 @@
-import { vectorStore } from "@/agent/stores";
 import { db } from "@/db";
-import {
-  communities,
-  community_roles,
-  pendingRewards as pendingRewardsSchema,
-  platformConnections,
-  tiers,
-  user_community_roles,
-  users,
-} from "@/db/schema";
-import { getCommunitySubgraphData } from "@/lib/subgraph";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
-import { createErrorResponse, createSuccessResponse } from "@/utils/api";
-import { withPagination } from "@/utils/pagination";
+import { communities, platformConnections } from "@/db/schema";
+import { isUUIDv4 } from "@/utils/uuid";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { and, asc, count, eq, inArray, or } from "drizzle-orm";
-import { validate as isUuid } from "uuid";
-import { type Address, isAddress } from "viem";
-import {
-  updatePlatformConnection,
-} from "./routes";
+import { eq } from "drizzle-orm";
+import { updatePlatformConnectionsRoute } from "./routes";
+
 const platformConnectionsRoute = new OpenAPIHono();
 
+platformConnectionsRoute.openapi(updatePlatformConnectionsRoute, async (c) => {
+  const { communityId, platformName } = await c.req.json();
+  const id = c.req.param("id");
 
+  if (communityId) {
+    const community = await db.query.communities.findFirst({
+      where: eq(communities.id, communityId),
+    });
+    if (!community) {
+      return c.json({ message: "Community not found" }, 404);
+    }
+  }
 
-platformConnectionsRoute.openapi(updatePlatformConnection, async (c) => {
-  const body = await c.req.json();
-  const platformId = c.req.param("id");
+  let platformConnection:
+    | {
+        id: string;
+        communityId: string | null;
+        platformId: string;
+        platformType: "discord" | "github" | "telegram";
+        platformName: string | null;
+        createdAt: Date | null;
+        updatedAt: Date | null;
+      }
+    | undefined;
 
-  // First find the community by either UUID or contract address
-  const [existingPlatformConnection] = await db
+  [platformConnection] = await db
     .select()
     .from(platformConnections)
-    .where(isUuid(platformId) ? eq(platformConnections.id, platformId) : eq(platformConnections.platformId, platformId))
+    .where(isUUIDv4(id) ? eq(platformConnections.id, id) : eq(platformConnections.platformId, id))
     .limit(1);
 
-  if (!existingPlatformConnection) {
+  if (!platformConnection) {
     return c.json({ message: "Platform connection not found" }, 404);
   }
 
-  // Update the community using its primary key (id)
-  const [result] = await db
+  [platformConnection] = await db
     .update(platformConnections)
     .set({
-      ...body,
+      platformName,
+      communityId,
       updatedAt: new Date(),
     })
-    .where(eq(platformConnections.id, existingPlatformConnection.id))
+    .where(eq(platformConnections.id, platformConnection.id))
     .returning();
 
-  return c.json(result);
+  return c.json(platformConnection);
 });
-
-
 
 export default platformConnectionsRoute;

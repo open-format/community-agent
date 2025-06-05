@@ -1,13 +1,16 @@
-import { addressSchema } from "@/utils/schema";
 import { z } from "@hono/zod-openapi";
 
-export const community = z.object({
-  id: z.string(),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  communityWalletId: z.string().optional(),
-  communityWalletAddress: addressSchema.optional(),
+export const updatePlatformConnectionsRequest = z.object({
+  communityId: z.string().nullable().optional(),
+  platformName: z.string().nullable().optional(),
 });
 
-// Create a partial schema for updates
-export const communityUpdate = community.partial();
+export const updatePlatformConnectionsResponse = z.object({
+  id: z.string(),
+  communityId: z.string().nullable(),
+  platformId: z.string(),
+  platformType: z.enum(["discord", "github", "telegram"]),
+  platformName: z.string().nullable(),
+  createdAt: z.date().nullable(),
+  updatedAt: z.date().nullable(),
+});

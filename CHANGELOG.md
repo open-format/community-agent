@@ -1,3 +1,10 @@
+## [0.31.1](https://github.com/open-format/community-agent/compare/v0.31.0...v0.31.1) (2025-06-04)
+
+
+### Bug Fixes
+
+* Fixed retry mechanism for identifyRewardsStep batch processing ([6b03db4](https://github.com/open-format/community-agent/commit/6b03db4a76971b80e40007f7cd63242852e19c21))
+
 # [0.31.0](https://github.com/open-format/community-agent/compare/v0.30.0...v0.31.0) (2025-05-30)
 
 

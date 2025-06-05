@@ -1,30 +1,29 @@
 import { createRoute, z } from "@hono/zod-openapi";
-import { community, communityUpdate } from "./schema";
+import { updatePlatformConnectionsRequest, updatePlatformConnectionsResponse } from "./schema";
 
-
-export const updatePlatformConnection = createRoute({
+export const updatePlatformConnectionsRoute = createRoute({
   method: "put",
   path: "/{id}",
   request: {
     body: {
       content: {
         "application/json": {
-          schema: communityUpdate,
+          schema: updatePlatformConnectionsRequest,
         },
       },
     },
   },
   responses: {
     200: {
-      description: "The community was updated successfully",
+      description: "The platform connection was updated successfully",
       content: {
         "application/json": {
-          schema: community,
+          schema: updatePlatformConnectionsResponse,
         },
       },
     },
     404: {
-      description: "Community not found",
+      description: "Platform connection not found",
       content: {
         "application/json": {
           schema: z.object({
@@ -35,4 +34,3 @@ export const updatePlatformConnection = createRoute({
     },
   },
 });
-
