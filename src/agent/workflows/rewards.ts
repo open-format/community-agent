@@ -53,7 +53,10 @@ const fetchMessagesStep = new Step({
 
       return { transcript: result.transcript, messages: result.messages ?? [] };
     } catch (error) {
-      logger.error("❌ fetchMessages step failed:", error instanceof Error ? error.message : error);
+      logger.error(
+        error instanceof Error ? error : { error },
+        "❌ fetchMessages step failed:",
+      );
       throw error;
     }
   },
@@ -186,16 +189,16 @@ const identifyRewardsStep = new Step({
             retries++;
             if (retries < maxRetries) {
               logger.error(
+                error instanceof Error ? error : { error },
                 `Error on identifyRewards for batch ${i + 1}, attempt ${retries}:`,
-                error instanceof Error ? error.message : error,
               );
               // Wait 1s before next attempt
               await new Promise((resolve) => setTimeout(resolve, 1000));
             } else {
               // Last retry
               logger.error(
+                error instanceof Error ? error : { error },
                 `❌ identifyRewards failed for batch ${i + 1} after ${maxRetries} attempts:`,
-                error instanceof Error ? error.message : error,
               );
             }
           }
@@ -238,10 +241,10 @@ const identifyRewardsStep = new Step({
       return enhancedRewards;
     } catch (error) {
       logger.error(
+        error instanceof Error ? error : { error },
         "❌ identifyRewards step failed:",
-        error instanceof Error ? error.message : error,
       );
-      logger.error(error);
+      logger.error(error instanceof Error ? error : { error });
       throw error;
     }
   },
@@ -338,8 +341,8 @@ const getWalletAddressesStep = new Step({
       return { rewards };
     } catch (error) {
       logger.error(
-        "❌ getWalletAddresses step failed:",
-        error instanceof Error ? error.message : error,
+        error instanceof Error ? error : { error },
+        "❌ getWalletAddresses step failed:"
       );
       throw error;
     }
@@ -425,8 +428,8 @@ const uploadMetadataStep = new Step({
       return { rewards };
     } catch (error) {
       logger.error(
-        "❌ uploadMetadata step failed:",
-        error instanceof Error ? error.message : error,
+        error instanceof Error ? error : { error },
+        "❌ uploadMetadata step failed:"
       );
       throw error;
     }
@@ -510,8 +513,8 @@ const savePendingRewardsStep = new Step({
       return { savedRewards };
     } catch (error) {
       logger.error(
+        error instanceof Error ? error : { error },
         "❌ savePendingRewards step failed:",
-        error instanceof Error ? error.message : error,
       );
       throw error;
     }
