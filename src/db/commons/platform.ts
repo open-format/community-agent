@@ -1,8 +1,7 @@
 import { vectorStore } from "@/agent/stores";
 import { db } from "@/db";
-import { communities, community_roles, platformConnections } from "@/db/schema";
+import { platformConnections } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
-import { v4 as uuidv4 } from "uuid";
 
 export async function deletePlatformConnection(
   platformId: string,
@@ -45,15 +44,15 @@ export async function createPlatformConnection(
   platformType: "discord" | "github" | "telegram",
 ) {
   // Check if platform connection already exists
-  const existingConnection = await db.query.platformConnections.findFirst({
+  const platformConnection = await db.query.platformConnections.findFirst({
     where: (connections, { eq }) =>
       and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
   });
 
   try {
-    if (existingConnection) {
+    if (platformConnection) {
       // Update if the connection exists and name is different or null/undefined
-      if (existingConnection.platformName !== platformName || !existingConnection.platformName) {
+      if (platformConnection.platformName !== platformName || !platformConnection.platformName) {
         await db
           .update(platformConnections)
           .set({ platformName: platformName })
@@ -73,4 +72,6 @@ export async function createPlatformConnection(
   } catch (error) {
     console.error(`Failed to setup Platform: ${platformName}:`, error);
   }
+
+  return platformConnection;
 }

@@ -39,6 +39,7 @@ app.route("/summaries", summariesRoute);
 app.route("/reports", reportsRoute);
 app.route("/rewards", rewardsRoute);
 app.route("/users", usersRoute);
+app.route("/platform-connections", platformConnectionsRoute);
 
 // Cron job to generate reward recommendations every day at 12:00 AM UTC.
 cron.schedule("0 0 * * *", async () => {
