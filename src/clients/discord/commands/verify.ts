@@ -38,7 +38,7 @@ export const verifyCommand = {
     }
 
     // Verify the code
-    const verificationResult = await verifyCommunity(code, guildId);
+    const verificationResult = await verifyCommunity(code, guildId, "discord");
 
     if ( VerificationResult.FAILED === verificationResult ) {
       return interaction.reply({

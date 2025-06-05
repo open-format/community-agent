@@ -19,7 +19,8 @@ export const VERIFICATION_CODE_TTL = 600; // 10 minutes in seconds
 
 export async function verifyCommunity(
     code: string,
-    platformId: string
+    platformId: string,
+    platformType: "discord" | "github" | "telegram"
 ): Promise<VerificationResult> {
     // Verify the code
     const data = await getVerificationData(code);
@@ -57,7 +58,7 @@ export async function verifyCommunity(
     } else {
         await db.insert(platformConnections).values({
             platformId: platformId,
-            platformType: "discord",
+            platformType: platformType,
             communityId: data.communityId,
         });
     }

@@ -11,6 +11,7 @@ import rewardsRoute from "./rewards";
 import summariesRoute from "./summaries";
 import webhooksRoute from "./webhooks";
 import usersRoute from "./users";
+import platformConnectionsRoute from "./platform-connections";
 
 const app = new OpenAPIHono();
 
@@ -31,6 +32,7 @@ app.use("*", async (c, next) => {
 });
 
 app.route("/docs", docs);
+app.route("/platform-connections", platformConnectionsRoute)
 app.route("/communities", communitiesRoute);
 app.route("/webhooks", webhooksRoute);
 app.route("/summaries", summariesRoute);
