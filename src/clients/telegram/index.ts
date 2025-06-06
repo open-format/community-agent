@@ -1,4 +1,5 @@
 import { vectorStore } from "@/agent/stores";
+import { db } from "@/db";
 import { createPlatformConnection, deletePlatformConnection } from "@/db/commons/platform";
 import { VerificationResult, verifyCommunity } from "@/lib/verification";
 import { openai } from "@ai-sdk/openai";
@@ -12,7 +13,11 @@ const telegramOptions = {
     apiRoot: process.env.TELEGRAM_API_ROOT || "https://api.telegram.org",
   },
 };
-const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!, telegramOptions);
+
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  throw new Error("TELEGRAM_BOT_TOKEN is not set");
+}
+const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, telegramOptions);
 
 telegramClient.start(async (ctx) => {
   if (ctx.chat.type === "private") {
@@ -20,52 +25,56 @@ telegramClient.start(async (ctx) => {
     if (payload === "link") {
       let callbackUrl = null;
       try {
-        const platformConnections = await import("@/db").then(m => m.db.query.platformConnections.findMany({
+        const platformConnection = await db.query.platformConnections.findFirst({
           where: (connections, { eq }) => eq(connections.platformType, "telegram"),
-          orderBy: (connections, { desc }) => desc(connections.createdAt),
-          limit: 1,
-        }));
-        if (platformConnections && platformConnections.length > 0) {
-          const platformConnectionId = platformConnections[0].id;
+        });
+
+        if (platformConnection) {
           const platformBaseUrl = process.env.PLATFORM_URL || "https://your-platform-url.com";
-          callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
+          callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnection?.id}`;
         } else {
           console.warn("[Telegram] No platform connections found for DM onboarding.");
         }
       } catch (err) {
-        console.error("[Telegram] Error fetching platform connections for DM onboarding:", err instanceof Error ? err.message : String(err));
+        console.error(
+          "[Telegram] Error fetching platform connections for DM onboarding:",
+          err instanceof Error ? err.message : String(err),
+        );
       }
       if (callbackUrl) {
         try {
           await ctx.reply(
             "🎉 The bot has been added to your group!\n\n" +
-            "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
-            "If you have any issues, return to the Platform and try again, or type /help.",
+              "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
+              "If you have any issues, return to the Platform and try again, or type /help.",
             {
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
                       text: "Finish Linking Group",
-                      url: callbackUrl
-                    }
-                  ]
-                ]
-              }
-            }
+                      url: callbackUrl,
+                    },
+                  ],
+                ],
+              },
+            },
           );
         } catch (err) {
-          console.error("[Telegram] Error sending callback link in DM:", err instanceof Error ? err.message : String(err));
+          console.error(
+            "[Telegram] Error sending callback link in DM:",
+            err instanceof Error ? err.message : String(err),
+          );
           await ctx.reply("❌ Failed to send the linking button. Please return to the Platform.");
         }
       } else {
         await ctx.reply(
-          "❌ The bot has been added to your group, but we couldn't find your group connection. Please return to the Platform to finish linking, or type /help."
+          "❌ The bot has been added to your group, but we couldn't find your group connection. Please return to the Platform to finish linking, or type /help.",
         );
       }
     } else {
       await ctx.reply(
-        "Hi! Use the Platform to start connecting your group, or type /help for more options."
+        "Hi! Use the Platform to start connecting your group, or type /help for more options.",
       );
     }
   }
@@ -82,16 +91,23 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
     if (isBotAdded) {
       console.log(`Telegram Bot joined new Chat: ${ctx.chat.id}`);
 
-      const name = "name" in ctx.chat ? ctx.chat.name : ctx.chat.id.toString();
-      let platformConnection;
+      const name =
+        ctx.chat.type === "group" || ctx.chat.type === "supergroup"
+          ? ctx.chat.title
+          : ctx.chat.id.toString();
+
+      let platformConnection = null;
       try {
-        platformConnection = await createPlatformConnection(
+        [platformConnection] = await createPlatformConnection(
           ctx.chat.id.toString(),
           name,
           "telegram",
         );
       } catch (err) {
-        console.error("[Telegram] Error creating platform connection:", err instanceof Error ? err.message : String(err));
+        console.error(
+          "[Telegram] Error creating platform connection:",
+          err instanceof Error ? err.message : String(err),
+        );
         await ctx.reply("❌ Failed to create platform connection. Please try again later.");
         return;
       }
@@ -114,18 +130,20 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
               [
                 {
                   text: "Open DM",
-                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=link`
-                }
-              ]
-            ]
-          }
-        }
+                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=link`,
+                },
+              ],
+            ],
+          },
+        },
       );
     }
   } catch (error) {
     console.error("[Telegram] Error in new_chat_members handler:", error);
     try {
-      await ctx.reply("❌ An unexpected error occurred while processing your request. Please try again later or contact support.");
+      await ctx.reply(
+        "❌ An unexpected error occurred while processing your request. Please try again later or contact support.",
+      );
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       console.error("[Telegram] Failed to send error message to group:", errMsg);
