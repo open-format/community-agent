@@ -1,10 +1,10 @@
 import { storeReportResult, updateReportJobStatus } from "../lib/redis";
 
 import { mastra } from "@/agent";
-import { ReportStatus } from "../lib/redis";
 import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { ReportStatus } from "../lib/redis";
 
 // Function to generate the report in the background
 export async function generateReportInBackground(
@@ -39,10 +39,6 @@ export async function generateReportInBackground(
           error: "No platform connections found for community.",
         });
         return;
-      }
-      // If only one platform there is no need for combined report
-      if (platforms.length === 1) {
-        platform = platforms.at(0)?.platformId;
       }
     } else {
       platform = platformId;

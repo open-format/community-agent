@@ -53,31 +53,24 @@ export async function createPlatformConnection(
     if (platformConnection) {
       // Update if the connection exists and name is different or null/undefined
       if (platformConnection.platformName !== platformName || !platformConnection.platformName) {
-        await db
+        return await db
           .update(platformConnections)
           .set({ platformName: platformName })
-          .where(eq(platformConnections.platformId, platformId));
-        console.log(`Updated platform name for ${platformName}`);
+          .where(eq(platformConnections.platformId, platformId))
+          .returning();
       }
     } else {
       // Create new platform connection with no community
-      await db.insert(platformConnections).values({
-        platformId: platformId,
-        platformType: platformType,
-        platformName: platformName,
-      });
-
-      console.log(`Created new platform connection for ${platformName}`);
-
-      // Fetch the newly created connection
-      platformConnection = await db.query.platformConnections.findFirst({
-        where: (connections, { eq }) =>
-          and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
-      });
+      return await db
+        .insert(platformConnections)
+        .values({
+          platformId: platformId,
+          platformType: platformType,
+          platformName: platformName,
+        })
+        .returning();
     }
   } catch (error) {
     console.error(`Failed to setup Platform: ${platformName}:`, error);
   }
-
-  return platformConnection;
 }
