@@ -22,6 +22,30 @@ const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, telegramOpti
 telegramClient.start(async (ctx) => {
   if (ctx.chat.type === "private") {
     const payload = ctx.message.text.split(" ")[1] || "";
+
+    // Handle the startgroup parameter
+    if (payload === "connect_group") {
+      await ctx.reply(
+        "👋 Welcome! To connect your Telegram group:\n\n" +
+          "1. Add me to your group using the button below\n" +
+          "2. Once added, I'll send you a private message with the next steps",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Add to Group",
+                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startgroup=connect_group`,
+                },
+              ],
+            ],
+          },
+        },
+      );
+      return;
+    }
+
+    // Handle the link parameter (when bot is already in group)
     if (payload === "link") {
       let callbackUrl = null;
       try {
@@ -108,29 +132,39 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
           "[Telegram] Error creating platform connection:",
           err instanceof Error ? err.message : String(err),
         );
-        await ctx.reply("❌ Failed to create platform connection. Please try again later.");
+        // Send error message to the user who added the bot
+        await ctx.telegram.sendMessage(
+          ctx.from.id,
+          "❌ Failed to create platform connection. Please try again later.",
+        );
         return;
       }
+
       const platformConnectionId = platformConnection?.id;
-      console.log("platformConnection result:", platformConnection);
       if (!platformConnectionId) {
-        await ctx.reply("❌ Platform connection could not be created. Please try again later.");
+        await ctx.telegram.sendMessage(
+          ctx.from.id,
+          "❌ Platform connection could not be created. Please try again later.",
+        );
         return;
       }
-      if (!process.env.PLATFORM_URL) {
-        console.error("[Telegram] PLATFORM_URL is not set in environment variables.");
-        await ctx.reply("❌ Platform URL is not correctly configured.");
-        return;
-      }
-      await ctx.reply(
-        "👋 Thanks for adding me! To finish setup, please click the button below to get your private link.",
+
+      // Send private message to the user who added the bot
+      const platformBaseUrl = process.env.PLATFORM_URL;
+      const callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
+
+      await ctx.telegram.sendMessage(
+        ctx.from.id,
+        "🎉 The bot has been added to your group!\n\n" +
+          "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
+          "If you have any issues, return to the Platform and try again, or type /help.",
         {
           reply_markup: {
             inline_keyboard: [
               [
                 {
-                  text: "Open DM",
-                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=link`,
+                  text: "Finish Linking Group",
+                  url: callbackUrl,
                 },
               ],
             ],
@@ -140,13 +174,14 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
     }
   } catch (error) {
     console.error("[Telegram] Error in new_chat_members handler:", error);
+    // Try to send error message to the user who added the bot
     try {
-      await ctx.reply(
+      await ctx.telegram.sendMessage(
+        ctx.from.id,
         "❌ An unexpected error occurred while processing your request. Please try again later or contact support.",
       );
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("[Telegram] Failed to send error message to group:", errMsg);
+      console.error("[Telegram] Failed to send error message to user:", err);
     }
   }
 });
