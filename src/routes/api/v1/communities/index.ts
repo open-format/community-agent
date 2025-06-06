@@ -92,7 +92,7 @@ communitiesRoute.openapi(getCommunity, async (c) => {
     topK: 1000,
     includeMetadata: true,
     filter: {
-      platformId: connections[0]?.platformId,
+      communityId: community.id,
     },
   });
 

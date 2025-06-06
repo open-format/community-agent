@@ -14,9 +14,61 @@ const telegramOptions = {
 };
 const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN!, telegramOptions);
 
-// TODO: Change texts
-telegramClient.start((ctx) => {
-  ctx.reply("I am OPENFORMAT telegram bot. I only work in group chats.");
+telegramClient.start(async (ctx) => {
+  if (ctx.chat.type === "private") {
+    const payload = ctx.message.text.split(" ")[1] || "";
+    if (payload === "link") {
+      let callbackUrl = null;
+      try {
+        const platformConnections = await import("@/db").then(m => m.db.query.platformConnections.findMany({
+          where: (connections, { eq }) => eq(connections.platformType, "telegram"),
+          orderBy: (connections, { desc }) => desc(connections.createdAt),
+          limit: 1,
+        }));
+        if (platformConnections && platformConnections.length > 0) {
+          const platformConnectionId = platformConnections[0].id;
+          const platformBaseUrl = process.env.PLATFORM_URL || "https://your-platform-url.com";
+          callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
+        } else {
+          console.warn("[Telegram] No platform connections found for DM onboarding.");
+        }
+      } catch (err) {
+        console.error("[Telegram] Error fetching platform connections for DM onboarding:", err instanceof Error ? err.message : String(err));
+      }
+      if (callbackUrl) {
+        try {
+          await ctx.reply(
+            "🎉 The bot has been added to your group!\n\n" +
+            "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
+            "If you have any issues, return to the Platform and try again, or type /help.",
+            {
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "Finish Linking Group",
+                      url: callbackUrl
+                    }
+                  ]
+                ]
+              }
+            }
+          );
+        } catch (err) {
+          console.error("[Telegram] Error sending callback link in DM:", err instanceof Error ? err.message : String(err));
+          await ctx.reply("❌ Failed to send the linking button. Please return to the Platform.");
+        }
+      } else {
+        await ctx.reply(
+          "❌ The bot has been added to your group, but we couldn't find your group connection. Please return to the Platform to finish linking, or type /help."
+        );
+      }
+    } else {
+      await ctx.reply(
+        "Hi! Use the Platform to start connecting your group, or type /help for more options."
+      );
+    }
+  }
 });
 telegramClient.help((ctx) =>
   ctx.reply("I am OPENFORMAT telegram bot. I only work in group chats."),
@@ -30,42 +82,53 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
     if (isBotAdded) {
       console.log(`Telegram Bot joined new Chat: ${ctx.chat.id}`);
 
-      const name: string = "name" in ctx.chat ? (ctx.chat.name as string) : ctx.chat.id.toString();
-      // Create the platform connection and get the UUID
-
-      const platformConnection = await createPlatformConnection(
-        ctx.chat.id.toString(),
-        name,
-        "telegram",
-      );
-      const platformConnectionId = platformConnection?.id; // Adjust this line based on your actual return value
+      const name = "name" in ctx.chat ? ctx.chat.name : ctx.chat.id.toString();
+      let platformConnection;
+      try {
+        platformConnection = await createPlatformConnection(
+          ctx.chat.id.toString(),
+          name,
+          "telegram",
+        );
+      } catch (err) {
+        console.error("[Telegram] Error creating platform connection:", err instanceof Error ? err.message : String(err));
+        await ctx.reply("❌ Failed to create platform connection. Please try again later.");
+        return;
+      }
+      const platformConnectionId = platformConnection?.id;
+      console.log("platformConnection result:", platformConnection);
       if (!platformConnectionId) {
-        ctx.reply("Failed to create platform connection. Please try again.");
+        await ctx.reply("❌ Platform connection could not be created. Please try again later.");
         return;
       }
       if (!process.env.PLATFORM_URL) {
-        ctx.reply("Platform URL is not corectly configured. Please try again.");
+        console.error("[Telegram] PLATFORM_URL is not set in environment variables.");
+        await ctx.reply("❌ Platform URL is not correctly configured.");
         return;
       }
-
-      // Send the group message with the callback button
-      const callbackUrl = `${process.env.PLATFORM_URL}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
-
-      await ctx.reply("Click below to finish linking this group to your community.", {
-        reply_markup: {
-          inline_keyboard: [[{ text: "✅ Link this group", url: callbackUrl }]],
-        },
-      });
+      await ctx.reply(
+        "👋 Thanks for adding me! To finish setup, please click the button below to get your private link.",
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "Open DM",
+                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?start=link`
+                }
+              ]
+            ]
+          }
+        }
+      );
     }
   } catch (error) {
-    if (error && typeof error === "object" && "response" in (error as { response?: any })) {
-      console.error(
-        "Error handling new Telegram chat members (TelegramError):",
-        error,
-        (error as { response: any }).response,
-      );
-    } else {
-      console.error("Error handling new Telegram chat members (generic):", error);
+    console.error("[Telegram] Error in new_chat_members handler:", error);
+    try {
+      await ctx.reply("❌ An unexpected error occurred while processing your request. Please try again later or contact support.");
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[Telegram] Failed to send error message to group:", errMsg);
     }
   }
 });
