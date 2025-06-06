@@ -11,15 +11,7 @@ export const postRewardsAnalysis = createRoute({
       "X-Community-ID": z.string().uuid(),
     }),
     body: {
-      content: {
-        "application/json": {
-          schema: z.object({
-            platform_id: z.string(),
-            start_date: z.string().datetime({ message: "must be a valid ISO 8601 date format" }),
-            end_date: z.string().datetime({ message: "must be a valid ISO 8601 date format" }),
-          }),
-        },
-      },
+      content: {},
     },
   },
   responses: {
