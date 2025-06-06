@@ -44,7 +44,7 @@ export async function createPlatformConnection(
   platformType: "discord" | "github" | "telegram",
 ) {
   // Check if platform connection already exists
-  const platformConnection = await db.query.platformConnections.findFirst({
+  let platformConnection = await db.query.platformConnections.findFirst({
     where: (connections, { eq }) =>
       and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
   });
@@ -68,6 +68,12 @@ export async function createPlatformConnection(
       });
 
       console.log(`Created new platform connection for ${platformName}`);
+
+      // Fetch the newly created connection
+      platformConnection = await db.query.platformConnections.findFirst({
+        where: (connections, { eq }) =>
+          and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
+      });
     }
   } catch (error) {
     console.error(`Failed to setup Platform: ${platformName}:`, error);
