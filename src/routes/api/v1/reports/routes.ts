@@ -7,17 +7,28 @@ export const generateImpactReport = createRoute({
   summary: "Generate impact report",
   description: "Generate an impact report for a community over a specified time period",
   request: {
-    query: z.object({
-      platformId: z.string().describe("Platform ID"),
-      startDate: z
-        .string({ message: "must be a valid ISO 8601 date format" })
-        .datetime({ message: "must be a valid ISO 8601 date format" })
-        .optional(),
-      endDate: z
-        .string({ message: "must be a valid ISO 8601 date format" })
-        .datetime({ message: "must be a valid ISO 8601 date format" })
-        .optional(),
-    }),
+    query: z
+      .object({
+        platformId: z.string().describe("Platform ID").optional(),
+        communityId: z.string().describe("Community ID").optional(),
+        startDate: z
+          .string({ message: "must be a valid ISO 8601 date format" })
+          .datetime({ message: "must be a valid ISO 8601 date format" })
+          .optional(),
+        endDate: z
+          .string({ message: "must be a valid ISO 8601 date format" })
+          .datetime({ message: "must be a valid ISO 8601 date format" })
+          .optional(),
+      })
+      .superRefine((data, ctx) => {
+        if (!data.platformId && !data.communityId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["communityId"],
+            message: "Required to specify communityId or platformId.",
+          });
+        }
+      }),
   },
   responses: {
     200: {
@@ -97,13 +108,13 @@ export const generateImpactReport = createRoute({
 
 export const getImpactReportStatus = createRoute({
   method: "get",
-  path: "/impact/status/:jobId",
+  path: "/impact/status/:job_id",
   tags: ["Reports"],
   summary: "Check report generation status",
   description: "Check the status of an ongoing report generation request",
   request: {
     params: z.object({
-      jobId: z.string().uuid().describe("Job ID for the report generation"),
+      job_id: z.string().uuid().describe("Job ID for the report generation"),
     }),
   },
   responses: {
@@ -112,7 +123,7 @@ export const getImpactReportStatus = createRoute({
       content: {
         "application/json": {
           schema: z.object({
-            jobId: z.string(),
+            job_id: z.string(),
             status: z.enum(["pending", "processing", "completed", "failed"]),
             reportId: z.string().uuid().optional(),
             report: z.any().optional().describe("The report data if completed"),
@@ -132,8 +143,14 @@ export const getImpactReports = createRoute({
   method: "get",
   path: "/impact",
   tags: ["Reports"],
-  summary: "Get all impact reports",
-  description: "Get all impact reports",
+  summary: "Get impact reports",
+  description: "Get impact reports",
+  request: {
+    query: z.object({
+      platformId: z.string().describe("Platform ID").optional(),
+      communityId: z.string().describe("Community ID").optional(),
+    }),
+  },
   responses: {
     200: {
       description: "Impact reports retrieved successfully",

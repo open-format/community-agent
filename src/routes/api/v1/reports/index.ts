@@ -1,6 +1,6 @@
 import { vectorStore } from "@/agent/stores/vectorStore";
 import { db } from "@/db";
-import { platformConnections } from "@/db/schema";
+import { communities, platformConnections } from "@/db/schema";
 import { ReportStatus, createReportJob, getReportJob, getReportResult } from "@/lib/redis";
 import { generateReportInBackground } from "@/services/report-generation";
 import { createUnixTimestamp } from "@/utils/time";
@@ -23,14 +23,26 @@ const reportsRoute = new OpenAPIHono();
 
 reportsRoute.openapi(generateImpactReport, async (c) => {
   try {
-    const { startDate, endDate, platformId } = c.req.query();
+    const { startDate, endDate, platformId, communityId } = c.req.query();
 
-    const platform = await db.query.platformConnections.findFirst({
-      where: eq(platformConnections.platformId, platformId as string),
-    });
+    if (platformId) {
+      const platform = await db.query.platformConnections.findFirst({
+        where: eq(platformConnections.platformId, platformId as string),
+      });
 
-    if (!platform) {
-      return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+      if (!platform) {
+        return c.json({ message: Errors.PLATFORM_NOT_FOUND }, 404);
+      }
+    }
+
+    if (communityId) {
+      const community = await db.query.communities.findFirst({
+        where: eq(communities.id, communityId as string),
+      });
+
+      if (!community) {
+        return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
+      }
     }
 
     const startTimestamp = createUnixTimestamp(startDate, 14);
@@ -38,9 +50,9 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
 
     const job_id = crypto.randomUUID();
 
-    await createReportJob(job_id, platformId as string, startTimestamp, endTimestamp);
+    await createReportJob(job_id, platformId, communityId, startTimestamp, endTimestamp);
 
-    generateReportInBackground(job_id, startTimestamp, endTimestamp, platformId as string);
+    generateReportInBackground(job_id, startTimestamp, endTimestamp, platformId, communityId);
 
     // Return immediately with the job ID
     return c.json({
@@ -60,13 +72,13 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
 
 reportsRoute.openapi(getImpactReportStatus, async (c) => {
   try {
-    const { jobId } = c.req.param();
+    const { job_id } = c.req.param();
 
-    const job = await getReportJob(jobId);
+    const job = await getReportJob(job_id);
 
     if (!job) {
       return c.json({
-        jobId,
+        job_id,
         status: "failed" as const,
         timeframe: {
           startDate: new Date().toISOString(),
@@ -78,11 +90,11 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
     let reportData = null;
     if (job.status === ReportStatus.COMPLETED && job.reportId) {
-      reportData = await getReportResult(jobId);
+      reportData = await getReportResult(job_id);
     }
 
     return c.json({
-      jobId,
+      job_id,
       status: job.status,
       reportId: job.reportId,
       report: reportData,
@@ -95,7 +107,7 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
   } catch (error) {
     console.error("Error checking report status:", error);
     return c.json({
-      jobId: c.req.param("jobId"),
+      job_id: c.req.param("job_id"),
       status: "failed" as const,
       timeframe: {
         startDate: new Date().toISOString(),
@@ -108,18 +120,23 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
 reportsRoute.openapi(getImpactReports, async (c) => {
   try {
-    const { platformId, limit } = c.req.query();
+    const { platformId, communityId, limit } = c.req.query();
 
     const topK = limit ? Number.parseInt(limit as string) : 10;
+
+    let filter = undefined;
+    if (communityId) {
+      filter = { communityId };
+    } else if (platformId) {
+      filter = { platformId };
+    }
 
     const results = await vectorStore.query({
       indexName: "impact_reports",
       queryVector: new Array(1536).fill(0),
       topK,
       includeMetadata: true,
-      filter: {
-        platformId,
-      },
+      filter,
     });
 
     const sortedResults = results.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp);

@@ -1,6 +1,9 @@
 import { storeReportResult, updateReportJobStatus } from "../lib/redis";
 
 import { mastra } from "@/agent";
+import { db } from "@/db";
+import { platformConnections } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { ReportStatus } from "../lib/redis";
 
 // Function to generate the report in the background
@@ -8,19 +11,45 @@ export async function generateReportInBackground(
   jobId: string,
   startTimestamp: number,
   endTimestamp: number,
-  platformId: string,
+  platformId?: string,
+  communityId?: string,
 ) {
   try {
     await updateReportJobStatus(jobId, ReportStatus.PROCESSING);
 
+    if (!platformId && !communityId) {
+      console.error("Workflow failed: no community or platform");
+      await updateReportJobStatus(jobId, ReportStatus.FAILED, {
+        error: "No community or platform specified.",
+      });
+      return;
+    }
+
     const workflow = mastra.getWorkflow("impactReportWorkflow");
     const { start } = workflow.createRun();
+
+    let platform = null;
+    if (communityId) {
+      const platforms = await db
+        .select()
+        .from(platformConnections)
+        .where(eq(platformConnections.communityId, communityId));
+      if (platforms.length === 0) {
+        await updateReportJobStatus(jobId, ReportStatus.FAILED, {
+          error: "No platform connections found for community.",
+        });
+        return;
+      }
+    } else {
+      platform = platformId;
+    }
 
     const result = await start({
       triggerData: {
         startDate: startTimestamp,
         endDate: endTimestamp,
-        platformId: platformId,
+        platformId: platform || undefined,
+        communityId: platform ? undefined : communityId,
       },
     });
 
