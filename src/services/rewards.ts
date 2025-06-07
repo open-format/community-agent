@@ -61,7 +61,7 @@ export async function generateRewardsInBackground(
             });
 
             if (result.results.getWalletAddresses?.status === "success") {
-                allRewards.concat(result.results.getWalletAddresses.output.rewards);
+                allRewards.push(...result.results.getWalletAddresses.output.rewards);
             } else {
                 summary.error = `Failed to analyze rewards for platform ${platformConnection.platformId} in community ${community_id}`;
             }
