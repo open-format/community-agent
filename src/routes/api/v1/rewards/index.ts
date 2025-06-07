@@ -1,13 +1,10 @@
-import { mastra } from "@/agent";
 import { db } from "@/db";
 import { communities, pendingRewards, platformConnections as platformConnectionsSchema } from "@/db/schema";
 import {
   ReportStatus,
   createReportJob,
   getReportJob,
-  getReportResult,
-  storeReportResult,
-  updateReportJobStatus,
+  getReportResult
 } from "@/lib/redis";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import dayjs from "dayjs";
@@ -19,56 +16,17 @@ import {
   getRewardsAnalysisStatus,
   postRewardsAnalysis,
 } from "./routes";
+import { generateRewardsInBackground } from "@/services/rewards";
 
 enum Errors {
-  PLATFORM_NOT_FOUND = "Platform not for given community",
   COMMUNITY_NOT_FOUND = "Community not found",
 }
 
 const rewardsRoute = new OpenAPIHono();
 
-// Function to run the rewards workflow in the background
-export async function generateRewardsInBackground(
-  job_id: string,
-  community_id: string,
-  platform_id: string,
-  platform_type: string,
-  start_date: number,
-  end_date: number,
-) {
-  try {
-    const workflow = mastra.getWorkflow("rewardsWorkflow");
-    const { start } = workflow.createRun();
-
-    const result = await start({
-      triggerData: {
-        community_id,
-        platform_id,
-        platform_type,
-        start_date: dayjs(start_date).valueOf(),
-        end_date: dayjs(end_date).valueOf(),
-      },
-    });
-
-    if (result.results.getWalletAddresses?.status === "success") {
-      await storeReportResult(job_id, result.results.getWalletAddresses.output.rewards);
-      await updateReportJobStatus(job_id, ReportStatus.COMPLETED);
-    } else {
-      await updateReportJobStatus(job_id, ReportStatus.FAILED, {
-        error: "Failed to analyze rewards",
-      });
-    }
-  } catch (error) {
-    console.error("Error gvenerating rewards:", error);
-    await updateReportJobStatus(job_id, ReportStatus.FAILED, {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
 rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
   try {
-    const { platform_id, start_date, end_date } = await c.req.json();
+    const { start_date, end_date } = await c.req.json();
     const community_id = c.req.header("X-Community-ID");
 
     if (!community_id) {
@@ -80,33 +38,18 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
     });
 
     if (!community) {
-      return c.json({ message: "Community not found" }, 404);
-    }
-
-    const platformConnections = await db
-      .select()
-      .from(platformConnectionsSchema)
-      .where(
-        and(
-          eq(platformConnectionsSchema.communityId, community.id),
-          eq(platformConnectionsSchema.platformId, platform_id)
-        )
-      );
-    if (platformConnections.length === 0) {
-      return c.json({ message: "Provided platform does not belongs to community" }, 404);      
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
     }
 
     const job_id = crypto.randomUUID();
     const start_timestamp = dayjs(start_date).valueOf();
     const end_timestamp = dayjs(end_date).valueOf();
 
-    await createReportJob(job_id, platform_id, undefined, start_timestamp, end_timestamp);
+    await createReportJob(job_id, undefined, community_id, start_timestamp, end_timestamp);
 
     generateRewardsInBackground(
       job_id, 
       community_id, 
-      platform_id,
-      platformConnections.at(0)!.platformType.toLowerCase(),
       start_timestamp, 
       end_timestamp
     );
@@ -199,7 +142,7 @@ rewardsRoute.openapi(getPendingRewards, async (c) => {
       .limit(1);
 
     if (!community) {
-      return c.json({ message: "Community not found" }, 404);
+      return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
     }
 
     const conditions = [eq(pendingRewards.community_id, community.id)];
