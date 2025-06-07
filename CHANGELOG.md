@@ -1,3 +1,25 @@
+# [0.32.0](https://github.com/open-format/community-agent/compare/v0.31.1...v0.32.0) (2025-06-07)
+
+
+### Bug Fixes
+
+* Fixed retry mechanism for identifyRewardsStep batch processing ([4086f06](https://github.com/open-format/community-agent/commit/4086f06ce0e2fdcfbbb85354e0aa4690f437281e))
+* Fixed time range for rewards recommendations ([4c72dcd](https://github.com/open-format/community-agent/commit/4c72dcd5c0f3ab3f8224b8dadada27bd3da736e6))
+* Fixing error logger calls ([c9cde6d](https://github.com/open-format/community-agent/commit/c9cde6d2ba993e241d8fab2185503c4c4abceab7))
+* Fixing evidence and platformType for rewards ([6fce181](https://github.com/open-format/community-agent/commit/6fce1813c81287a691832f22a6d49a3faf6ccd8f))
+* Fixing markdown in telegram impact report ([70879fa](https://github.com/open-format/community-agent/commit/70879fa63b03d3d750f5d012d31aeeadbad1ac73))
+
+
+### Features
+
+* Added combined report for communities ([e075010](https://github.com/open-format/community-agent/commit/e07501029e9db585f91a153b248952236b74422e))
+* Added endpoint to update platformConnections ([380c1b4](https://github.com/open-format/community-agent/commit/380c1b44feddcb8e75643d5c1c879ea4c10fbc64))
+* Added Telegram support in rewards recommendations ([0d7cd03](https://github.com/open-format/community-agent/commit/0d7cd03a614578ba26b0610eac3ab30f25c7d90a))
+* Enhance Telegram bot onboarding and error handling ([832feec](https://github.com/open-format/community-agent/commit/832feec42cbad085874566849fd6d1e3fac7b66a))
+* Integrated combined impact report into API ([8fbd4ce](https://github.com/open-format/community-agent/commit/8fbd4ce4a1e6a89ac622fcda37fabd0208f6ebe4))
+* Removed community creation when creating new platform ([a3072db](https://github.com/open-format/community-agent/commit/a3072db3b650cb86cbc8d02fcf32409c611d6ab8))
+* Updating bun.lock ([26e4aa3](https://github.com/open-format/community-agent/commit/26e4aa3082a05803374d6257f481f938d60eb5fd))
+
 ## [0.31.1](https://github.com/open-format/community-agent/compare/v0.31.0...v0.31.1) (2025-06-04)
 
 
