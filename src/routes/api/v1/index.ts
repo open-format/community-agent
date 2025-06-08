@@ -46,8 +46,8 @@ cron.schedule("0 0 * * *", async () => {
   await generateRewardRecommendations();
 });
 
-// Cron job to generate impact reports every week Monday at 12:00 AM UTC.
-cron.schedule("0 0 * * 1", async () => {
+// Cron job to generate impact reports every day at 12:00 AM UTC.
+cron.schedule("0 0 * * *", async () => {
   await generateImpactReports();
 });
 
