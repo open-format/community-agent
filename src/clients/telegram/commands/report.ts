@@ -21,7 +21,7 @@ There are no impact reports available for this community yet
 
 *Next Report*
 
-Impact reports are generated every week. The next report will be available soon
+Impact reports are generated every day. The next report will be available soon
 `);
   }
 

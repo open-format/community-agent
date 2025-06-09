@@ -30,7 +30,7 @@ export async function handleReportCommand(msg: Message) {
             .addFields({
               name: "Next Report",
               value:
-                "Impact reports are generated every week. The next report will be available soon.",
+                "Impact reports are generated every day. The next report will be available soon.",
             }),
         ],
       });

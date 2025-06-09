@@ -61,7 +61,7 @@ export async function generateImpactReports() {
 
         const result = await start({
           triggerData: {
-            startDate: dayjs().subtract(1, "week").valueOf(),
+            startDate: dayjs().subtract(1, "day").valueOf(),
             endDate: dayjs().valueOf(),
             platformId: platformIds.length === 1 ? platformIds[0] : undefined,
             communityId: platformIds.length === 1 ? undefined : community.id,
