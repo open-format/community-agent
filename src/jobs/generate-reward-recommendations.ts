@@ -3,7 +3,7 @@ import {
   communities as communitiesSchema,
   platformConnections as platformConnectionsSchema,
 } from "@/db/schema";
-import { generateRewardsInBackground } from "@/routes/api/v1/rewards";
+import { generateRewardsInBackground } from "@/services/rewards";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
 import pino from "pino";
@@ -64,74 +64,71 @@ export async function generateRewardRecommendations() {
           communityId: community.id,
           platformCount: platformConnections.length,
         },
-        "Processing community platforms",
+        "Processing community",
       );
 
       overallSummary.totalPlatforms += platformConnections.length;
+      const job_id = crypto.randomUUID();
 
-      for (const platformConnection of platformConnections) {
-        const platformStartTime = Date.now();
-        const job_id = crypto.randomUUID();
+      try {
+        // Generate rewards and get platform summaries
+        const summaries = await generateRewardsInBackground(
+          job_id,
+          community.id,
+          dayjs().startOf("day").subtract(1, "day").valueOf(),
+          dayjs().endOf("day").valueOf(),
+        );
 
-        try {
-          await generateRewardsInBackground(
-            job_id,
-            community.id,
-            platformConnection.platformId,
-            platformConnection.platformType.toLowerCase(),
-            dayjs().startOf("day").subtract(1, "day").valueOf(),
-            dayjs().endOf("day").valueOf(),
-          );
-
-          const platformDuration = Date.now() - platformStartTime;
-
-          // Log individual platform success
-          logger.info(
-            {
-              platformSummary: {
-                communityId: community.id,
-                platformId: platformConnection.platformId,
-                durationMs: platformDuration,
-                jobId: job_id,
+        for (const summary of summaries) {
+          if (summary.error) {
+            // Log individual platform failure
+            logger.error(
+              {
+                platformSummary: {
+                  communityId: community.id,
+                  platformId: summary.platformId,
+                  durationMs: summary.durationMs,
+                  jobId: job_id,
+                  error: summary.error,
+                },
               },
-            },
-            `Platform ${platformConnection.platformId} processed successfully`,
-          );
-
-          overallSummary.successfulPlatforms++;
-          overallSummary.platformSummaries.push({
-            communityId: community.id,
-            platformId: platformConnection.platformId,
-            status: "success",
-            durationMs: platformDuration,
-          });
-        } catch (error) {
-          const platformDuration = Date.now() - platformStartTime;
-          const errorMessage = error instanceof Error ? error.message : String(error);
-
-          // Log individual platform failure
-          logger.error(
-            {
-              platformSummary: {
-                communityId: community.id,
-                platformId: platformConnection.platformId,
-                durationMs: platformDuration,
-                jobId: job_id,
-                error: errorMessage,
+              `Platform ${summary.platformId} processing failed`,
+            );
+            overallSummary.failedPlatforms++;
+            overallSummary.platformSummaries.push({
+              communityId: community.id,
+              platformId: summary.platformId,
+              status: "failed",
+              durationMs: summary.durationMs,
+              error: summary.error,
+            });
+          } else {
+            // Log individual platform success
+            logger.info(
+              {
+                platformSummary: {
+                  communityId: community.id,
+                  platformId: summary.platformId,
+                  durationMs: summary.durationMs,
+                  jobId: job_id,
+                },
               },
-            },
-            `Platform ${platformConnection.platformId} processing failed`,
-          );
-
-          overallSummary.failedPlatforms++;
-          overallSummary.platformSummaries.push({
-            communityId: community.id,
-            platformId: platformConnection.platformId,
-            status: "failed",
-            durationMs: platformDuration,
-            error: errorMessage,
-          });
+              `Platform ${summary.platformId} processed successfully`,
+            );
+            overallSummary.successfulPlatforms++;
+            overallSummary.platformSummaries.push({
+              communityId: community.id,
+              platformId: summary.platformId,
+              status: "success",
+              durationMs: summary.durationMs,
+            });
+          }
         }
+      } catch (error) {
+        logger.error(
+          error instanceof Error ? error : { error },
+          `Failed to generate rewards for community ${community.id}`
+        )
       }
     }
 
@@ -140,7 +137,7 @@ export async function generateRewardRecommendations() {
     const successRate = (overallSummary.successfulPlatforms / overallSummary.totalPlatforms) * 100;
     const averageTimePerPlatform = Math.round(
       overallSummary.platformSummaries.reduce((acc, curr) => acc + curr.durationMs, 0) /
-        overallSummary.totalPlatforms,
+      overallSummary.totalPlatforms,
     );
 
     // Log final summary
