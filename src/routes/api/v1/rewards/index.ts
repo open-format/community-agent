@@ -20,6 +20,8 @@ import { generateRewardsInBackground } from "@/services/rewards";
 
 enum Errors {
   COMMUNITY_NOT_FOUND = "Community not found",
+  PLATFORM_CONNECTIONS_NOT_FOUND = "This community has no platform connections configured. \
+Please connect a platform like Discord to generate recommendations."
 }
 
 const rewardsRoute = new OpenAPIHono();
@@ -35,10 +37,15 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
 
     const community = await db.query.communities.findFirst({
       where: (communities, { eq }) => eq(communities.id, community_id),
+      with: { platformConnections: true }
     });
 
     if (!community) {
       return c.json({ message: Errors.COMMUNITY_NOT_FOUND }, 404);
+    }
+
+    if (!community.platformConnections || community.platformConnections.length === 0) {
+      return c.json({ message: Errors.PLATFORM_CONNECTIONS_NOT_FOUND }, 404);
     }
 
     const job_id = crypto.randomUUID();
