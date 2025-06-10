@@ -3,6 +3,16 @@ import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
+export async function findPlatformConnection(
+  platformId: string,
+  platformType: "discord" | "github" | "telegram",
+) {
+  return await db.query.platformConnections.findFirst({
+    where: (connections, { eq }) =>
+      and(eq(connections.platformId, platformId), eq(connections.platformType, platformType)),
+  });
+}
+
 export async function deletePlatformConnection(
   platformId: string,
   platformType: "discord" | "github" | "telegram",
