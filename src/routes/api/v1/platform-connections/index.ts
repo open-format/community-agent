@@ -2,10 +2,27 @@ import { db } from "@/db";
 import { communities, platformConnections } from "@/db/schema";
 import { isUUIDv4 } from "@/utils/uuid";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { eq } from "drizzle-orm";
-import { updatePlatformConnectionsRoute } from "./routes";
+import { and, eq } from "drizzle-orm";
+import { getPlatformConnectionByPlatformIdRoute, updatePlatformConnectionsRoute } from "./routes";
 
 const platformConnectionsRoute = new OpenAPIHono();
+
+platformConnectionsRoute.openapi(getPlatformConnectionByPlatformIdRoute, async (c) => {
+  const { platformType, platformId } = c.req.param();
+
+  const platformConnection = await db.query.platformConnections.findFirst({
+    where: and(
+      eq(platformConnections.platformId, platformId),
+      eq(platformConnections.platformType, platformType as "discord" | "github" | "telegram")
+    ),
+  });
+
+  if (!platformConnection) {
+    return c.json({ message: "Platform connection not found" }, 404);
+  }
+
+  return c.json(platformConnection);
+});
 
 platformConnectionsRoute.openapi(updatePlatformConnectionsRoute, async (c) => {
   const { communityId, platformName } = await c.req.json();
