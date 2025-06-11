@@ -1,3 +1,21 @@
+# [0.33.0](https://github.com/open-format/community-agent/compare/v0.32.0...v0.33.0) (2025-06-11)
+
+
+### Bug Fixes
+
+* Added app param to flyctl Action command ([336ae35](https://github.com/open-format/community-agent/commit/336ae35cd62dadf26e33856709040d7ce3f105c5))
+* Added debug level to github action ([3d59536](https://github.com/open-format/community-agent/commit/3d595369c6f3edf90eb1379733efddb8de25db3c))
+* Fixed storing rewards on job result ([50d005c](https://github.com/open-format/community-agent/commit/50d005c26f34ae4f3154502c15f2b4d294d068e1))
+* keep weekly data range while running daily cron ([9fbedd8](https://github.com/open-format/community-agent/commit/9fbedd8bd4f8e143a062df6a2c240778b49128e7))
+* Rewards endpoint fails if no platform connection exists ([e28b560](https://github.com/open-format/community-agent/commit/e28b560fcf0a9ff004ac0aa35223ff060756c6b7))
+
+
+### Features
+
+* Add platform connection retrieval by ID and type ([18ecb30](https://github.com/open-format/community-agent/commit/18ecb30deafce99af4b1ac87281be279b3c6c1e3))
+* change impact reports from weekly to daily generation ([ffb3282](https://github.com/open-format/community-agent/commit/ffb3282d830878c69d0b3799556fc1bbf07df6a9))
+* Rewarrds  generation for all platform connections in a community ([8531d61](https://github.com/open-format/community-agent/commit/8531d61e2d4df51cba57b4bbbd8fcfa16ecbbada))
+
 # [0.32.0](https://github.com/open-format/community-agent/compare/v0.31.1...v0.32.0) (2025-06-07)
 
 
