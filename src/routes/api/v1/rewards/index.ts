@@ -8,7 +8,7 @@ import {
 } from "@/lib/redis";
 import { OpenAPIHono } from "@hono/zod-openapi";
 import dayjs from "dayjs";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { isAddress } from "viem";
 import {
   deletePendingReward,
@@ -183,7 +183,7 @@ rewardsRoute.openapi(getPendingRewards, async (c) => {
       })
       .from(pendingRewards)
       .where(and(...conditions))
-      .orderBy(pendingRewards.created_at)
+      .orderBy(desc(pendingRewards.created_at))
       .limit(Number(limit))
       .offset(Number(offset));
 
