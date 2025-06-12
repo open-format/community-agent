@@ -13,6 +13,7 @@ import {
   getImpactReportStatus,
   getImpactReports,
 } from "./routes";
+import { logger } from "@/services/logger";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not for given community",
@@ -65,7 +66,10 @@ reportsRoute.openapi(generateImpactReport, async (c) => {
       },
     });
   } catch (error) {
-    console.error("Error starting impact report generation:", error);
+    logger.error(
+      error instanceof Error ? error : { error },
+      "Error starting impact report generation"
+    );
     return c.json({ message: "Failed to start report generation", error: String(error) }, 500);
   }
 });

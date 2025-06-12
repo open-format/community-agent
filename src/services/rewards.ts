@@ -6,6 +6,7 @@ import {
 } from "@/db/schema";
 import { db } from "@/db";
 import { eq } from "drizzle-orm";
+import { logger } from "./logger";
 
 /**
  * Runs rewards workflow for all platform connections linked to the community
@@ -67,7 +68,15 @@ export async function generateRewardsInBackground(
             }
 
         } catch (error) {
-            console.error(`Error generating rewards, platform: ${platformConnection.platformId}, community: ${community_id}:`, error);
+            logger.error(
+                {
+                    err: error,
+                    platformId: platformConnection.platformId,
+                    communityId: community_id,
+                },
+                "Error generating rewards"
+            );
+
             summary.error = error instanceof Error ? error.message : String(error);
         }
         summary.durationMs = Date.now() - startTime;
@@ -80,6 +89,13 @@ export async function generateRewardsInBackground(
         await storeReportResult(job_id, allRewards);
         await updateReportJobStatus(job_id, ReportStatus.COMPLETED);
     } else {
+        logger.error(
+            {
+                allErrors: allErrors.join('\n'),
+                communityId: community_id,
+            },
+            "Error generating rewards"
+        );
         await updateReportJobStatus(job_id, ReportStatus.FAILED, {
             error: allErrors.join('\n'),
         });

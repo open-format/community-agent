@@ -1,5 +1,6 @@
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { ReportStatus, storeReportResult, updateReportJobStatus } from "@/lib/redis";
+import { logger } from "./logger";
 
 // Function to fetch historical messages in the background
 export async function fetchHistoricalMessagesInBackground(
@@ -36,7 +37,10 @@ export async function fetchHistoricalMessagesInBackground(
 
     await updateReportJobStatus(jobId, ReportStatus.COMPLETED);
   } catch (error) {
-    console.error("Error fetching historical messages:", error);
+    logger.error(
+      error instanceof Error ? error : { error }, 
+      "Error fetching historical messages"
+    );
     await updateReportJobStatus(jobId, ReportStatus.FAILED, {
       error: error instanceof Error ? error.message : String(error),
     });

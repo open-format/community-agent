@@ -17,6 +17,7 @@ import {
   postRewardsAnalysis,
 } from "./routes";
 import { generateRewardsInBackground } from "@/services/rewards";
+import { logger } from "@/services/logger";
 
 enum Errors {
   COMMUNITY_NOT_FOUND = "Community not found",
@@ -70,7 +71,10 @@ rewardsRoute.openapi(postRewardsAnalysis, async (c) => {
       },
     });
   } catch (error) {
-    console.error("Error starting rewards analysis:", error);
+    logger.error(
+      error instanceof Error ? error : { error },
+      "Error starting rewards analysis"
+    );
     return c.json(
       {
         message: "Failed to start rewards analysis",
