@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { platformConnections } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { ReportStatus } from "../lib/redis";
+import { logger } from "./logger";
 
 // Function to generate the report in the background
 export async function generateReportInBackground(
@@ -18,7 +19,7 @@ export async function generateReportInBackground(
     await updateReportJobStatus(jobId, ReportStatus.PROCESSING);
 
     if (!platformId && !communityId) {
-      console.error("Workflow failed: no community or platform");
+      logger.error("Impact Report Workflow failed to start: No community or platform");
       await updateReportJobStatus(jobId, ReportStatus.FAILED, {
         error: "No community or platform specified.",
       });
@@ -35,6 +36,7 @@ export async function generateReportInBackground(
         .from(platformConnections)
         .where(eq(platformConnections.communityId, communityId));
       if (platforms.length === 0) {
+        logger.error("Impact Report Workflow failed to start: No platform connections");
         await updateReportJobStatus(jobId, ReportStatus.FAILED, {
           error: "No platform connections found for community.",
         });
@@ -54,7 +56,7 @@ export async function generateReportInBackground(
     });
 
     if (!result.results?.saveReport?.output) {
-      console.error("Workflow results:", result.results);
+      logger.error({ workflowResults: result.results }, "Impact Report Workflow failed: Failed to save report");
       await updateReportJobStatus(jobId, ReportStatus.FAILED, {
         error: "Failed to save report",
       });
@@ -69,7 +71,10 @@ export async function generateReportInBackground(
       reportId: result.results.saveReport.output.reportId,
     });
   } catch (error) {
-    console.error("Error generating impact report:", error);
+    logger.error(
+      error instanceof Error ? error : { error },
+      "Impact Report failed: Error generating report"
+    );
     await updateReportJobStatus(jobId, ReportStatus.FAILED, {
       error: String(error),
     });
