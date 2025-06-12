@@ -14,15 +14,13 @@ export async function getReport(chatId: string): Promise<string> {
   });
 
   if (results.length === 0) {
-    return escapeMarkdownV2(`
+    return `
 *No Impact Report Available*
 
 There are no impact reports available for this community yet
 
-*Next Report*
-
-Impact reports are generated daily with the latest weekly data. The next report will be available soon
-`);
+Impact reports are generated daily, at midnight UTC, with the latest weekly data\\. The next report will be available soon
+`;
   }
 
   const report = results.sort((a, b) => b.metadata.timestamp - a.metadata.timestamp)[0].metadata;
@@ -56,15 +54,14 @@ ${report.keyTopics
   .map((topic) => `• ${escapeMarkdownV2(topic.topic)}`)
   .join("\n")}
 
-*📅 Next Report*
-
-The next impact report will be generated on ${escapeMarkdownV2(nextReportDate.format("MMMM D, YYYY"))}
-
 *🔗 Full Report*
 
 [View detailed report](${process.env.PLATFORM_URL}/reports/${report.summaryId})
 
 _Report generated on ${escapeMarkdownV2(dayjs(report.timestamp).format("MMMM D, YYYY"))}_
+
+
+_Impact reports are updated daily at midnight UTC_
 `;
 }
 
