@@ -42,9 +42,10 @@ declare global {
 
   // Define interface for the summary metadata
   interface SummaryMetadata {
+    isCombined: boolean;
     platform?: string;
     platformId?: string;
-    communityId?: string,
+    communityId: string,
     timestamp: number;
     text: string;
     startDate: number;
@@ -91,8 +92,9 @@ declare global {
 
   // Impact Report Types
   interface ImpactReportMetadata {
+    isCombined: boolean;
     platformId?: string;
-    communityId?: string;
+    communityId: string;
     timestamp: number;
     startDate: number;
     endDate: number;

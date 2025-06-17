@@ -136,16 +136,8 @@ export const impactReportWorkflow = new Workflow({
         return digits === 10 || digits === 13;
       }, "Timestamp must be a UNIX timestamp in seconds or milliseconds"),
     platformId: z.string().optional(),
-    communityId: z.string().optional(),
-  }).superRefine((data, ctx) => {
-    if (!data.platformId && !data.communityId) {
-       ctx.addIssue({
-         code: z.ZodIssueCode.custom,
-         path: ["communityId"],
-         message: "communityId should be set if platformId is not.",
-       });
-     }
-  }) ,
+    communityId: z.string(),
+  }),
 });
 
 // Step 1: Fetch messages with stats
@@ -199,8 +191,12 @@ const fetchMessagesStep = new Step({
 
       const platformIds:string[] = [];
       if (context.triggerData.platformId) {
+        // Report is for a specific platform, just add it to the ids to fetch
         platformIds.push(context.triggerData.platformId);
+
       } else {
+        // Report is for a community, get all platforms and add them to the 
+        //  ids to fetch
         const platforms = await db
           .select()
           .from(platformConnections)

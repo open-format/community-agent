@@ -29,8 +29,11 @@ export async function generateReportInBackground(
     const workflow = mastra.getWorkflow("impactReportWorkflow");
     const { start } = workflow.createRun();
 
+    let community = null;
     let platform = null;
+    
     if (communityId) {
+      // Check if there are platforms for the community
       const platforms = await db
         .select()
         .from(platformConnections)
@@ -42,7 +45,24 @@ export async function generateReportInBackground(
         });
         return;
       }
+      // Combined Report
+      community = communityId;
+      platform = undefined;
+
     } else {
+      // Get community id from platform connection
+      const platformConnection = await db.query.platformConnections.findFirst({
+        where: (pc) => eq(pc.platformId, platformId as string),
+      });
+      if (!platformConnection) {
+        logger.error("Impact Report Workflow failed to start: Platform connection not found.");
+        await updateReportJobStatus(jobId, ReportStatus.FAILED, {
+          error: "Platform connection not found.",
+        });
+        return;
+      }
+      // Single Platform Report
+      community = platformConnection.communityId;
       platform = platformId;
     }
 
@@ -50,8 +70,8 @@ export async function generateReportInBackground(
       triggerData: {
         startDate: startTimestamp,
         endDate: endTimestamp,
-        platformId: platform || undefined,
-        communityId: platform ? undefined : communityId,
+        platformId: platform,
+        communityId: community,
       },
     });
 
