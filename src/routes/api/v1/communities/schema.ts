@@ -6,6 +6,9 @@ export const community = z.object({
   description: z.string().optional(),
   communityWalletId: z.string().optional(),
   communityWalletAddress: addressSchema.optional(),
+  communityContractAddress: addressSchema.optional(),
+  communityContractChainId: z.number().optional(),
+  hiddenTokens: z.array(addressSchema).optional(),
 });
 
 // Create a partial schema for updates
