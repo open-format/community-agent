@@ -1,3 +1,16 @@
+# [0.34.0](https://github.com/open-format/community-agent/compare/v0.33.0...v0.34.0) (2025-06-17)
+
+
+### Bug Fixes
+
+* Update community schema with additional fields ([ca6493f](https://github.com/open-format/community-agent/commit/ca6493f080a75ab275a919480e343990be8e9954))
+
+
+### Features
+
+* Removed Next Report section in Telegram impact report ([8036f49](https://github.com/open-format/community-agent/commit/8036f49c88d2fd9c1c9b44aae3c9f7c50d72b34d))
+* Using Pino log in all  endpoints that start background job ([87b2dfb](https://github.com/open-format/community-agent/commit/87b2dfb74070b683dc2d58129f03aff5b4deb306))
+
 # [0.33.0](https://github.com/open-format/community-agent/compare/v0.32.0...v0.33.0) (2025-06-11)
 
 
