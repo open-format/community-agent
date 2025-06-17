@@ -14,6 +14,7 @@ import {
   getHistoricalMessagesStatus,
   postAgentSummary,
 } from "./routes";
+import { logger } from "@/services/logger";
 
 enum Errors {
   PLATFORM_NOT_FOUND = "Platform not found",
@@ -146,7 +147,7 @@ summariesRoute.openapi(getHistoricalMessages, async (c) => {
 
     const job_id = crypto.randomUUID();
 
-    await createReportJob(job_id, platform_id as string, startTimestamp, endTimestamp);
+    await createReportJob(job_id, platform_id as string, undefined, startTimestamp, endTimestamp);
 
     // Start the background job
     fetchHistoricalMessagesInBackground(
@@ -165,7 +166,10 @@ summariesRoute.openapi(getHistoricalMessages, async (c) => {
       },
     });
   } catch (error) {
-    console.error("Error starting historical message fetch:", error);
+    logger.error(
+      error instanceof Error ? error : { error },
+      "Error starting historical messages fetch"
+    );
     return c.json(
       {
         message: "Failed to start historical message fetch",
