@@ -88,7 +88,7 @@ export const saveImpactReportTool = createTool({
       startDate: number;
       endDate: number;
       platformId?: string;
-      communityId?: string;
+      communityId: string;
       summaryId?: string;
     };
   }) => {
@@ -102,6 +102,7 @@ export const saveImpactReportTool = createTool({
       });
 
       const reportMetadata: ImpactReportMetadata = {
+        isCombined: context.platformId ? false : true,
         platformId: context.platformId,
         communityId: context.communityId,
         timestamp: Date.now(),
