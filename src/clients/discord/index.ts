@@ -1,16 +1,17 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+import { handleDiscordAPIError } from "@/utils/errors";
 import { createUnixTimestamp } from "@/utils/time";
-import { handleDiscordAPIError, isRecoverableDiscordError } from "@/utils/errors";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
-import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
+import { Client, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
 import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
+import { getEmbeddingsVector } from "../common/utils";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
-import { getEmbeddingsVector } from "../common/utils";
+import { getThreadStartMessageId } from "./utils";
 
 const discordClient = new Client({
   intents: [
@@ -102,38 +103,6 @@ discordClient.on("interactionCreate", async (interaction) => {
     }
   }
 });
-
-async function getThreadStartMessageId(msg: Message): Promise<string> {
-  let currentMsg = msg;
-
-  while (currentMsg.reference?.messageId) {
-    try {
-      const referencedMsg = await currentMsg.fetchReference();
-      if (!referencedMsg.reference) {
-        return referencedMsg.id; // This is the first message
-      }
-      currentMsg = referencedMsg;
-    } catch (error) {
-      // Handle Discord API errors when fetching message references
-      const errorDetails = handleDiscordAPIError(error, {
-        messageId: currentMsg.reference.messageId,
-        channelId: currentMsg.channelId,
-        guildId: currentMsg.guildId || undefined,
-        operation: "fetchReference",
-      });
-
-      // If it's a recoverable error (like deleted message), return current message ID
-      if (isRecoverableDiscordError(errorDetails)) {
-        return currentMsg.id;
-      }
-
-      // For non-recoverable errors, still return current message ID to prevent crashes
-      return currentMsg.id;
-    }
-  }
-
-  return currentMsg.id;
-}
 
 discordClient.on("messageCreate", async (msg) => {
   const cleanContent = msg.content
