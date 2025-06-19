@@ -1,15 +1,17 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+import { getThreadStartMessageId } from "@/utils/discord";
+import { handleDiscordAPIError } from "@/utils/errors";
 import { createUnixTimestamp } from "@/utils/time";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
-import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
+import { Client, GatewayIntentBits, MessageFlags, Partials } from "discord.js";
 import { createPlatformConnection, deletePlatformConnection } from "../../db/commons/platform";
+import { getEmbeddingsVector } from "../common/utils";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
-import { getEmbeddingsVector } from "../common/utils";
 
 const discordClient = new Client({
   intents: [
@@ -102,20 +104,6 @@ discordClient.on("interactionCreate", async (interaction) => {
   }
 });
 
-async function getThreadStartMessageId(msg: Message): Promise<string> {
-  let currentMsg = msg;
-
-  while (currentMsg.reference?.messageId) {
-    const referencedMsg = await currentMsg.fetchReference();
-    if (!referencedMsg.reference) {
-      return referencedMsg.id; // This is the first message
-    }
-    currentMsg = referencedMsg;
-  }
-
-  return currentMsg.id;
-}
-
 discordClient.on("messageCreate", async (msg) => {
   const cleanContent = msg.content
     .replace(new RegExp(`<@!?${discordClient.user?.id}>`, "g"), "")
@@ -175,7 +163,19 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
-      const threadId = await getThreadStartMessageId(msg);
+      let threadId: string;
+      try {
+        threadId = await getThreadStartMessageId(msg);
+      } catch (error) {
+        // Fallback to current message ID if thread start cannot be determined
+        handleDiscordAPIError(error, {
+          messageId: msg.id,
+          channelId: msg.channelId,
+          guildId: msg.guildId || undefined,
+          operation: "getThreadStartMessageId",
+        });
+        threadId = msg.id;
+      }
 
       const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
         threadId: threadId,
@@ -219,7 +219,18 @@ Please search through the conversation history to find relevant information.
 
   // If this is a reply to another message, get the parent message's ID
   if (msg.reference?.messageId) {
-    metadata.threadId = await getThreadStartMessageId(msg);
+    try {
+      metadata.threadId = await getThreadStartMessageId(msg);
+    } catch (error) {
+      // Fallback to current message ID if thread start cannot be determined
+      handleDiscordAPIError(error, {
+        messageId: msg.id,
+        channelId: msg.channelId,
+        guildId: msg.guildId || undefined,
+        operation: "getThreadStartMessageId",
+      });
+      metadata.threadId = msg.id;
+    }
   }
 
   // Store in vector store
