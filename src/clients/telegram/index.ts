@@ -87,8 +87,15 @@ telegramClient.start(async (ctx) => {
       }
       return;
     } catch (error) {
-      console.error("[Telegram] Error processing verification code:", error);
-      // Fall through to default message
+      console.error("[Telegram] Error processing verification code:", {
+        error,
+        verificationCode: payload,
+        userId: ctx.from.id,
+      });
+      await ctx.reply(
+        "An error occurred while processing your verification code. Please try again later or contact support if the issue persists."
+      );
+      return;
     }
   }
 
