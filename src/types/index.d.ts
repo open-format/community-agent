@@ -94,6 +94,8 @@ declare global {
   interface ImpactReportMetadata {
     isCombined: boolean;
     platformId?: string;
+    platformType?: string;
+    platformName?: string;
     communityId: string;
     timestamp: number;
     startDate: number;
