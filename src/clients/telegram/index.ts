@@ -3,7 +3,12 @@ import {
 	createPlatformConnection,
 	deletePlatformConnection,
 } from "@/db/commons/platform";
-import { VerificationResult, verifyCommunity } from "@/lib/verification";
+import {
+	VerificationResult,
+	verifyCommunity,
+	getVerificationData,
+} from "@/lib/verification";
+import redis from "@/lib/redis";
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
 import { Telegraf } from "telegraf";
@@ -24,8 +29,6 @@ const telegramClient = new Telegraf(
 	telegramOptions,
 );
 
-const pendingStates = new Map<string, string>();
-
 telegramClient.start(async (ctx) => {
 	let payload = "";
 	if (ctx.chat.type === "private") {
@@ -37,32 +40,42 @@ telegramClient.start(async (ctx) => {
 		}
 	}
 
-	// Handle start with state parameter (user initiated from platform)
+	// Handle start with verification code (user initiated from platform)
 	if (payload) {
 		try {
-			const compressedState = payload;
+			const verificationCode = payload;
 
-			let fullState: {
-				did: string;
-				communityId: string | null;
-				timestamp: number;
-			};
+			const verificationData = await getVerificationData(verificationCode);
 
-			try {
-				const parts = compressedState.split("_");
-
-				fullState = {
-					did: `did:privy:${parts[0]}`,
-					communityId: parts[1] === "null" ? null : parts[1],
-					timestamp: Date.now(),
-				};
-			} catch (decodeError) {
-				console.error("[Telegram] Error decoding state:", decodeError);
-				throw new Error("Invalid state data");
+			if (!verificationData) {
+				console.error(
+					"[Telegram] Invalid verification code:",
+					verificationCode,
+				);
+				await ctx.reply(
+					"Invalid or expired verification code. Please try connecting again from the platform.",
+				);
+				return;
 			}
 
-			// Store the full state for later when the bot is added to a group
-			pendingStates.set(ctx.from.id.toString(), JSON.stringify(fullState));
+			if (verificationData.used) {
+				console.error(
+					"[Telegram] Verification code already used:",
+					verificationCode,
+				);
+				await ctx.reply(
+					"This verification code has already been used. Please try connecting again from the platform.",
+				);
+				return;
+			}
+
+			// Store verification code in Redis with user ID as key
+			await redis.set(
+				`telegram:pending:${ctx.from.id}`,
+				verificationCode,
+				"EX",
+				600, // 10 minutes
+			);
 
 			if (ctx.chat.type === "private") {
 				try {
@@ -74,7 +87,7 @@ telegramClient.start(async (ctx) => {
 									[
 										{
 											text: "Add to Group",
-											url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startgroup=${compressedState}`,
+											url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startgroup=${verificationCode}`,
 										},
 									],
 								],
@@ -93,12 +106,12 @@ telegramClient.start(async (ctx) => {
 			}
 			return;
 		} catch (error) {
-			console.error("[Telegram] Error processing state parameter:", error);
+			console.error("[Telegram] Error processing verification code:", error);
 			// Fall through to default message
 		}
 	}
 
-	// Handle start without state parameter
+	// Handle start without verification code
 	if (ctx.chat.type === "private") {
 		await ctx.reply(
 			"Hello! I am the OpenFormat Community Copilot. To use my features, please visit https://app.openformat.tech to create an account and get started.",
@@ -136,23 +149,23 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
 				const platformConnection = platformConnections?.[0];
 
 				if (platformConnection?.id) {
-					const storedState = pendingStates.get(ctx.from.id.toString());
+					const storedVerificationCode = await redis.get(
+						`telegram:pending:${ctx.from.id}`,
+					);
 
 					const platformBaseUrl = process.env.PLATFORM_URL;
 					if (platformBaseUrl) {
 						let callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnection.id}`;
 
-						if (storedState) {
-							const fullState = JSON.parse(storedState);
-							const didSuffix = fullState.did.replace("did:privy:", "");
-							const cleanCommunityId = fullState.communityId
-								? fullState.communityId.replace(/-/g, "")
-								: null;
-							const stateString = cleanCommunityId
-								? `${didSuffix}_${cleanCommunityId}`
-								: `${didSuffix}_null`;
-							callbackUrl += `&state=${encodeURIComponent(stateString)}`;
-							pendingStates.delete(ctx.from.id.toString());
+						if (storedVerificationCode) {
+							const verificationData = await getVerificationData(
+								storedVerificationCode,
+							);
+
+							if (verificationData && !verificationData.used) {
+								callbackUrl += `&state=${encodeURIComponent(storedVerificationCode)}`;
+								await redis.del(`telegram:pending:${ctx.from.id}`);
+							}
 						}
 
 						try {
