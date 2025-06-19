@@ -35,6 +35,12 @@ vi.mock("ai", () => ({
   }),
 }));
 
+// Create global mock variables that will be shared
+let globalMockClient: any;
+let globalMockGuild: any;
+let globalMockChannel: any;
+let globalMockMessages: any;
+
 // Mock Discord.js completely
 vi.mock("discord.js", () => {
   class MockCollection extends Map {
@@ -69,8 +75,16 @@ vi.mock("discord.js", () => {
     return error;
   });
 
+  // Mock Client constructor that returns our global mock
+  const MockClient = vi.fn().mockImplementation(() => {
+    return globalMockClient;
+  });
+
+  // Mock TextChannel class
+  const MockTextChannel = vi.fn();
+
   return {
-    Client: vi.fn(),
+    Client: MockClient,
     GatewayIntentBits: {
       Guilds: 1,
       GuildMessages: 512,
@@ -78,7 +92,7 @@ vi.mock("discord.js", () => {
     },
     Collection: MockCollection,
     DiscordAPIError,
-    TextChannel: vi.fn(),
+    TextChannel: MockTextChannel,
     Guild: vi.fn(),
     Message: vi.fn(),
     Partials: {
@@ -100,7 +114,7 @@ describe("fetchHistoricalMessages Tool", () => {
     vi.clearAllMocks();
 
     const now = Date.now();
-    const { Collection } = await import("discord.js");
+    const { Collection, TextChannel } = await import("discord.js");
 
     // Mock message with timestamp within typical test range
     mockMessage = {
@@ -119,6 +133,7 @@ describe("fetchHistoricalMessages Tool", () => {
 
     // Create mock messages collection
     mockMessages = new Collection([["message-123", mockMessage as Message]]);
+    globalMockMessages = mockMessages;
 
     // Mock channel with proper type checking
     mockChannel = {
@@ -131,6 +146,10 @@ describe("fetchHistoricalMessages Tool", () => {
         fetch: vi.fn().mockResolvedValue(mockMessages),
       },
     };
+    globalMockChannel = mockChannel;
+
+    // Make mockChannel an instance of TextChannel for instanceof checks
+    Object.setPrototypeOf(mockChannel, TextChannel.prototype);
 
     // Create mock guild channels collection
     const guildChannels = new Collection([["channel-789", mockChannel as TextChannel]]);
@@ -144,6 +163,7 @@ describe("fetchHistoricalMessages Tool", () => {
         fetch: vi.fn().mockResolvedValue(undefined),
       },
     };
+    globalMockGuild = mockGuild;
 
     // Mock client
     mockClient = {
@@ -153,9 +173,7 @@ describe("fetchHistoricalMessages Tool", () => {
         fetch: vi.fn().mockResolvedValue(mockGuild),
       },
     };
-
-    // Mock Client constructor
-    (Client as any).mockImplementation(() => mockClient);
+    globalMockClient = mockClient;
   });
 
   describe("fetchHistoricalMessagesTool", () => {
@@ -317,7 +335,8 @@ describe("fetchHistoricalMessages Tool", () => {
 
       const { Collection } = await import("discord.js");
       mockMessages = new Collection([["message-with-ref", messageWithReference as Message]]);
-      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
+      globalMockMessages = mockMessages;
+      (globalMockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -451,7 +470,8 @@ describe("fetchHistoricalMessages Tool", () => {
         ["old-message", oldMessage as Message],
         ["new-message", newMessage as Message]
       ]);
-      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
+      globalMockMessages = mockMessages;
+      (globalMockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -492,7 +512,8 @@ describe("fetchHistoricalMessages Tool", () => {
         ["message-123", mockMessage as Message],
         ["message-456", secondMessage as Message]
       ]);
-      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
+      globalMockMessages = mockMessages;
+      (globalMockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (handleDiscordAPIError as any).mockReturnValue({
         type: "UNKNOWN_ERROR",
