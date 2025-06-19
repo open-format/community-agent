@@ -245,7 +245,9 @@ telegramClient.command("link_community", async (ctx) => {
 
     try {
       await ctx.deleteMessage();
-    } catch (err) {}
+    } catch (err) {
+      console.error("Failed to delete the message:", err);
+    }
 
     if (VerificationResult.FAILED === verificationResult) {
       return ctx.reply("Invalid or expired verification code.");
