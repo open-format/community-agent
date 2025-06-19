@@ -35,19 +35,57 @@ vi.mock("ai", () => ({
   }),
 }));
 
-// Mock Discord.js Client and other classes
-vi.mock("discord.js", async () => {
-  const actual = await vi.importActual("discord.js");
+// Mock Discord.js completely
+vi.mock("discord.js", () => {
+  class MockCollection extends Map {
+    constructor(entries?: any[]) {
+      super(entries);
+    }
+
+    filter(fn: (value: any, key: any, collection: any) => boolean) {
+      const filtered = new MockCollection();
+      for (const [key, value] of this.entries()) {
+        if (fn(value, key, this)) {
+          filtered.set(key, value);
+        }
+      }
+      return filtered;
+    }
+
+    last() {
+      const entries = Array.from(this.values());
+      return entries[entries.length - 1];
+    }
+  }
+
+  const DiscordAPIError = vi.fn().mockImplementation((rawError, code, status, method, url, bodyData) => {
+    const error = new Error(rawError.message);
+    error.name = 'DiscordAPIError';
+    (error as any).code = code;
+    (error as any).status = status;
+    (error as any).method = method;
+    (error as any).url = url;
+    (error as any).rawError = rawError;
+    return error;
+  });
+
   return {
-    ...actual,
     Client: vi.fn(),
     GatewayIntentBits: {
       Guilds: 1,
       GuildMessages: 512,
       MessageContent: 32768,
     },
-    Collection: actual.Collection,
-    DiscordAPIError: actual.DiscordAPIError,
+    Collection: MockCollection,
+    DiscordAPIError,
+    TextChannel: vi.fn(),
+    Guild: vi.fn(),
+    Message: vi.fn(),
+    Partials: {
+      Message: 1,
+      Channel: 2,
+      Reaction: 4,
+    },
   };
 });
 
@@ -58,10 +96,11 @@ describe("fetchHistoricalMessages Tool", () => {
   let mockMessage: Partial<Message>;
   let mockMessages: Collection<string, Message>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
 
     const now = Date.now();
+    const { Collection } = await import("discord.js");
 
     // Mock message with timestamp within typical test range
     mockMessage = {
@@ -78,11 +117,8 @@ describe("fetchHistoricalMessages Tool", () => {
       fetchReference: vi.fn(),
     };
 
-    // Mock messages collection with proper methods
-    mockMessages = new Collection();
-    mockMessages.set("message-123", mockMessage as Message);
-    // Add last() method to the collection
-    mockMessages.last = vi.fn().mockReturnValue(mockMessage);
+    // Create mock messages collection
+    mockMessages = new Collection([["message-123", mockMessage as Message]]);
 
     // Mock channel with proper type checking
     mockChannel = {
@@ -94,15 +130,17 @@ describe("fetchHistoricalMessages Tool", () => {
       messages: {
         fetch: vi.fn().mockResolvedValue(mockMessages),
       },
-      last: vi.fn().mockReturnValue(mockMessage),
     };
+
+    // Create mock guild channels collection
+    const guildChannels = new Collection([["channel-789", mockChannel as TextChannel]]);
 
     // Mock guild
     mockGuild = {
       id: "guild-123",
       name: "Test Guild",
       channels: {
-        cache: new Collection([["channel-789", mockChannel as TextChannel]]),
+        cache: guildChannels,
         fetch: vi.fn().mockResolvedValue(undefined),
       },
     };
@@ -277,9 +315,9 @@ describe("fetchHistoricalMessages Tool", () => {
       // Mock fetchReference to throw Unknown Message error
       (messageWithReference.fetchReference as any).mockRejectedValue(discordError);
 
-      mockMessages.clear();
-      mockMessages.set("message-with-ref", messageWithReference as Message);
-      mockMessages.last = vi.fn().mockReturnValue(messageWithReference);
+      const { Collection } = await import("discord.js");
+      mockMessages = new Collection([["message-with-ref", messageWithReference as Message]]);
+      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -408,10 +446,12 @@ describe("fetchHistoricalMessages Tool", () => {
         createdTimestamp: oneDayAgo + 3600000, // Within range
       };
 
-      mockMessages.clear();
-      mockMessages.set("old-message", oldMessage as Message);
-      mockMessages.set("new-message", newMessage as Message);
-      mockMessages.last = vi.fn().mockReturnValue(newMessage);
+      const { Collection } = await import("discord.js");
+      mockMessages = new Collection([
+        ["old-message", oldMessage as Message],
+        ["new-message", newMessage as Message]
+      ]);
+      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -447,8 +487,12 @@ describe("fetchHistoricalMessages Tool", () => {
         content: "Second message",
         createdTimestamp: now - 3600000, // Ensure within date range
       };
-      mockMessages.set("message-456", secondMessage as Message);
-      mockMessages.last = vi.fn().mockReturnValue(secondMessage);
+      const { Collection } = await import("discord.js");
+      mockMessages = new Collection([
+        ["message-123", mockMessage as Message],
+        ["message-456", secondMessage as Message]
+      ]);
+      (mockChannel.messages!.fetch as any).mockResolvedValue(mockMessages);
 
       (handleDiscordAPIError as any).mockReturnValue({
         type: "UNKNOWN_ERROR",
