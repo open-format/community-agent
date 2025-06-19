@@ -2,6 +2,7 @@ import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { createUnixTimestamp } from "@/utils/time";
+import { handleDiscordAPIError, isRecoverableDiscordError } from "@/utils/errors";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
 import { Client, GatewayIntentBits, type Message, MessageFlags, Partials } from "discord.js";
@@ -106,11 +107,29 @@ async function getThreadStartMessageId(msg: Message): Promise<string> {
   let currentMsg = msg;
 
   while (currentMsg.reference?.messageId) {
-    const referencedMsg = await currentMsg.fetchReference();
-    if (!referencedMsg.reference) {
-      return referencedMsg.id; // This is the first message
+    try {
+      const referencedMsg = await currentMsg.fetchReference();
+      if (!referencedMsg.reference) {
+        return referencedMsg.id; // This is the first message
+      }
+      currentMsg = referencedMsg;
+    } catch (error) {
+      // Handle Discord API errors when fetching message references
+      const errorDetails = handleDiscordAPIError(error, {
+        messageId: currentMsg.reference.messageId,
+        channelId: currentMsg.channelId,
+        guildId: currentMsg.guildId || undefined,
+        operation: "fetchReference",
+      });
+
+      // If it's a recoverable error (like deleted message), return current message ID
+      if (isRecoverableDiscordError(errorDetails)) {
+        return currentMsg.id;
+      }
+
+      // For non-recoverable errors, still return current message ID to prevent crashes
+      return currentMsg.id;
     }
-    currentMsg = referencedMsg;
   }
 
   return currentMsg.id;
@@ -175,7 +194,19 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
-      const threadId = await getThreadStartMessageId(msg);
+      let threadId: string;
+      try {
+        threadId = await getThreadStartMessageId(msg);
+      } catch (error) {
+        // Fallback to current message ID if thread start cannot be determined
+        handleDiscordAPIError(error, {
+          messageId: msg.id,
+          channelId: msg.channelId,
+          guildId: msg.guildId || undefined,
+          operation: "getThreadStartMessageId",
+        });
+        threadId = msg.id;
+      }
 
       const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
         threadId: threadId,
@@ -219,7 +250,18 @@ Please search through the conversation history to find relevant information.
 
   // If this is a reply to another message, get the parent message's ID
   if (msg.reference?.messageId) {
-    metadata.threadId = await getThreadStartMessageId(msg);
+    try {
+      metadata.threadId = await getThreadStartMessageId(msg);
+    } catch (error) {
+      // Fallback to current message ID if thread start cannot be determined
+      handleDiscordAPIError(error, {
+        messageId: msg.id,
+        channelId: msg.channelId,
+        guildId: msg.guildId || undefined,
+        operation: "getThreadStartMessageId",
+      });
+      metadata.threadId = msg.id;
+    }
   }
 
   // Store in vector store
