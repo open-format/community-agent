@@ -1,6 +1,7 @@
 import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
+import { getThreadStartMessageId } from "@/utils/discord";
 import { handleDiscordAPIError } from "@/utils/errors";
 import { createUnixTimestamp } from "@/utils/time";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
@@ -11,7 +12,6 @@ import { getEmbeddingsVector } from "../common/utils";
 import { registerCommandsForGuild } from "./commands";
 import { handleAutocomplete } from "./commands/index";
 import { handleReportCommand } from "./commands/report";
-import { getThreadStartMessageId } from "./utils";
 
 const discordClient = new Client({
   intents: [
