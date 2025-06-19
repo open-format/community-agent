@@ -35,12 +35,19 @@ vi.mock("ai", () => ({
   }),
 }));
 
-// Mock Discord.js Client
+// Mock Discord.js Client and other classes
 vi.mock("discord.js", async () => {
   const actual = await vi.importActual("discord.js");
   return {
     ...actual,
     Client: vi.fn(),
+    GatewayIntentBits: {
+      Guilds: 1,
+      GuildMessages: 512,
+      MessageContent: 32768,
+    },
+    Collection: actual.Collection,
+    DiscordAPIError: actual.DiscordAPIError,
   };
 });
 
@@ -54,7 +61,9 @@ describe("fetchHistoricalMessages Tool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Mock message
+    const now = Date.now();
+
+    // Mock message with timestamp within typical test range
     mockMessage = {
       id: "message-123",
       content: "Test message content",
@@ -64,23 +73,28 @@ describe("fetchHistoricalMessages Tool", () => {
         bot: false,
       },
       channelId: "channel-789",
-      createdTimestamp: Date.now(),
+      createdTimestamp: now - 3600000, // 1 hour ago, should be within range
       reference: null,
       fetchReference: vi.fn(),
     };
 
-    // Mock messages collection
+    // Mock messages collection with proper methods
     mockMessages = new Collection();
     mockMessages.set("message-123", mockMessage as Message);
+    // Add last() method to the collection
+    mockMessages.last = vi.fn().mockReturnValue(mockMessage);
 
-    // Mock channel
+    // Mock channel with proper type checking
     mockChannel = {
       id: "channel-789",
       name: "test-channel",
+      type: 0, // Text channel type
       viewable: true,
+      isTextBased: () => true,
       messages: {
         fetch: vi.fn().mockResolvedValue(mockMessages),
       },
+      last: vi.fn().mockReturnValue(mockMessage),
     };
 
     // Mock guild
@@ -89,7 +103,7 @@ describe("fetchHistoricalMessages Tool", () => {
       name: "Test Guild",
       channels: {
         cache: new Collection([["channel-789", mockChannel as TextChannel]]),
-        fetch: vi.fn(),
+        fetch: vi.fn().mockResolvedValue(undefined),
       },
     };
 
@@ -114,10 +128,17 @@ describe("fetchHistoricalMessages Tool", () => {
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
 
+      const now = Date.now();
+      const startDate = now - 86400000; // 24 hours ago
+      const endDate = now;
+
+      // Ensure our mock message is within the date range
+      mockMessage.createdTimestamp = now - 3600000; // 1 hour ago, definitely within range
+
       const context = {
         platformId: "guild-123",
-        startDate: Date.now() - 86400000, // 24 hours ago
-        endDate: Date.now(),
+        startDate,
+        endDate,
       };
 
       const result = await fetchHistoricalMessagesTool.execute({ context });
@@ -178,6 +199,8 @@ describe("fetchHistoricalMessages Tool", () => {
       const { handleDiscordAPIError, isRecoverableDiscordError } = await import("@/utils/errors");
       const { logger } = await import("@/services/logger");
       
+      const now = Date.now();
+      
       const discordError = new DiscordAPIError(
         {
           message: "Missing Access",
@@ -202,8 +225,8 @@ describe("fetchHistoricalMessages Tool", () => {
 
       const context = {
         platformId: "guild-123",
-        startDate: Date.now() - 86400000,
-        endDate: Date.now(),
+        startDate: now - 86400000,
+        endDate: now,
       };
 
       const result = await fetchHistoricalMessagesTool.execute({ context });
@@ -225,9 +248,12 @@ describe("fetchHistoricalMessages Tool", () => {
       const { handleDiscordAPIError, isRecoverableDiscordError } = await import("@/utils/errors");
       const { vectorStore } = await import("@/agent/stores");
       
+      const now = Date.now();
+      
       // Create message with reference
       const messageWithReference = {
         ...mockMessage,
+        createdTimestamp: now - 3600000, // Ensure within date range
         reference: {
           messageId: "referenced-message-456",
           channelId: "channel-789",
@@ -253,6 +279,7 @@ describe("fetchHistoricalMessages Tool", () => {
 
       mockMessages.clear();
       mockMessages.set("message-with-ref", messageWithReference as Message);
+      mockMessages.last = vi.fn().mockReturnValue(messageWithReference);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -265,8 +292,8 @@ describe("fetchHistoricalMessages Tool", () => {
 
       const context = {
         platformId: "guild-123",
-        startDate: Date.now() - 86400000,
-        endDate: Date.now(),
+        startDate: now - 86400000,
+        endDate: now,
       };
 
       const result = await fetchHistoricalMessagesTool.execute({ context });
@@ -384,6 +411,7 @@ describe("fetchHistoricalMessages Tool", () => {
       mockMessages.clear();
       mockMessages.set("old-message", oldMessage as Message);
       mockMessages.set("new-message", newMessage as Message);
+      mockMessages.last = vi.fn().mockReturnValue(newMessage);
 
       (vectorStore.query as any).mockResolvedValue([]);
       (vectorStore.upsert as any).mockResolvedValue(undefined);
@@ -405,6 +433,8 @@ describe("fetchHistoricalMessages Tool", () => {
       const { vectorStore } = await import("@/agent/stores");
       const { logger } = await import("@/services/logger");
       
+      const now = Date.now();
+      
       // Mock vector store query to throw error for one message
       (vectorStore.query as any)
         .mockResolvedValueOnce([]) // First message succeeds
@@ -415,8 +445,10 @@ describe("fetchHistoricalMessages Tool", () => {
         ...mockMessage,
         id: "message-456",
         content: "Second message",
+        createdTimestamp: now - 3600000, // Ensure within date range
       };
       mockMessages.set("message-456", secondMessage as Message);
+      mockMessages.last = vi.fn().mockReturnValue(secondMessage);
 
       (handleDiscordAPIError as any).mockReturnValue({
         type: "UNKNOWN_ERROR",
@@ -427,8 +459,8 @@ describe("fetchHistoricalMessages Tool", () => {
 
       const context = {
         platformId: "guild-123",
-        startDate: Date.now() - 86400000,
-        endDate: Date.now(),
+        startDate: now - 86400000,
+        endDate: now,
       };
 
       const result = await fetchHistoricalMessagesTool.execute({ context });
