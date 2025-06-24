@@ -124,15 +124,19 @@ reportsRoute.openapi(getImpactReportStatus, async (c) => {
 
 reportsRoute.openapi(getImpactReports, async (c) => {
   try {
-    const { platformId, communityId, limit } = c.req.query();
+    const { platformId, communityId, limit, startDate } = c.req.query();
 
-    const topK = limit ? Number.parseInt(limit as string) : 10;
+    const topK = limit ? Number.parseInt(limit as string) : 100;
+
+    // By default retrieve only reports generated in the last 2 days
+    const timestamp = startDate ? Number.parseInt(startDate as string) :
+      dayjs().startOf("day").subtract(2, "day").valueOf();
 
     let filter = undefined;
     if (communityId) {
-      filter = { communityId };
+      filter = { communityId, timestamp: { $gte: timestamp } };
     } else if (platformId) {
-      filter = { platformId };
+      filter = { platformId, timestamp: { $gte: timestamp } };
     }
 
     const results = await vectorStore.query({

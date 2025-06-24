@@ -190,3 +190,151 @@ export const getCommunities = createRoute({
     },
   },
 });
+
+export const generateTelegramToken = createRoute({
+  method: "post",
+  path: "/telegram/generate-token",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            did: z.string(),
+            community_id: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The Telegram token was generated successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            token: z.string(),
+            expiresIn: z.string(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "Failed to generate token",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const generateTelegramCode = createRoute({
+  method: "post",
+  path: "/telegram/generate-code",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            did: z.string(),
+            community_id: z.string().optional(),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: "The Telegram verification code was generated successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            code: z.string(),
+            expiresIn: z.string(),
+          }),
+        },
+      },
+    },
+    500: {
+      description: "Failed to generate code",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const verifyTelegramCode = createRoute({
+  method: "get",
+  path: "/telegram/verify/{code}",
+  request: {
+    params: z.object({
+      code: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The Telegram verification code was verified successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            did: z.string(),
+            communityId: z.string().nullable(),
+            used: z.boolean(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Verification code not found or expired",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});
+
+export const markTelegramCodeAsUsed = createRoute({
+  method: "post",
+  path: "/telegram/mark-used/{code}",
+  request: {
+    params: z.object({
+      code: z.string(),
+    }),
+  },
+  responses: {
+    200: {
+      description: "The Telegram verification code was marked as used successfully",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+          }),
+        },
+      },
+    },
+    404: {
+      description: "Verification code not found or expired",
+      content: {
+        "application/json": {
+          schema: z.object({
+            message: z.string(),
+          }),
+        },
+      },
+    },
+  },
+});

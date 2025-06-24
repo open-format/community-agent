@@ -52,55 +52,37 @@ export async function generateImpactReports() {
         },
         "Processing community platforms",
       );
-
-      const platformIds = platformConnections.map( pc => pc.platformId );
       
       try {
-        const workflow = mastra.getWorkflow("impactReportWorkflow");
-        const { start } = workflow.createRun();
-
-        const result = await start({
-          triggerData: {
-            startDate: dayjs().subtract(1, "week").valueOf(),
-            endDate: dayjs().valueOf(),
-            platformId: platformIds.length === 1 ? platformIds[0] : undefined,
-            communityId: platformIds.length === 1 ? undefined : community.id,
-          },
-        });
-
-        if (!result.results?.saveReport?.output) {
-          logger.error(
-            {
-              platformIds: platformIds,
-              communityId: community.id,
-              results: result.results,
-            },
-            "Failed to generate impact report - no output from saveReport step",
-          );
-          continue;
-        }
-
-        logger.info(
-          {
-            platformIds: platformIds,
-            communityId: community.id,
-            summaryId: result.results.saveReport.output.summaryId,
-            reportTimestamp: result.results.saveReport.output.timestamp,
-            messageCount: result.results.saveReport.output.messageCount,
-            uniqueUsers: result.results.saveReport.output.uniqueUserCount,
-          },
-          "Successfully generated impact report",
-        );
+        // Generate Combined Impact Report for community
+        await generateImpactReportAux({ communityId: community.id, platformId: undefined })
       } catch (error) {
         logger.error(
           {
             err: error,
-            platformIds: platformIds,
             communityId: community.id,
           },
-          "Error in impact report generation",
+          "Error generating Combined Impact Report",
         );
       }
+
+      // Generate Platform Impact Report for each platform in Community
+      for( const platform of platformConnections ) {
+        try {
+          await generateImpactReportAux({ communityId: community.id, platformId: platform.platformId })
+        } catch (error) {
+          logger.error(
+            {
+              err: error,
+              platformId: platform.platformId,
+              platform: platform.platformType,
+              communityId: community.id,
+            },
+            "Error generating Platform Impact Report",
+          );
+        }        
+      }
+
     }
   } catch (error) {
     logger.fatal(
@@ -111,5 +93,47 @@ export async function generateImpactReports() {
       "Fatal error in reward recommendations job",
     );
     throw error;
+  }
+}
+
+async function generateImpactReportAux(
+  {communityId, platformId}: { communityId: string, platformId: string|undefined }
+) {
+  
+  const workflow = mastra.getWorkflow("impactReportWorkflow");
+  const { start } = workflow.createRun();
+
+  const result = await start({
+    triggerData: {
+      startDate: dayjs().subtract(1, "week").valueOf(),
+      endDate: dayjs().valueOf(),
+      platformId: platformId,
+      communityId: communityId,
+    },
+  });
+
+  if (!result.results?.saveReport?.output) {
+    logger.error(
+      {
+        isCombined:   platformId ? "No" : "Yes",
+        platformId:   platformId,
+        communityId:  communityId,
+        results:      result.results,
+      },
+      "Failed to generate impact report - no output from saveReport step",
+    );
+  } else {
+    logger.info(
+      {
+        isCombined:     platformId ? "No" : "Yes",
+        platformId:     platformId,
+        communityId:    communityId,
+        reportId:       result.results?.saveReport?.output?.reportId,
+        summaryId:      result.results?.saveSummary?.output?.summaryId,
+        messageCount:   result.results?.generateReport?.output?.report?.overview?.totalMessages,
+        uniqueUsers:    result.results?.generateReport?.output?.report?.overview?.uniqueUsers,
+      },
+      "Successfully generated impact report",
+    );
   }
 }

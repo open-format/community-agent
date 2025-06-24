@@ -1,7 +1,10 @@
 import { vectorStore } from "@/agent/stores";
+import { db } from "@/db";
+import { platformConnections } from "@/db/schema";
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core/tools";
 import { embed } from "ai";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 export const saveImpactReportTool = createTool({
@@ -88,7 +91,7 @@ export const saveImpactReportTool = createTool({
       startDate: number;
       endDate: number;
       platformId?: string;
-      communityId?: string;
+      communityId: string;
       summaryId?: string;
     };
   }) => {
@@ -100,9 +103,17 @@ export const saveImpactReportTool = createTool({
         model: openai.embedding("text-embedding-3-small"),
         value: reportText,
       });
+      
+      // Get platform data if is a Platform specific report
+      const platform = context.platformId ? (await db.query.platformConnections.findFirst({
+        where: eq(platformConnections.platformId, context.platformId),
+      })) : null;
 
       const reportMetadata: ImpactReportMetadata = {
+        isCombined: context.platformId ? false : true,
         platformId: context.platformId,
+        platformType: platform?.platformType ?? undefined,
+        platformName: platform?.platformName ?? undefined,
         communityId: context.communityId,
         timestamp: Date.now(),
         startDate: context.startDate,

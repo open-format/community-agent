@@ -4,6 +4,8 @@ import { createTool } from "@mastra/core";
 import { embed } from "ai";
 import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import { z } from "zod";
+import { handleDiscordAPIError, isRecoverableDiscordError } from "@/utils/errors";
+import { logger } from "@/services/logger";
 
 // Discord rate limit is 50 requests/sec, so we process in batches with delays
 const BATCH_SIZE = 100;
@@ -23,7 +25,11 @@ export const fetchHistoricalMessagesTool = createTool({
     error: z.string().optional(),
   }),
   execute: async ({ context }) => {
-    console.log(`Starting historical message fetch for platform: ${context.platformId}`);
+    logger.info({
+      platformId: context.platformId,
+      startDate: context.startDate,
+      endDate: context.endDate,
+    }, "Starting historical message fetch");
 
     // Initialize Discord client with required permissions
     const client = new Client({
@@ -42,7 +48,11 @@ export const fetchHistoricalMessagesTool = createTool({
       // Fetch guild and channel information
       const guild = await client.guilds.fetch(context.platformId);
       await guild.channels.fetch();
-      console.log(`Processing ${guild.channels.cache.size} channels in ${guild.name}`);
+      logger.info({
+        guildId: guild.id,
+        guildName: guild.name,
+        channelCount: guild.channels.cache.size,
+      }, "Processing channels in guild");
 
       // Iterate through all channels in the guild
       for (const [, channel] of guild.channels.cache) {
@@ -71,45 +81,94 @@ export const fetchHistoricalMessagesTool = createTool({
 
             // Process each message in the batch
             for (const msg of messagesInRange.values()) {
-              // Skip empty content
-              if (!msg.content || msg.content.trim() === "") continue;
+              try {
+                // Skip empty content
+                if (!msg.content || msg.content.trim() === "") continue;
 
-              const exists = await vectorStore.query({
-                indexName: "community_messages",
-                queryVector: new Array(1536).fill(0),
-                topK: 1,
-                filter: {
-                  messageId: msg.id,
-                },
-              });
+                const exists = await vectorStore.query({
+                  indexName: "community_messages",
+                  queryVector: new Array(1536).fill(0),
+                  topK: 1,
+                  filter: {
+                    messageId: msg.id,
+                  },
+                });
 
-              if (exists.length > 0) continue;
-              // Prepare message data for vector storage
-              messageBatch.push({
-                content: msg.content,
-                metadata: {
-                  platform: "discord",
-                  platformId: context.platformId,
+                if (exists.length > 0) continue;
+
+                // Handle message references safely
+                let threadId = msg.id;
+                if (msg.reference?.messageId) {
+                  try {
+                    const referencedMsg = await msg.fetchReference();
+                    // Simple thread ID determination - could be enhanced with full thread traversal
+                    threadId = referencedMsg.id;
+                  } catch (refError) {
+                    // Handle reference fetching errors gracefully
+                    const errorDetails = handleDiscordAPIError(refError, {
+                      messageId: msg.reference.messageId,
+                      channelId: msg.channelId,
+                      guildId: context.platformId,
+                      operation: "fetchReference",
+                    });
+
+                    // Continue with current message ID as thread ID if reference fetch fails
+                    if (isRecoverableDiscordError(errorDetails)) {
+                      threadId = msg.id;
+                    } else {
+                      // For non-recoverable errors, skip this message
+                      continue;
+                    }
+                  }
+                }
+
+                // Prepare message data for vector storage
+                messageBatch.push({
+                  content: msg.content,
+                  metadata: {
+                    platform: "discord",
+                    platformId: context.platformId,
+                    messageId: msg.id,
+                    authorId: msg.author.id,
+                    authorUsername: msg.author.username,
+                    channelId: msg.channelId,
+                    threadId: threadId,
+                    timestamp: msg.createdTimestamp,
+                    text: msg.content,
+                    isReaction: false,
+                    isBotQuery: msg.author.bot,
+                    checkedForReward: false,
+                  },
+                });
+
+                // When batch size is reached, process and store messages
+                if (messageBatch.length >= BATCH_SIZE) {
+                  await processMessageBatch(messageBatch, channel.name);
+                  newMessagesAdded += messageBatch.length;
+                  messageBatch = [];
+                  // Rate limiting delay between batches
+                  await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY));
+                }
+              } catch (msgError) {
+                // Handle individual message processing errors
+                const errorDetails = handleDiscordAPIError(msgError, {
                   messageId: msg.id,
-                  authorId: msg.author.id,
-                  authorUsername: msg.author.username,
                   channelId: msg.channelId,
-                  threadId: msg.id,
-                  timestamp: msg.createdTimestamp,
-                  text: msg.content,
-                  isReaction: false,
-                  isBotQuery: msg.author.bot,
-                  checkedForReward: false,
-                },
-              });
+                  guildId: context.platformId,
+                  operation: "processMessage",
+                });
 
-              // When batch size is reached, process and store messages
-              if (messageBatch.length >= BATCH_SIZE) {
-                await processMessageBatch(messageBatch, channel.name);
-                newMessagesAdded += messageBatch.length;
-                messageBatch = [];
-                // Rate limiting delay between batches
-                await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY));
+                // Continue processing other messages even if one fails
+                if (isRecoverableDiscordError(errorDetails)) {
+                  continue;
+                } else {
+                  logger.error({
+                    error: errorDetails,
+                    messageId: msg.id,
+                    channelId: msg.channelId,
+                  }, "Failed to process message, skipping");
+                  continue;
+                }
               }
             }
 
@@ -130,14 +189,39 @@ export const fetchHistoricalMessagesTool = createTool({
               break;
             lastMessageId = messages.last()?.id;
           } catch (err) {
-            console.error(`Error fetching messages from ${channel.name}:`, err);
-            break;
+            // Handle Discord API errors when fetching messages from channel
+            const errorDetails = handleDiscordAPIError(err, {
+              channelId: channel.id,
+              guildId: context.platformId,
+              operation: "fetchMessages",
+            });
+
+            // If it's a recoverable error (like missing access), skip this channel and continue
+            if (isRecoverableDiscordError(errorDetails)) {
+              logger.warn({
+                channelId: channel.id,
+                channelName: channel.name,
+                error: errorDetails,
+              }, `Skipping channel due to Discord API error: ${errorDetails.message}`);
+              break;
+            } else {
+              // For non-recoverable errors, still break from this channel but continue with others
+              logger.error({
+                channelId: channel.id,
+                channelName: channel.name,
+                error: errorDetails,
+              }, `Fatal error fetching messages from channel: ${errorDetails.message}`);
+              break;
+            }
           }
         }
       }
 
       // Cleanup and return results
-      console.log(`Completed processing all channels. Total messages added: ${newMessagesAdded}`);
+      logger.info({
+        platformId: context.platformId,
+        newMessagesAdded,
+      }, "Completed processing all channels");
       client.destroy();
 
       return {
@@ -146,12 +230,21 @@ export const fetchHistoricalMessagesTool = createTool({
       };
     } catch (error: unknown) {
       // Handle fatal errors and cleanup
-      console.error("Fatal error:", error);
+      const errorDetails = handleDiscordAPIError(error, {
+        guildId: context.platformId,
+        operation: "fetchHistoricalMessages",
+      });
+      
+      logger.error({
+        platformId: context.platformId,
+        error: errorDetails,
+      }, "Fatal error in historical message fetch");
+      
       client.destroy();
       return {
         success: false,
         newMessagesAdded: 0,
-        error: error instanceof Error ? error.message : "Unknown error occurred",
+        error: errorDetails.message,
       };
     }
   },
@@ -188,6 +281,10 @@ async function processMessageBatch(
       metadata,
     });
   } catch (err) {
-    console.error(`Error processing batch from ${channelName}:`, err);
+    logger.error({
+      channelName,
+      batchSize: messages.length,
+      error: err instanceof Error ? err.message : err,
+    }, "Error processing message batch");
   }
 }

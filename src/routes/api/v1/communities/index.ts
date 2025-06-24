@@ -10,7 +10,12 @@ import {
   users,
 } from "@/db/schema";
 import { getCommunitySubgraphData } from "@/lib/subgraph";
-import { generateVerificationCode, storeVerificationCode } from "@/lib/verification";
+import {
+  generateVerificationCode,
+  storeVerificationCode,
+  getVerificationData,
+  markCodeAsUsed,
+} from "@/lib/verification";
 import { createErrorResponse, createSuccessResponse } from "@/utils/api";
 import { withPagination } from "@/utils/pagination";
 import { OpenAPIHono } from "@hono/zod-openapi";
@@ -20,6 +25,9 @@ import { type Address, isAddress } from "viem";
 import {
   createCommunity,
   generateCode,
+  generateTelegramCode,
+  verifyTelegramCode,
+  markTelegramCodeAsUsed,
   getCommunities,
   getCommunity,
   updateCommunity,
@@ -306,6 +314,75 @@ communitiesRoute.openapi(generateCode, async (c) => {
   } catch (error) {
     console.error(error);
     return c.json({ message: "Failed to generate code" }, 500);
+  }
+});
+
+communitiesRoute.openapi(generateTelegramCode, async (c) => {
+  try {
+    const body = await c.req.json();
+    const { did, community_id } = body;
+
+    if (!did) {
+      return c.json({ message: "Missing DID" }, 400);
+    }
+
+    const code = generateVerificationCode();
+    await storeVerificationCode(code, community_id || "", did);
+
+    return c.json(
+      {
+        success: true,
+        code,
+        expiresIn: "10 minutes",
+      },
+      200,
+    );
+  } catch (error) {
+    console.error(error);
+    return c.json({ message: "Failed to generate Telegram code" }, 500);
+  }
+});
+
+communitiesRoute.openapi(verifyTelegramCode, async (c) => {
+  try {
+    const { code } = c.req.param();
+
+    const verificationData = await getVerificationData(code);
+
+    if (!verificationData) {
+      return c.json({ message: "Verification code not found or expired" }, 404);
+    }
+
+    return c.json(
+      {
+        did: verificationData.did,
+        communityId: verificationData.communityId,
+        used: verificationData.used,
+      },
+      200,
+    );
+  } catch (error) {
+    console.error(error);
+    return c.json({ message: "Failed to verify code" }, 500);
+  }
+});
+
+communitiesRoute.openapi(markTelegramCodeAsUsed, async (c) => {
+  try {
+    const { code } = c.req.param();
+
+    const verificationData = await getVerificationData(code);
+
+    if (!verificationData) {
+      return c.json({ message: "Verification code not found or expired" }, 404);
+    }
+
+    await markCodeAsUsed(code, verificationData);
+
+    return c.json({ success: true }, 200);
+  } catch (error) {
+    console.error(error);
+    return c.json({ message: "Failed to mark code as used" }, 500);
   }
 });
 

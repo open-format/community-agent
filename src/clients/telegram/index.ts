@@ -1,7 +1,7 @@
 import { vectorStore } from "@/agent/stores";
-import { db } from "@/db";
 import { createPlatformConnection, deletePlatformConnection } from "@/db/commons/platform";
-import { VerificationResult, verifyCommunity } from "@/lib/verification";
+import { VerificationResult, verifyCommunity, getVerificationData } from "@/lib/verification";
+import redis from "@/lib/redis";
 import { openai } from "@ai-sdk/openai";
 import { embed } from "ai";
 import { Telegraf } from "telegraf";
@@ -20,91 +20,97 @@ if (!process.env.TELEGRAM_BOT_TOKEN) {
 const telegramClient = new Telegraf(process.env.TELEGRAM_BOT_TOKEN, telegramOptions);
 
 telegramClient.start(async (ctx) => {
+  let payload = "";
   if (ctx.chat.type === "private") {
-    const payload = ctx.message.text.split(" ")[1] || "";
-
-    // Handle the startgroup parameter
-    if (payload === "connect_group") {
-      await ctx.reply(
-        "👋 Welcome! To connect your Telegram group:\n\n" +
-          "1. Add me to your group using the button below\n" +
-          "2. Once added, I'll send you a private message with the next steps",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "Add to Group",
-                  url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startgroup=connect_group`,
-                },
-              ],
-            ],
-          },
-        },
-      );
-      return;
+    payload = ctx.message.text.split(" ")[1] || "";
+  } else {
+    const parts = ctx.message.text.split(" ");
+    if (parts.length > 1) {
+      payload = parts[1] || "";
     }
+  }
 
-    // Handle the link parameter (when bot is already in group)
-    if (payload === "link") {
-      let callbackUrl = null;
-      try {
-        const platformConnection = await db.query.platformConnections.findFirst({
-          where: (connections, { eq }) => eq(connections.platformType, "telegram"),
-        });
+  // Handle start with verification code (user initiated from platform)
+  if (payload) {
+    try {
+      const verificationCode = payload;
 
-        if (platformConnection) {
-          const platformBaseUrl = process.env.PLATFORM_URL || "https://your-platform-url.com";
-          callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnection?.id}`;
-        } else {
-          console.warn("[Telegram] No platform connections found for DM onboarding.");
-        }
-      } catch (err) {
-        console.error(
-          "[Telegram] Error fetching platform connections for DM onboarding:",
-          err instanceof Error ? err.message : String(err),
+      const verificationData = await getVerificationData(verificationCode);
+
+      if (!verificationData) {
+        console.error("[Telegram] Invalid verification code:", verificationCode);
+        await ctx.reply(
+          "Invalid or expired verification code. Please try connecting again from the platform.",
         );
+        return;
       }
-      if (callbackUrl) {
+
+      if (verificationData.used) {
+        console.error("[Telegram] Verification code already used:", verificationCode);
+        await ctx.reply(
+          "This verification code has already been used. Please try connecting again from the platform.",
+        );
+        return;
+      }
+
+      // Store verification code in Redis with user ID as key
+      await redis.set(
+        `telegram:pending:${ctx.from.id}`,
+        verificationCode,
+        "EX",
+        600, // 10 minutes
+      );
+
+      if (ctx.chat.type === "private") {
         try {
           await ctx.reply(
-            "🎉 The bot has been added to your group!\n\n" +
-              "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
-              "If you have any issues, return to the Platform and try again, or type /help.",
+            "👋 Welcome! To connect your community, please add me to your Telegram group using the button below.",
             {
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: "Finish Linking Group",
-                      url: callbackUrl,
+                      text: "Add to Group",
+                      url: `https://t.me/${process.env.TELEGRAM_BOT_USERNAME}?startgroup=${verificationCode}`,
                     },
                   ],
                 ],
               },
             },
           );
-        } catch (err) {
-          console.error(
-            "[Telegram] Error sending callback link in DM:",
-            err instanceof Error ? err.message : String(err),
+        } catch (replyError) {
+          console.error("[Telegram] Error sending welcome message:", replyError);
+          await ctx.reply(
+            "👋 Welcome! To connect your community, please add me to your Telegram group.",
           );
-          await ctx.reply("❌ Failed to send the linking button. Please return to the Platform.");
         }
-      } else {
-        await ctx.reply(
-          "❌ The bot has been added to your group, but we couldn't find your group connection. Please return to the Platform to finish linking, or type /help.",
-        );
       }
-    } else {
+      return;
+    } catch (error) {
+      console.error("[Telegram] Error processing verification code:", {
+        error,
+        verificationCode: payload,
+        userId: ctx.from.id,
+      });
       await ctx.reply(
-        "Hi! Use the Platform to start connecting your group, or type /help for more options.",
+        "An error occurred while processing your verification code. Please try again later or contact support if the issue persists."
       );
+      return;
     }
   }
+
+  // Handle start without verification code
+  if (ctx.chat.type === "private") {
+    await ctx.reply(
+      "Hello! I am the OpenFormat Community Copilot. To use my features, please visit https://app.openformat.tech to create an account and get started.",
+    );
+  }
 });
+
 telegramClient.help((ctx) =>
-  ctx.reply("I am OPENFORMAT telegram bot. I only work in group chats."),
+  ctx.reply(
+    "Hello! I am the OpenFormat Community Copilot. To use my features, please visit https://app.openformat.tech to create an account and get started.\n\n",
+  ),
 );
 
 telegramClient.on(message("new_chat_members"), async (ctx) => {
@@ -113,68 +119,74 @@ telegramClient.on(message("new_chat_members"), async (ctx) => {
     const isBotAdded = newMembers.some((member) => member.id === ctx.botInfo.id);
 
     if (isBotAdded) {
-      console.log(`Telegram Bot joined new Chat: ${ctx.chat.id}`);
-
       const name =
         ctx.chat.type === "group" || ctx.chat.type === "supergroup"
           ? ctx.chat.title
           : ctx.chat.id.toString();
 
-      let platformConnection = null;
       try {
-        [platformConnection] = await createPlatformConnection(
+        // Create platform connection
+        const platformConnections = await createPlatformConnection(
           ctx.chat.id.toString(),
           name,
           "telegram",
         );
+
+        const platformConnection = platformConnections?.[0];
+
+        if (platformConnection?.id) {
+          const storedVerificationCode = await redis.get(`telegram:pending:${ctx.from.id}`);
+
+          const platformBaseUrl = process.env.PLATFORM_URL;
+          if (platformBaseUrl) {
+            let callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnection.id}`;
+
+            if (storedVerificationCode) {
+              const verificationData = await getVerificationData(storedVerificationCode);
+
+              if (verificationData && !verificationData.used) {
+                callbackUrl += `&state=${encodeURIComponent(storedVerificationCode)}`;
+                await redis.del(`telegram:pending:${ctx.from.id}`);
+              }
+            }
+
+            try {
+              await ctx.telegram.sendMessage(
+                ctx.from.id,
+                "🎉 Your Telegram group has been successfully connected!\n\n" +
+                  "Click the button below to complete the setup and access your community dashboard.",
+                {
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        {
+                          text: "Complete Setup",
+                          url: callbackUrl,
+                        },
+                      ],
+                    ],
+                  },
+                },
+              );
+            } catch (error) {
+              console.error("[Telegram] Failed to send callback link to user:", error);
+            }
+          }
+        }
       } catch (err) {
         console.error(
           "[Telegram] Error creating platform connection:",
           err instanceof Error ? err.message : String(err),
         );
-        // Send error message to the user who added the bot
         await ctx.telegram.sendMessage(
           ctx.from.id,
           "❌ Failed to create platform connection. Please try again later.",
         );
         return;
       }
-
-      const platformConnectionId = platformConnection?.id;
-      if (!platformConnectionId) {
-        await ctx.telegram.sendMessage(
-          ctx.from.id,
-          "❌ Platform connection could not be created. Please try again later.",
-        );
-        return;
-      }
-
-      // Send private message to the user who added the bot
-      const platformBaseUrl = process.env.PLATFORM_URL;
-      const callbackUrl = `${platformBaseUrl}/api/telegram/callback?platformConnectionId=${platformConnectionId}`;
-
-      await ctx.telegram.sendMessage(
-        ctx.from.id,
-        "🎉 The bot has been added to your group!\n\n" +
-          "To finish linking your group to your Platform community, please click the button below and follow the instructions.\n\n" +
-          "If you have any issues, return to the Platform and try again, or type /help.",
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "Finish Linking Group",
-                  url: callbackUrl,
-                },
-              ],
-            ],
-          },
-        },
-      );
     }
   } catch (error) {
     console.error("[Telegram] Error in new_chat_members handler:", error);
-    // Try to send error message to the user who added the bot
     try {
       await ctx.telegram.sendMessage(
         ctx.from.id,
@@ -191,8 +203,6 @@ telegramClient.on("my_chat_member", async (ctx) => {
   const newStatus = ctx.myChatMember.new_chat_member.status;
 
   if (chat && (newStatus === "left" || newStatus === "kicked")) {
-    console.log(`Telegram Bot removed from Chat: ${ctx.chat.id}`);
-
     await deletePlatformConnection(chat.id.toString(), "telegram");
   }
 });
@@ -203,12 +213,10 @@ telegramClient.command("link_community", async (ctx) => {
   const args = messageText.split(" ").slice(1); // Extract arguments after the command
   const platformId = chat.id.toString();
 
-  // Ensure the command is executed in a group
   if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) {
     return ctx.reply("Command /link_community can only be used in a group.");
   }
 
-  // Check if the user is an administrator
   const userId = ctx.from.id;
   try {
     const administrators = await ctx.telegram.getChatAdministrators(chat.id);
@@ -236,10 +244,9 @@ telegramClient.command("link_community", async (ctx) => {
     const verificationResult = await verifyCommunity(code, platformId, "telegram");
 
     try {
-      // Just try to delete message with the code
       await ctx.deleteMessage();
     } catch (err) {
-      // No problem, we do not have permissions for that in this group.
+      console.error("Failed to delete the message:", err);
     }
 
     if (VerificationResult.FAILED === verificationResult) {
@@ -262,12 +269,10 @@ telegramClient.command("link_community", async (ctx) => {
 telegramClient.command("report", async (ctx) => {
   const chat = ctx.chat;
 
-  // Ensure the command is executed in a group
   if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) {
     return ctx.reply("Command /report can only be used in a group.");
   }
 
-  // Check if the user is an administrator
   const userId = ctx.from.id;
   try {
     const administrators = await ctx.telegram.getChatAdministrators(chat.id);
@@ -295,10 +300,10 @@ telegramClient.command("report", async (ctx) => {
 telegramClient.on("message", async (ctx) => {
   try {
     if (!ctx.chat?.id) {
-      return; // Ensure we are in a chat
+      return;
     }
     if (!ctx.message || !ctx.from) {
-      return; // Exit if no message or sender info
+      return;
     }
     // shouldIgnoreBotMessages: true
     if (ctx.from.is_bot) {
@@ -318,7 +323,7 @@ telegramClient.on("message", async (ctx) => {
       messageText = message.caption;
     }
     if (!messageText) {
-      return; // No message to store
+      return;
     }
 
     // userID
@@ -368,7 +373,7 @@ telegramClient.on("message", async (ctx) => {
   } catch (error) {
     console.log("Error handling Telegram message:", error);
     // Don't try to reply if we've left the group or been kicked
-    if (error && typeof error === "object" && "response" in (error as { response?: any })) {
+    if (error && typeof error === "object" && "response" in (error as { response?: unknown })) {
       if ((error as { response: { error_code?: number } }).response?.error_code !== 403) {
         try {
           await ctx.reply("An error occurred while processing your message.");
