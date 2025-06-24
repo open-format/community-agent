@@ -1,3 +1,11 @@
+# [0.35.0](https://github.com/open-format/community-agent/compare/v0.34.0...v0.35.0) (2025-06-24)
+
+
+### Features
+
+* Added platform info to Impact Report and StartDate filter to Impact Report endpoint ([d3a0a9f](https://github.com/open-format/community-agent/commit/d3a0a9f2328dde0964f2bbd486c955a7b6aa457f))
+* Enhance Telegram verification flow and community management ([e3ccc31](https://github.com/open-format/community-agent/commit/e3ccc315829a69c62afb041d3245de1e2ff368b5))
+
 # [0.34.0](https://github.com/open-format/community-agent/compare/v0.33.0...v0.34.0) (2025-06-17)
 
 
