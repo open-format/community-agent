@@ -102,15 +102,15 @@ telegramClient.start(async (ctx) => {
   // Handle start without verification code
   if (ctx.chat.type === "private") {
     await ctx.reply(
-      "Hello! I am the OpenFormat Community Copilot. To use my features, please visit https://app.openformat.tech to create an account and get started.",
-    );
+					"Hello! I am the OpenFormat Community Assistant. To use my features, please visit https://app.openformat.tech to create an account and get started.",
+				);
   }
 });
 
 telegramClient.help((ctx) =>
-  ctx.reply(
-    "Hello! I am the OpenFormat Community Copilot. To use my features, please visit https://app.openformat.tech to create an account and get started.\n\n",
-  ),
+	ctx.reply(
+		"Hello! I am the OpenFormat Community Assistant. To use my features, please visit https://app.openformat.tech to create an account and get started.\n\n",
+	),
 );
 
 telegramClient.on(message("new_chat_members"), async (ctx) => {
