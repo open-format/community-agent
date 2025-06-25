@@ -1,6 +1,6 @@
-import { MessageFlags, DiscordAPIError } from "discord.js";
-import { BaseError, ContractFunctionRevertedError } from "viem";
 import { logger } from "@/services/logger";
+import { DiscordAPIError, MessageFlags } from "discord.js";
+import { BaseError, ContractFunctionRevertedError } from "viem";
 
 // Define possible error types for better type safety
 export type ViemErrorType =
@@ -128,9 +128,9 @@ export function formatViemErrorForDiscord(error: ViemErrorDetails): DiscordError
 }
 
 // Discord API Error Types
-export type DiscordErrorType = 
+export type DiscordErrorType =
   | "MISSING_ACCESS"
-  | "UNKNOWN_MESSAGE" 
+  | "UNKNOWN_MESSAGE"
   | "UNKNOWN_CHANNEL"
   | "RATE_LIMITED"
   | "UNKNOWN_ERROR";
@@ -161,7 +161,7 @@ export function handleDiscordAPIError(
     messageId?: string;
     guildId?: string;
     operation?: string;
-  }
+  },
 ): DiscordErrorDetails {
   if (error instanceof DiscordAPIError) {
     const errorDetails: DiscordErrorDetails = {
@@ -173,16 +173,19 @@ export function handleDiscordAPIError(
     };
 
     // Log the error with structured context
-    logger.warn({
-      discordError: {
-        code: error.code,
-        message: error.message,
-        method: error.method,
-        url: error.url,
-        status: error.status,
+    logger.warn(
+      {
+        discordError: {
+          code: error.code,
+          message: error.message,
+          method: error.method,
+          url: error.url,
+          status: error.status,
+        },
+        context,
       },
-      context,
-    }, `Discord API Error: ${error.message}`);
+      `Discord API Error: ${error.message}`,
+    );
 
     return errorDetails;
   }
@@ -196,10 +199,13 @@ export function handleDiscordAPIError(
     originalError: error,
   };
 
-  logger.error({
-    error: error instanceof Error ? error.message : error,
-    context,
-  }, "Non-Discord API error occurred");
+  logger.error(
+    {
+      error: error instanceof Error ? error.message : error,
+      context,
+    },
+    "Non-Discord API error occurred",
+  );
 
   return errorDetails;
 }
@@ -231,4 +237,24 @@ function getDiscordErrorType(code: number): DiscordErrorType {
  */
 export function isRecoverableDiscordError(errorDetails: DiscordErrorDetails): boolean {
   return ["MISSING_ACCESS", "UNKNOWN_MESSAGE", "UNKNOWN_CHANNEL"].includes(errorDetails.type);
+}
+
+export function handleDiscordClientError(
+  error: Error,
+  context?: {
+    operation?: string;
+    guildId?: string;
+  },
+): void {
+  logger.error(
+    {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      context,
+    },
+    "Discord client error occurred",
+  );
 }

@@ -2,7 +2,7 @@ import { mastra } from "@/agent";
 import { vectorStore } from "@/agent/stores";
 import { fetchHistoricalMessagesTool } from "@/agent/tools/fetchHistoricalMessages";
 import { getThreadStartMessageId } from "@/utils/discord";
-import { handleDiscordAPIError } from "@/utils/errors";
+import { handleDiscordAPIError, handleDiscordClientError } from "@/utils/errors";
 import { createUnixTimestamp } from "@/utils/time";
 import { PGVECTOR_PROMPT } from "@mastra/rag";
 import dayjs from "dayjs";
@@ -22,6 +22,16 @@ const discordClient = new Client({
     GatewayIntentBits.GuildMessageReactions,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
+});
+
+discordClient.on("error", (error) => {
+  handleDiscordClientError(error, {
+    operation: "discordClient.on.error",
+  });
+});
+
+discordClient.on("disconnect", (event) => {
+  console.error("Discord client disconnected:", event);
 });
 
 discordClient.on("guildMemberUpdate", async (oldMember, newMember) => {
@@ -105,35 +115,36 @@ discordClient.on("interactionCreate", async (interaction) => {
 });
 
 discordClient.on("messageCreate", async (msg) => {
-  const cleanContent = msg.content
-    .replace(new RegExp(`<@!?${discordClient.user?.id}>`, "g"), "")
-    .trim();
+  try {
+    const cleanContent = msg.content
+      .replace(new RegExp(`<@!?${discordClient.user?.id}>`, "g"), "")
+      .trim();
 
-  // Skip messages from bots and ensure we're in a guild
-  if (msg.author.bot || !msg.guild) return;
-  const isBotQuery = msg.mentions.users.has(discordClient.user?.id ?? "");
+    // Skip messages from bots and ensure we're in a guild
+    if (msg.author.bot || !msg.guild) return;
+    const isBotQuery = msg.mentions.users.has(discordClient.user?.id ?? "");
 
-  // Check for report generation command
-  if (isBotQuery && cleanContent.toLowerCase().startsWith("!report")) {
-    await handleReportCommand(msg);
-    return;
-  }
+    // Check for report generation command
+    if (isBotQuery && cleanContent.toLowerCase().startsWith("!report")) {
+      await handleReportCommand(msg);
+      return;
+    }
 
-  // If someone mentions the bot, call the ragAgent
-  if (isBotQuery) {
-    // Get allowed roles
-    // Show typing indicator immediately
-    await msg.channel.sendTyping();
-    // Then set up interval to keep it active
-    const typingInterval = setInterval(() => msg.channel.sendTyping(), 9000);
+    // If someone mentions the bot, call the ragAgent
+    if (isBotQuery) {
+      // Get allowed roles
+      // Show typing indicator immediately
+      await msg.channel.sendTyping();
+      // Then set up interval to keep it active
+      const typingInterval = setInterval(() => msg.channel.sendTyping(), 9000);
 
-    try {
-      // Process the message and generate response
+      try {
+        // Process the message and generate response
 
-      const platformId = msg.guild.id;
-      const guildName = msg.guild.name;
+        const platformId = msg.guild.id;
+        const guildName = msg.guild.name;
 
-      const contextWithTimeDetails = `
+        const contextWithTimeDetails = `
 Query: ${cleanContent}
 
 The user is asking about conversations in a community with platform ID: ${platformId}. Always use the guild name ${guildName} when referring to the community.
@@ -163,9 +174,64 @@ Filter the context by searching the metadata.
 Please search through the conversation history to find relevant information.
 `;
 
-      let threadId: string;
+        let threadId: string;
+        try {
+          threadId = await getThreadStartMessageId(msg);
+        } catch (error) {
+          // Fallback to current message ID if thread start cannot be determined
+          handleDiscordAPIError(error, {
+            messageId: msg.id,
+            channelId: msg.channelId,
+            guildId: msg.guildId || undefined,
+            operation: "getThreadStartMessageId",
+          });
+          threadId = msg.id;
+        }
+
+        const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
+          threadId: threadId,
+          resourceId: msg.author.id,
+          memoryOptions: {
+            lastMessages: 10,
+          },
+        });
+
+        // Send the response to the channel
+        await msg.reply(response.text);
+      } catch (error) {
+        console.error("Error processing message:", error);
+      } finally {
+        clearInterval(typingInterval);
+      }
+    }
+
+    if (isBotQuery) {
+      return;
+    }
+
+    // Get embeddings for message content
+    const embeddingsVector = await getEmbeddingsVector(msg.content);
+
+    // Initialize metadata for the message
+    const metadata: MessageMetadata = {
+      platform: "discord",
+      platformId: msg.guild.id,
+      messageId: msg.id,
+      authorId: msg.author.id,
+      authorUsername: msg.author.username,
+      channelId: msg.channelId,
+      threadId: msg.id,
+      timestamp: msg.createdTimestamp,
+      text: msg.content,
+      isBotQuery: msg.author.bot,
+      isReaction: false,
+      checkedForReward: false,
+    };
+
+    // If this is a reply to another message, get the parent message's ID
+    if (msg.reference?.messageId) {
       try {
-        threadId = await getThreadStartMessageId(msg);
+        metadata.threadId = await getThreadStartMessageId(msg);
       } catch (error) {
         // Fallback to current message ID if thread start cannot be determined
         handleDiscordAPIError(error, {
@@ -174,71 +240,19 @@ Please search through the conversation history to find relevant information.
           guildId: msg.guildId || undefined,
           operation: "getThreadStartMessageId",
         });
-        threadId = msg.id;
+        metadata.threadId = msg.id;
       }
-
-      const response = await mastra.getAgent("summaryAgent").generate(contextWithTimeDetails, {
-        threadId: threadId,
-        resourceId: msg.author.id,
-        memoryOptions: {
-          lastMessages: 10,
-        },
-      });
-
-      // Send the response to the channel
-      await msg.reply(response.text);
-    } catch (error) {
-      console.error("Error processing message:", error);
-    } finally {
-      clearInterval(typingInterval);
     }
+
+    // Store in vector store
+    await vectorStore.upsert({
+      indexName: "community_messages",
+      vectors: embeddingsVector,
+      metadata: [metadata],
+    });
+  } catch (error) {
+    console.error("Error in messageCreate handler:", error);
   }
-
-  if (isBotQuery) {
-    return;
-  }
-
-  // Get embeddings for message content
-  const embeddingsVector = await getEmbeddingsVector(msg.content);
-
-  // Initialize metadata for the message
-  const metadata: MessageMetadata = {
-    platform: "discord",
-    platformId: msg.guild.id,
-    messageId: msg.id,
-    authorId: msg.author.id,
-    authorUsername: msg.author.username,
-    channelId: msg.channelId,
-    threadId: msg.id,
-    timestamp: msg.createdTimestamp,
-    text: msg.content,
-    isBotQuery: msg.author.bot,
-    isReaction: false,
-    checkedForReward: false,
-  };
-
-  // If this is a reply to another message, get the parent message's ID
-  if (msg.reference?.messageId) {
-    try {
-      metadata.threadId = await getThreadStartMessageId(msg);
-    } catch (error) {
-      // Fallback to current message ID if thread start cannot be determined
-      handleDiscordAPIError(error, {
-        messageId: msg.id,
-        channelId: msg.channelId,
-        guildId: msg.guildId || undefined,
-        operation: "getThreadStartMessageId",
-      });
-      metadata.threadId = msg.id;
-    }
-  }
-
-  // Store in vector store
-  await vectorStore.upsert({
-    indexName: "community_messages",
-    vectors: embeddingsVector,
-    metadata: [metadata],
-  });
 });
 
 discordClient.on("messageReactionAdd", async (reaction, user) => {
