@@ -8,7 +8,7 @@ export const REPORT_STATUS_PREFIX = "report:status:";
 export const REPORT_RESULT_PREFIX = "report:result:";
 
 // Add this constant at the top with other constants
-const REDIS_EXPIRATION = 300; // 5 minutes in seconds
+const REDIS_EXPIRATION = 1200; // 20 minutes
 
 // Report job status enum
 export enum ReportStatus {
@@ -36,8 +36,8 @@ export interface ReportJob {
  */
 export async function createReportJob(
   jobId: string,
-  platformId: string|undefined,
-  communityId: string|undefined,
+  platformId: string | undefined,
+  communityId: string | undefined,
   startDate: number,
   endDate: number,
 ): Promise<ReportJob> {

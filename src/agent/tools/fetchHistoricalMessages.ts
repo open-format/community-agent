@@ -1,15 +1,15 @@
 import { vectorStore } from "@/agent/stores";
+import { logger } from "@/services/logger";
+import { handleDiscordAPIError, isRecoverableDiscordError } from "@/utils/errors";
 import { openai } from "@ai-sdk/openai";
 import { createTool } from "@mastra/core";
 import { embed } from "ai";
 import { Client, GatewayIntentBits, TextChannel } from "discord.js";
 import { z } from "zod";
-import { handleDiscordAPIError, isRecoverableDiscordError } from "@/utils/errors";
-import { logger } from "@/services/logger";
 
 // Discord rate limit is 50 requests/sec, so we process in batches with delays
-const BATCH_SIZE = 100;
-const RATE_LIMIT_DELAY = 200; // milliseconds
+const BATCH_SIZE = 1000;
+const RATE_LIMIT_DELAY = 100; // milliseconds
 
 export const fetchHistoricalMessagesTool = createTool({
   id: "fetch-historical-messages",
@@ -25,11 +25,14 @@ export const fetchHistoricalMessagesTool = createTool({
     error: z.string().optional(),
   }),
   execute: async ({ context }) => {
-    logger.info({
-      platformId: context.platformId,
-      startDate: context.startDate,
-      endDate: context.endDate,
-    }, "Starting historical message fetch");
+    logger.info(
+      {
+        platformId: context.platformId,
+        startDate: context.startDate,
+        endDate: context.endDate,
+      },
+      "Starting historical message fetch",
+    );
 
     // Initialize Discord client with required permissions
     const client = new Client({
@@ -48,11 +51,14 @@ export const fetchHistoricalMessagesTool = createTool({
       // Fetch guild and channel information
       const guild = await client.guilds.fetch(context.platformId);
       await guild.channels.fetch();
-      logger.info({
-        guildId: guild.id,
-        guildName: guild.name,
-        channelCount: guild.channels.cache.size,
-      }, "Processing channels in guild");
+      logger.info(
+        {
+          guildId: guild.id,
+          guildName: guild.name,
+          channelCount: guild.channels.cache.size,
+        },
+        "Processing channels in guild",
+      );
 
       // Iterate through all channels in the guild
       for (const [, channel] of guild.channels.cache) {
@@ -161,14 +167,18 @@ export const fetchHistoricalMessagesTool = createTool({
                 // Continue processing other messages even if one fails
                 if (isRecoverableDiscordError(errorDetails)) {
                   continue;
-                } else {
-                  logger.error({
+                }
+
+                logger.error(
+                  {
                     error: errorDetails,
                     messageId: msg.id,
                     channelId: msg.channelId,
-                  }, "Failed to process message, skipping");
-                  continue;
-                }
+                  },
+                  "Failed to process message, skipping",
+                );
+
+                continue;
               }
             }
 
@@ -198,30 +208,38 @@ export const fetchHistoricalMessagesTool = createTool({
 
             // If it's a recoverable error (like missing access), skip this channel and continue
             if (isRecoverableDiscordError(errorDetails)) {
-              logger.warn({
-                channelId: channel.id,
-                channelName: channel.name,
-                error: errorDetails,
-              }, `Skipping channel due to Discord API error: ${errorDetails.message}`);
-              break;
-            } else {
-              // For non-recoverable errors, still break from this channel but continue with others
-              logger.error({
-                channelId: channel.id,
-                channelName: channel.name,
-                error: errorDetails,
-              }, `Fatal error fetching messages from channel: ${errorDetails.message}`);
+              logger.warn(
+                {
+                  channelId: channel.id,
+                  channelName: channel.name,
+                  error: errorDetails,
+                },
+                `Skipping channel due to Discord API error: ${errorDetails.message}`,
+              );
               break;
             }
+            // For non-recoverable errors, still break from this channel but continue with others
+            logger.error(
+              {
+                channelId: channel.id,
+                channelName: channel.name,
+                error: errorDetails,
+              },
+              `Fatal error fetching messages from channel: ${errorDetails.message}`,
+            );
+            break;
           }
         }
       }
 
       // Cleanup and return results
-      logger.info({
-        platformId: context.platformId,
-        newMessagesAdded,
-      }, "Completed processing all channels");
+      logger.info(
+        {
+          platformId: context.platformId,
+          newMessagesAdded,
+        },
+        "Completed processing all channels",
+      );
       client.destroy();
 
       return {
@@ -234,12 +252,15 @@ export const fetchHistoricalMessagesTool = createTool({
         guildId: context.platformId,
         operation: "fetchHistoricalMessages",
       });
-      
-      logger.error({
-        platformId: context.platformId,
-        error: errorDetails,
-      }, "Fatal error in historical message fetch");
-      
+
+      logger.error(
+        {
+          platformId: context.platformId,
+          error: errorDetails,
+        },
+        "Fatal error in historical message fetch",
+      );
+
       client.destroy();
       return {
         success: false,
@@ -281,10 +302,13 @@ async function processMessageBatch(
       metadata,
     });
   } catch (err) {
-    logger.error({
-      channelName,
-      batchSize: messages.length,
-      error: err instanceof Error ? err.message : err,
-    }, "Error processing message batch");
+    logger.error(
+      {
+        channelName,
+        batchSize: messages.length,
+        error: err instanceof Error ? err.message : err,
+      },
+      "Error processing message batch",
+    );
   }
 }
