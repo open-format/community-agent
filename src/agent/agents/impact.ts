@@ -1,3 +1,4 @@
+import { logger } from "@/services/logger";
 import { google } from "@ai-sdk/google";
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
@@ -7,57 +8,84 @@ const impactReportSchema = z.object({
   overview: z.object({
     totalMessages: z.number(),
     uniqueUsers: z.number(),
-    activeChannels: z.number()
+    activeChannels: z.number(),
   }),
-  dailyActivity: z.array(z.object({
-    date: z.string(),
-    messageCount: z.number(),
-    uniqueUsers: z.number()
-  })),
-  topContributors: z.array(z.object({
-    username: z.string(),
-    messageCount: z.number()
-  })),
-  channelBreakdown: z.array(z.object({
-    channelName: z.string(),
-    messageCount: z.number(),
-    uniqueUsers: z.number()
-  })),
-  keyTopics: z.array(z.object({
-    topic: z.string(),
-    messageCount: z.number(),
-    description: z.string(),
-    evidence: z.array(z.object({
-      channelId: z.string(),
-      platform:  z.string(),
-      platformId:  z.string(),
-      messageId: z.string()
-    })).min(1).max(5)
-  })),
+  dailyActivity: z.array(
+    z.object({
+      date: z.string(),
+      messageCount: z.number(),
+      uniqueUsers: z.number(),
+    }),
+  ),
+  topContributors: z.array(
+    z.object({
+      username: z.string(),
+      messageCount: z.number(),
+    }),
+  ),
+  channelBreakdown: z.array(
+    z.object({
+      channelName: z.string(),
+      messageCount: z.number(),
+      uniqueUsers: z.number(),
+    }),
+  ),
+  keyTopics: z.array(
+    z.object({
+      topic: z.string(),
+      messageCount: z.number(),
+      description: z.string(),
+      evidence: z
+        .array(
+          z.object({
+            channelId: z.string(),
+            platform: z.string(),
+            platformId: z.string(),
+            messageId: z.string(),
+          }),
+        )
+        .min(1)
+        .max(5),
+    }),
+  ),
   userSentiment: z.object({
-    excitement: z.array(z.object({
-      title: z.string(),
-      description: z.string(),
-      users: z.array(z.string()),
-      evidence: z.array(z.object({
-        channelId: z.string(),
-        platform:  z.string(),
-        platformId:  z.string(),
-        messageId: z.string()
-      })).min(1).max(5)
-    })),
-    frustrations: z.array(z.object({
-      title: z.string(),
-      description: z.string(),
-      users: z.array(z.string()),
-      evidence: z.array(z.object({
-        channelId: z.string(),
-        platform:  z.string(),
-        platformId:  z.string(),
-        messageId: z.string()
-      })).min(1).max(5)
-    }))
-  })
+    excitement: z.array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        users: z.array(z.string()),
+        evidence: z
+          .array(
+            z.object({
+              channelId: z.string(),
+              platform: z.string(),
+              platformId: z.string(),
+              messageId: z.string(),
+            }),
+          )
+          .min(1)
+          .max(5),
+      }),
+    ),
+    frustrations: z.array(
+      z.object({
+        title: z.string(),
+        description: z.string(),
+        users: z.array(z.string()),
+        evidence: z
+          .array(
+            z.object({
+              channelId: z.string(),
+              platform: z.string(),
+              platformId: z.string(),
+              messageId: z.string(),
+            }),
+          )
+          .min(1)
+          .max(5),
+      }),
+    ),
+  }),
 });
 
 export const impactAgent = new Agent({
@@ -161,28 +189,327 @@ interface ImpactReportData {
   };
 }
 
+// Function to estimate token count (same as summary)
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 3);
+}
+
+// Function to chunk transcript into manageable pieces
+function chunkTranscript(transcript: string, maxTokensPerChunk = 200000): string[] {
+  const chunks: string[] = [];
+  const lines = transcript.split("\n");
+  let currentChunk = "";
+  let currentTokenCount = 0;
+
+  for (const line of lines) {
+    const lineTokenCount = estimateTokenCount(line);
+
+    if (currentTokenCount + lineTokenCount > maxTokensPerChunk && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      currentChunk = `${line}\n`;
+      currentTokenCount = lineTokenCount;
+    } else {
+      currentChunk += `${line}\n`;
+      currentTokenCount += lineTokenCount;
+    }
+  }
+
+  if (currentChunk.trim().length > 0) {
+    chunks.push(currentChunk.trim());
+  }
+
+  return chunks;
+}
+
+// Function to generate impact report for a single chunk
+async function generateChunkImpactReport(
+  chunk: string,
+  chunkIndex: number,
+  totalChunks: number,
+  stats: any,
+): Promise<any> {
+  const statsSection = stats
+    ? `
+Statistical Context:
+- Total Messages: ${stats.messageCount}
+- Unique Participants: ${stats.uniqueUserCount}
+- Daily Activity: ${JSON.stringify(stats.messagesByDate)}
+- Top Contributors: ${JSON.stringify(stats.topContributors)}
+- Channel Activity: ${JSON.stringify(stats.messagesByChannel)}
+`
+    : "";
+
+  const prompt = `Analyze this portion of community data (chunk ${chunkIndex + 1} of ${totalChunks}) and generate a structured report.
+
+${statsSection}
+
+Chat transcript portion:
+${chunk}
+
+Focus on identifying key topics and user sentiment from this section. Return a simplified structure with just the key topics and user sentiment.`;
+
+  try {
+    const chunkSchema = z.object({
+      keyTopics: z.array(
+        z.object({
+          topic: z.string(),
+          messageCount: z.number(),
+          description: z.string(),
+          evidence: z
+            .array(
+              z.object({
+                channelId: z.string(),
+                platform: z.string(),
+                platformId: z.string(),
+                messageId: z.string(),
+              }),
+            )
+            .min(1)
+            .max(3),
+        }),
+      ),
+      userSentiment: z.object({
+        excitement: z.array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            users: z.array(z.string()),
+            evidence: z
+              .array(
+                z.object({
+                  channelId: z.string(),
+                  platform: z.string(),
+                  platformId: z.string(),
+                  messageId: z.string(),
+                }),
+              )
+              .min(1)
+              .max(3),
+          }),
+        ),
+        frustrations: z.array(
+          z.object({
+            title: z.string(),
+            description: z.string(),
+            users: z.array(z.string()),
+            evidence: z
+              .array(
+                z.object({
+                  channelId: z.string(),
+                  platform: z.string(),
+                  platformId: z.string(),
+                  messageId: z.string(),
+                }),
+              )
+              .min(1)
+              .max(3),
+          }),
+        ),
+      }),
+    });
+
+    const result = await impactAgent.generate(prompt, {
+      output: chunkSchema,
+    });
+
+    return result.object;
+  } catch (error) {
+    logger.error(
+      {
+        error: error instanceof Error ? error.message : String(error),
+        chunkIndex,
+        totalChunks,
+      },
+      `Failed to generate impact report for chunk ${chunkIndex + 1}`,
+    );
+
+    // Return empty structure for failed chunks
+    return {
+      keyTopics: [],
+      userSentiment: {
+        excitement: [],
+        frustrations: [],
+      },
+    };
+  }
+}
+
+// Function to combine chunk results
+async function combineChunkResults(chunkResults: any[], stats: any): Promise<any> {
+  // Combine all key topics and user sentiment
+  const allKeyTopics = chunkResults.flatMap((result) => result.keyTopics || []);
+  const allExcitement = chunkResults.flatMap((result) => result.userSentiment?.excitement || []);
+  const allFrustrations = chunkResults.flatMap(
+    (result) => result.userSentiment?.frustrations || [],
+  );
+
+  // Deduplicate and merge similar topics/sentiments
+  const mergedKeyTopics = mergeSimilarTopics(allKeyTopics);
+  const mergedExcitement = mergeSimilarSentiments(allExcitement);
+  const mergedFrustrations = mergeSimilarSentiments(allFrustrations);
+
+  return {
+    overview: {
+      totalMessages: stats.messageCount,
+      uniqueUsers: stats.uniqueUserCount,
+      activeChannels: stats.messagesByChannel.length,
+    },
+    dailyActivity: stats.messagesByDate,
+    topContributors: stats.topContributors,
+    channelBreakdown: stats.messagesByChannel.map((ch) => ({
+      channelName: ch.channel.name,
+      platform: ch.channel.platform,
+      messageCount: ch.count,
+      uniqueUsers: ch.uniqueUsers,
+    })),
+    keyTopics: mergedKeyTopics.slice(0, 10), // Limit to top 10
+    userSentiment: {
+      excitement: mergedExcitement.slice(0, 10), // Limit to top 10
+      frustrations: mergedFrustrations.slice(0, 10), // Limit to top 10
+    },
+  };
+}
+
+// Helper function to merge similar topics
+function mergeSimilarTopics(topics: any[]): any[] {
+  const merged: any[] = [];
+  const seen: Set<string> = new Set();
+
+  for (const topic of topics) {
+    const key = topic.topic.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(topic);
+    }
+  }
+
+  return merged.sort((a, b) => b.messageCount - a.messageCount);
+}
+
+// Helper function to merge similar sentiments
+function mergeSimilarSentiments(sentiments: any[]): any[] {
+  const merged: any[] = [];
+  const seen: Set<string> = new Set();
+
+  for (const sentiment of sentiments) {
+    const key = sentiment.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(sentiment);
+    }
+  }
+
+  return merged;
+}
+
 export async function generateImpactReport(data: ImpactReportData) {
-  const statsSection = data.stats ? `
+  const totalTokens = estimateTokenCount(data.transcript);
+  logger.info({ totalTokens }, "Starting impact report generation");
+
+  // If transcript is small enough, process directly
+  if (totalTokens <= 200000) {
+    const statsSection = data.stats
+      ? `
 Statistical Context:
 - Total Messages: ${data.messageCount}
 - Unique Participants: ${data.uniqueUserCount}
 - Daily Activity: ${JSON.stringify(data.stats.messagesByDate)}
 - Top Contributors: ${JSON.stringify(data.stats.topContributors)}
 - Channel Activity: ${JSON.stringify(data.stats.messagesByChannel)}
-` : '';
+`
+      : "";
 
-  const prompt = `Analyze this community data and generate a structured report.
+    const prompt = `Analyze this community data and generate a structured report.
 
 ${statsSection}
 
 Chat transcript:
 ${data.transcript}`;
 
-  const result = await impactAgent.generate(prompt, {
-    output: impactReportSchema
-  });
+    try {
+      const result = await impactAgent.generate(prompt, {
+        output: impactReportSchema,
+      });
+
+      return {
+        report: result.object,
+      };
+    } catch (error) {
+      logger.error(
+        {
+          error: error instanceof Error ? error.message : String(error),
+          messageCount: data.messageCount,
+          transcriptLength: data.transcript.length,
+        },
+        "Failed to generate impact report with direct approach",
+      );
+
+      // Fall through to chunking approach
+    }
+  }
+
+  // For large transcripts, use chunking approach
+  logger.info({ totalTokens }, "Transcript is large, using chunking approach");
+
+  const chunks = chunkTranscript(data.transcript, 200000);
+  logger.info({ chunkCount: chunks.length }, "Split transcript into chunks");
+
+  const chunkResults: any[] = [];
+
+  // Process chunks with retry logic
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    let retries = 0;
+    const maxRetries = 3;
+
+    while (retries < maxRetries) {
+      try {
+        logger.info(
+          { chunkIndex: i, totalChunks: chunks.length },
+          `Processing impact report chunk ${i + 1}/${chunks.length}`,
+        );
+
+        const chunkResult = await generateChunkImpactReport(chunk, i, chunks.length, data.stats);
+
+        chunkResults.push(chunkResult);
+        break;
+      } catch (error) {
+        retries++;
+        if (retries < maxRetries) {
+          const delay = Math.min(1000 * 2 ** retries, 30000);
+          logger.warn(
+            {
+              error: error instanceof Error ? error.message : String(error),
+              chunkIndex: i,
+              retry: retries,
+              delay,
+            },
+            `Retrying impact report chunk ${i + 1}, attempt ${retries}`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          logger.error(
+            {
+              error: error instanceof Error ? error.message : String(error),
+              chunkIndex: i,
+            },
+            `Failed to process impact report chunk ${i + 1} after ${maxRetries} attempts`,
+          );
+          // Add empty result to maintain array structure
+          chunkResults.push({
+            keyTopics: [],
+            userSentiment: { excitement: [], frustrations: [] },
+          });
+        }
+      }
+    }
+  }
+
+  // Combine all chunk results into final report
+  logger.info({ chunkCount: chunkResults.length }, "Combining impact report chunks");
+  const finalReport = await combineChunkResults(chunkResults, data.stats);
 
   return {
-    report: result.object
+    report: finalReport,
   };
-} 
+}
