@@ -1,3 +1,10 @@
+# [0.36.0](https://github.com/open-format/community-agent/compare/v0.35.0...v0.36.0) (2025-06-25)
+
+
+### Features
+
+* Enhance Discord client error handling and message processing ([c3e1e9e](https://github.com/open-format/community-agent/commit/c3e1e9ec171e2b0a8eb2eb2fcb4f63f54ec64d03))
+
 # [0.35.0](https://github.com/open-format/community-agent/compare/v0.34.0...v0.35.0) (2025-06-24)
 
 
